@@ -25,6 +25,7 @@ class ReportController:
         self._report = report_state
         self._input_builder = InputDescriptionBuilder()
         self._result_builder = ResultDescriptionBuilder()
+        self._soil_builder = SoilTableBuilder()
         self._validator = ReportValidator()
         self._excel = ExcelExporter()
         self._word = WordExporter()
@@ -78,7 +79,7 @@ class ReportController:
         project = self._app.get_active_project()
         if not project:
             return []
-        return SoilTableBuilder().build(project)
+        return self._soil_builder.build(project)
 
     # ------------------------------------------------------------------
     # Templates
@@ -133,7 +134,8 @@ class ReportController:
                 caption=sec.title,
                 source_ref=sec.id,
             ))
-        for sec in self.build_soil_sections():
+        soil_secs = self.build_soil_sections()
+        for sec in soil_secs:
             self._report.plan.add_item(ReportItem(
                 id=f'grondsoorten_{sec.id}',
                 kind='grondsoorten',
