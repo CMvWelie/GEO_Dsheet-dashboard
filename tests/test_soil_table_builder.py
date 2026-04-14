@@ -7,6 +7,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from parsers.models import Project, FileBundle, Soil, SoilProfile, SoilLayer
 from reporting.builders.soil_table_builder import SoilTableBuilder
+from reporting.models import ReportSection, ReportMetadata
+from reporting.selection import ReportPlan
 
 
 def _maak_project(profielen=None, soils=None) -> Project:
@@ -127,10 +129,6 @@ def test_ontbrekende_soil_geeft_streepjes() -> None:
 def test_lege_profielen_geeft_lege_lijst() -> None:
     project = _maak_project(profielen=[])
     assert SoilTableBuilder().build(project) == []
-
-
-from reporting.models import ReportSection, ReportPackage, ReportMetadata
-from reporting.selection import ReportPlan
 
 
 def test_build_package_bevat_extra_sections() -> None:
