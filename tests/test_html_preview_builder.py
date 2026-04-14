@@ -96,3 +96,24 @@ def test_resultaat_sectie_opgenomen_bij_kind_resultaat() -> None:
     html = HtmlPreviewBuilder().build(pkg)
     assert 'Momentendiagram' in html
     assert '142,3' in html
+
+
+def test_grondsoorten_sectie_opgenomen_bij_kind_grondsoorten() -> None:
+    """kind='grondsoorten' → sectie uit extra_sections zichtbaar in HTML."""
+    sec = ReportSection(id='soil_table_links', title='Grondsoortentabel \u2014 Links')
+    tbl = ReportTable(
+        id='t', title='',
+        columns=['BK [m NAP]', 'Laag'],
+        rows=[['-5,0', 'Zand']],
+    )
+    sec.tables.append(tbl)
+    item = ReportItem(
+        id='grondsoorten_soil_table_links',
+        kind='grondsoorten',
+        caption='Grondsoortentabel \u2014 Links',
+        source_ref='soil_table_links',
+    )
+    pkg = ReportPackage(extra_sections=[sec], selected_items=[item])
+    html = HtmlPreviewBuilder().build(pkg)
+    assert 'Grondsoortentabel' in html
+    assert 'Zand' in html

@@ -50,7 +50,7 @@ class HtmlPreviewBuilder:
         Parameters
         ----------
         package:
-            Rapportpakket met invoer- en resultaatsecties en de selectielijst.
+            Rapportpakket met invoer-, resultaat- en extra-secties en de selectielijst.
 
         Returns
         -------
@@ -59,24 +59,26 @@ class HtmlPreviewBuilder:
         """
         titel = package.metadata.project_name or 'Rapport'
 
+        alle_secties: dict[str, ReportSection] = {
+            s.id: s
+            for s in (
+                package.input_sections
+                + package.result_sections
+                + package.extra_sections
+            )
+        }
+
         secties: list[str] = []
         for item in package.selected_items:
-            if item.kind == 'invoer':
-                sec = next(
-                    (s for s in package.input_sections if s.id == item.source_ref),
-                    None,
-                )
-            elif item.kind == 'resultaat':
-                sec = next(
-                    (s for s in package.result_sections if s.id == item.source_ref),
-                    None,
-                )
-            else:
-                sec = None
+            sec = alle_secties.get(item.source_ref)
             if sec is not None:
                 secties.append(self._sectie_html(sec))
 
-        body = '\n'.join(secties) if secties else '<p class="leeg">Geen secties geselecteerd.</p>'
+        body = (
+            '\n'.join(secties)
+            if secties
+            else '<p class="leeg">Geen secties geselecteerd.</p>'
+        )
 
         return (
             f'<!DOCTYPE html><html><head>'
