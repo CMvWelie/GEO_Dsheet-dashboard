@@ -168,30 +168,3 @@ def build_layer_polygon(
     if len(top_pts) < 2:
         return []
     return top_pts + list(reversed(bot_pts))
-
-
-def build_uniform_load_polygon(
-    surface_points: list[dict],
-    x_start: float,
-    x_end: float,
-    height_data: float,
-) -> list[tuple[float, float]]:
-    """Bouw een polygoon voor een uniforme belasting boven het maaiveld.
-
-    Parameters
-    ----------
-    surface_points: Maaiveldpunten als {'x', 'y'} dicts.
-    x_start:        Begin x-coördinaat.
-    x_end:          Eind x-coördinaat.
-    height_data:    Hoogte van de belastingblok in data-eenheden (meters).
-
-    Returns
-    -------
-    list[tuple[float, float]]  Polygoon in datacoördinaten.
-    """
-    clipped = clip_surface_points(surface_points, x_start, x_end)
-    if len(clipped) < 2:
-        return []
-    top = [(p['x'], p['y'] + height_data) for p in clipped]
-    bottom = [(p['x'], p['y']) for p in reversed(clipped)]
-    return top + bottom

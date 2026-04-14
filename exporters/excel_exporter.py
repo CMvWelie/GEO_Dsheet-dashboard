@@ -1,6 +1,6 @@
 """ExcelExporter — exporteert een ReportPackage naar Excel (.xlsx).
 
-JSON-sidecar formaat (naast .xlsx template, zelfde naam + .map.json):
+JSON-sidecar formaat (naast .xltx sjabloon, zelfde naam + .map.json):
 {
   "metadata": {
     "project_name": {"sheet": "Voorblad", "cell": "B3"},
@@ -17,6 +17,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import openpyxl
+
 from reporting.models import ReportPackage, ReportSection
 
 
@@ -30,11 +32,6 @@ class ExcelExporter:
         Returns:
             None bij succes, foutmelding (str) bij een uitzondering.
         """
-        try:
-            import openpyxl
-        except ImportError:
-            return 'openpyxl is niet geïnstalleerd. Voer uit: pip install openpyxl'
-
         try:
             mapping = self._load_mapping(template_path)
 
@@ -63,6 +60,7 @@ class ExcelExporter:
                         continue
                     self._write_section(wb, sec)
 
+            wb.template = False  # voorkomt opslaan als .xltx bij template-input
             wb.save(output_path)
             return None
         except Exception as exc:

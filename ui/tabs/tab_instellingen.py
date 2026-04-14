@@ -49,12 +49,12 @@ class TabInstellingen(QWidget):
         tmpl_vl = QVBoxLayout(tmpl_box)
         tmpl_vl.setSpacing(6)
 
-        lbl = QLabel('Word-template (.docx)')
+        lbl = QLabel('Word-template (.dotx)')
         lbl.setStyleSheet('font-size: 11px; color: #444;')
 
         tmpl_rij = QHBoxLayout()
         self._template_edit = QLineEdit()
-        self._template_edit.setPlaceholderText('Pad naar .docx template… (optioneel)')
+        self._template_edit.setPlaceholderText('Pad naar .dotx template… (optioneel)')
         self._template_edit.textChanged.connect(self.template_path_changed)
 
         bladeren_btn = QPushButton('Bladeren…')
@@ -124,7 +124,7 @@ class TabInstellingen(QWidget):
 
     def _on_bladeren(self) -> None:
         pad, _ = QFileDialog.getOpenFileName(
-            self, 'Selecteer Word-template', '', 'Word (*.docx)'
+            self, 'Selecteer Word-template', '', 'Word-sjabloon (*.dotx);;Word (*.docx)'
         )
         if pad:
             self._template_edit.setText(pad)

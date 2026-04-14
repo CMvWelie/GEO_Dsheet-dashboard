@@ -6,6 +6,27 @@ import os
 # Zorg dat het projectpakket vindbaar is
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# ------------------------------------------------------------------
+# Dependency-controle bij opstarten
+# ------------------------------------------------------------------
+_VEREISTE_PAKKETTEN = [
+    ('PyQt6',       'pip install PyQt6'),
+    ('matplotlib',  'pip install matplotlib'),
+    ('openpyxl',    'pip install openpyxl'),
+    ('docx',        'pip install python-docx'),
+]
+_ontbrekend = []
+for _pkg, _installeer in _VEREISTE_PAKKETTEN:
+    try:
+        __import__(_pkg)
+    except ImportError:
+        _ontbrekend.append(f'  • {_pkg:12s}  →  {_installeer}')
+
+if _ontbrekend:
+    print('Fout: de volgende pakketten ontbreken. Installeer ze en start opnieuw.')
+    print('\n'.join(_ontbrekend))
+    sys.exit(1)
+
 try:
     from PyQt6.QtWidgets import QApplication
     from PyQt6.QtCore import Qt

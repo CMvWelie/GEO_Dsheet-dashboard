@@ -36,11 +36,11 @@ class TabWordExport(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
 
-        tmpl_box = QGroupBox('Word-template (optioneel)')
+        tmpl_box = QGroupBox('Word-sjabloon (optioneel)')
         tmpl_vl = QVBoxLayout(tmpl_box)
         tmpl_row = QHBoxLayout()
         self._template_edit = QLineEdit()
-        self._template_edit.setPlaceholderText('Pad naar .docx template…')
+        self._template_edit.setPlaceholderText('Pad naar .dotx sjabloon…')
         self._template_edit.textChanged.connect(self.template_changed)
         tmpl_browse = QPushButton('Bladeren…')
         tmpl_browse.setStyleSheet(_BTN_NORMAL)
@@ -86,7 +86,7 @@ class TabWordExport(QWidget):
 
     def _browse_template(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, 'Selecteer Word-template', '', 'Word (*.docx)')
+            self, 'Selecteer Word-sjabloon', '', 'Word-sjabloon (*.dotx);;Word (*.docx)')
         if path:
             self._template_edit.setText(path)
 

@@ -1,6 +1,6 @@
 """WordExporter — exporteert een ReportPackage naar Word (.docx).
 
-JSON-sidecar formaat (naast .docx template, zelfde naam + .map.json):
+JSON-sidecar formaat (naast .dotx sjabloon, zelfde naam + .map.json):
 {
   "metadata": {
     "project_name": "bookmark_project",
@@ -16,10 +16,23 @@ Sleutels in 'sections' zijn koppen waaronder de secties worden ingevoegd.
 """
 
 from __future__ import annotations
+import io
 import json
+import zipfile
 from pathlib import Path
 
+from docx import Document
+
 from reporting.models import ReportPackage, ReportSection
+
+_DOTX_CONTENT_TYPE = (
+    'application/vnd.openxmlformats-officedocument'
+    '.wordprocessingml.template.main+xml'
+)
+_DOCX_CONTENT_TYPE = (
+    'application/vnd.openxmlformats-officedocument'
+    '.wordprocessingml.document.main+xml'
+)
 
 
 class WordExporter:
@@ -33,15 +46,10 @@ class WordExporter:
             None bij succes, foutmelding (str) bij een uitzondering.
         """
         try:
-            from docx import Document
-        except ImportError:
-            return 'python-docx is niet geïnstalleerd. Voer uit: pip install python-docx'
-
-        try:
             mapping = self._load_mapping(template_path)
 
             if template_path and Path(template_path).exists():
-                doc = Document(template_path)
+                doc = self._open_template(template_path)
             else:
                 doc = Document()
 
@@ -66,6 +74,43 @@ class WordExporter:
             return None
         except Exception as exc:
             return str(exc)
+
+    # ------------------------------------------------------------------
+    # Sjabloon openen (.dotx én .docx)
+    # ------------------------------------------------------------------
+
+    def _open_template(self, path: str) -> Document:
+        """Open een Word-sjabloon als bewerkbaar Document.
+
+        Een .dotx-bestand heeft een ander content type dan .docx, waardoor
+        python-docx het weigert. We passen het content type in-memory aan
+        zodat Document() het accepteert — zonder tijdelijke bestanden.
+
+        Parameters
+        ----------
+        path: Pad naar het sjabloonbestand (.dotx of .docx).
+        """
+        if Path(path).suffix.lower() != '.dotx':
+            return Document(path)
+
+        with open(path, 'rb') as f:
+            data = f.read()
+
+        invoer = io.BytesIO(data)
+        uitvoer = io.BytesIO()
+        with zipfile.ZipFile(invoer, 'r') as zin, \
+                zipfile.ZipFile(uitvoer, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                inhoud = zin.read(item.filename)
+                if item.filename == '[Content_Types].xml':
+                    inhoud = inhoud.replace(
+                        _DOTX_CONTENT_TYPE.encode(),
+                        _DOCX_CONTENT_TYPE.encode(),
+                    )
+                zout.writestr(item, inhoud)
+
+        uitvoer.seek(0)
+        return Document(uitvoer)
 
     # ------------------------------------------------------------------
     # JSON-sidecar laden

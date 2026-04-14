@@ -414,9 +414,3 @@ class TabInputDesc(QWidget):
 
         return body
 
-    # ------------------------------------------------------------------
-    # Backwards-compat stub (wordt niet meer actief aangeroepen)
-    # ------------------------------------------------------------------
-
-    def populate(self, sections) -> None:  # type: ignore[override]
-        pass

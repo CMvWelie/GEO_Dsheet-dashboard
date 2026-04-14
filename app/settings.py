@@ -49,4 +49,4 @@ class ViewportSettings:
 class AppSettings:
     """Algemene applicatie-instellingen."""
     word_template_path: str = ''
-    """Pad naar het Word-template (.docx); leeg = geen template."""
+    """Pad naar het Word-sjabloon (.dotx, ook .docx ondersteund); leeg = geen sjabloon."""

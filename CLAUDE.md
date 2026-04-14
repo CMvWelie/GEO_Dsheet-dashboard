@@ -98,7 +98,7 @@ Volgorde (gescheiden door lege regels):
 - **Returntuples voor herstelbare fouten**: `tuple[bool, str]` — `(succes, bericht)` — in plaats van exceptions gooien
 - **UI toont fouten via `QMessageBox.warning()`** op basis van het teruggegeven bericht
 - Brede `except Exception as exc` catch; converteer naar leesbare string voor de gebruiker
-- Optionele afhankelijkheden (`openpyxl`, `python-docx`) alleen controleren op het moment van gebruik, niet bij import
+- Alle afhankelijkheden worden bij app-start gecontroleerd in `run.pyw`; imports zijn altijd op moduleniveau — **geen** lazy `try/except ImportError` in exporters of andere modules
 
 ---
 

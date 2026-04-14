@@ -15,6 +15,7 @@ from app.settings import RenderSettings, ViewportSettings
 from utils.geometry import surface_y_at, clip_surface_points, build_layer_polygon
 from utils.color_utils import color_for_matplotlib
 from utils.formatting import fmt_number
+from renderers import BaseRenderer
 from renderers.draw_helpers import draw_polygon_on_ax
 
 
@@ -176,53 +177,93 @@ def draw_result_chart(
     ax.grid(True, axis='x', linestyle=':', linewidth=0.5, alpha=0.5)
 
 
-def render_output_charts(
-    fig: Figure,
-    project: Project,
-    output_stage_index: int,
-    active_result_step: str | None,
-    render_settings: RenderSettings | None = None,
-) -> None:
-    """Teken drie resultaatgrafieken (moment, dwarskracht, verplaatsing).
+class OutputRenderer(BaseRenderer):
+    """Renderer voor resultaatgrafieken (momenten, dwarskrachten, verplaatsingen).
 
-    Parameters
-    ----------
-    fig:                Matplotlib Figure met drie subplots naast elkaar.
-    project:            Huidig project.
-    output_stage_index: Index van de actieve uitvoerfase.
-    active_result_step: Genormaliseerde sleutel van de VERIFY STEP.
-    render_settings:    Optionele renderinstellingen (schaal, kleuren).
+    Gebruik ``render_figure()`` voor de volledige drie-grafiek weergave.
+    De ``render()`` methode (vereist door BaseRenderer) tekent alleen het
+    momentendiagram op de meegegeven as.
     """
-    if len(fig.axes) < 3:
-        fig.clear()
-        axes = fig.subplots(1, 3, sharey=True)
-    else:
-        axes = fig.axes[:3]
 
-    output_stage = (project.stages[output_stage_index]
-                    if 0 <= output_stage_index < len(project.stages) else None)
-    stage_number = output_stage_index + 1
-
-    result_stage = _get_stage_result(project, active_result_step, stage_number)
-
-    y_min = min(
-        (p.depth for step in project.result_steps.values()
-         for st in step.stages.values() for p in st.points),
-        default=-10.0
-    )
-    y_max = max(
-        (p.depth for step in project.result_steps.values()
-         for st in step.stages.values() for p in st.points),
-        default=0.0
-    )
-
-    charts = [
+    _CHARTS: list[tuple[str, str, str]] = [
         ('Momenten', 'kNm', 'moment'),
         ('Dwarskrachten', 'kN', 'shear'),
         ('Vervormingen', 'mm', 'disp'),
     ]
-    for ax, (title, unit, key) in zip(axes, charts):
-        draw_result_chart(ax, title, unit, key, result_stage, project,
-                           output_stage, y_min, y_max, render_settings)
 
-    fig.tight_layout()
+    def render(
+        self,
+        ax: Axes,
+        project: Project,
+        stage: Stage | None,
+        settings: RenderSettings,
+        viewport: ViewportSettings,
+    ) -> None:
+        """Render het momentendiagram op een enkele as.
+
+        Parameters
+        ----------
+        ax:       Matplotlib Axes om op te tekenen.
+        project:  Het actieve projectobject.
+        stage:    De actieve bouwfase (kan None zijn).
+        settings: Renderschaalinstellingen.
+        viewport: Viewport-bereik instellingen (niet gebruikt, aanwezig voor ABC).
+        """
+        stage_index = (project.stages.index(stage)
+                       if stage and stage in project.stages else 0)
+        result_stage = _get_stage_result(project, None, stage_index + 1)
+        y_min, y_max = self._y_bereik(project)
+        title, unit, key = self._CHARTS[0]
+        draw_result_chart(ax, title, unit, key, result_stage, project,
+                          stage, y_min, y_max, settings)
+
+    def render_figure(
+        self,
+        fig: Figure,
+        project: Project,
+        output_stage_index: int,
+        active_result_step: str | None,
+        render_settings: RenderSettings | None = None,
+    ) -> None:
+        """Teken drie resultaatgrafieken (moment, dwarskracht, verplaatsing).
+
+        Parameters
+        ----------
+        fig:                Matplotlib Figure met drie subplots naast elkaar.
+        project:            Huidig project.
+        output_stage_index: Index van de actieve uitvoerfase.
+        active_result_step: Genormaliseerde sleutel van de VERIFY STEP.
+        render_settings:    Optionele renderinstellingen (schaal, kleuren).
+        """
+        if len(fig.axes) < 3:
+            fig.clear()
+            axes = fig.subplots(1, 3, sharey=True)
+        else:
+            axes = fig.axes[:3]
+
+        output_stage = (project.stages[output_stage_index]
+                        if 0 <= output_stage_index < len(project.stages) else None)
+        stage_number = output_stage_index + 1
+
+        result_stage = _get_stage_result(project, active_result_step, stage_number)
+        y_min, y_max = self._y_bereik(project)
+
+        for ax, (title, unit, key) in zip(axes, self._CHARTS):
+            draw_result_chart(ax, title, unit, key, result_stage, project,
+                              output_stage, y_min, y_max, render_settings)
+
+        fig.tight_layout()
+
+    def _y_bereik(self, project: Project) -> tuple[float, float]:
+        """Bereken het y-bereik over alle resultaatstappen en -fasen."""
+        y_min = min(
+            (p.depth for step in project.result_steps.values()
+             for st in step.stages.values() for p in st.points),
+            default=-10.0,
+        )
+        y_max = max(
+            (p.depth for step in project.result_steps.values()
+             for st in step.stages.values() for p in st.points),
+            default=0.0,
+        )
+        return y_min, y_max

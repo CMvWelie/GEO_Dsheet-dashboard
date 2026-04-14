@@ -19,12 +19,3 @@ class ExportManager:
         """
         figure.savefig(str(filepath), format='png', dpi=dpi, bbox_inches='tight')
 
-    def export_pdf(self, figure: Figure, filepath: str | Path) -> None:
-        """Exporteer een matplotlib-figuur als PDF-bestand (stub voor later).
-
-        Parameters
-        ----------
-        figure:   De te exporteren matplotlib Figure.
-        filepath: Doelbestandspad.
-        """
-        figure.savefig(str(filepath), format='pdf', bbox_inches='tight')

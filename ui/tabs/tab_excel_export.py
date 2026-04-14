@@ -36,11 +36,11 @@ class TabExcelExport(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
 
-        tmpl_box = QGroupBox('Excel-template (optioneel)')
+        tmpl_box = QGroupBox('Excel-sjabloon (optioneel)')
         tmpl_vl = QVBoxLayout(tmpl_box)
         tmpl_row = QHBoxLayout()
         self._template_edit = QLineEdit()
-        self._template_edit.setPlaceholderText('Pad naar .xlsx template…')
+        self._template_edit.setPlaceholderText('Pad naar .xltx sjabloon…')
         self._template_edit.textChanged.connect(self.template_changed)
         tmpl_browse = QPushButton('Bladeren…')
         tmpl_browse.setStyleSheet(_BTN_NORMAL)
@@ -86,7 +86,7 @@ class TabExcelExport(QWidget):
 
     def _browse_template(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, 'Selecteer Excel-template', '', 'Excel (*.xlsx)')
+            self, 'Selecteer Excel-sjabloon', '', 'Excel-sjabloon (*.xltx);;Excel (*.xlsx)')
         if path:
             self._template_edit.setText(path)
 

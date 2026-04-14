@@ -4,12 +4,8 @@ from __future__ import annotations
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from matplotlib.axes import Axes
-from matplotlib.patches import FancyArrowPatch, Arc, FancyArrow
-from matplotlib.lines import Line2D
-import matplotlib.path as mpath
-import matplotlib.patches as patches
+from matplotlib.patches import Arc
 
 from utils.color_utils import color_for_matplotlib
 

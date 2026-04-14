@@ -7,8 +7,11 @@ zodat de view zelf kan beslissen hoe deze te tonen.
 
 from __future__ import annotations
 import io
+import logging
 import re
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -21,7 +24,7 @@ from app.viewport_service import ViewportService
 from parsers.models import FileBundle, Project, Stage
 from parsers.shi_parser import parse_project
 from renderers.section_renderer import SectionRenderer
-from renderers.output_renderer import render_output_charts
+from renderers.output_renderer import OutputRenderer
 from utils.export_manager import ExportManager
 
 
@@ -37,6 +40,7 @@ class AppController:
         self._config = ConfigManager()
         self._viewport = ViewportService()
         self._renderer = SectionRenderer()
+        self._output_renderer = OutputRenderer()
         self._export = ExportManager()
 
     # ------------------------------------------------------------------
@@ -141,11 +145,15 @@ class AppController:
 
     def set_active_stage(self, index: int) -> None:
         """Stel actieve fase-index in."""
-        self._state.active_stage_index = max(0, index)
+        project = self._state.get_active_project()
+        n = len(project.stages) if project and project.stages else 1
+        self._state.active_stage_index = max(0, min(index, n - 1))
 
     def set_active_output_stage(self, index: int) -> None:
         """Stel actieve resultaat-fase-index in."""
-        self._state.active_output_stage_index = max(0, index)
+        project = self._state.get_active_project()
+        n = len(project.stages) if project and project.stages else 1
+        self._state.active_output_stage_index = max(0, min(index, n - 1))
 
     def set_active_result_step(self, key: str | None) -> None:
         """Stel actieve VERIFY STEP-sleutel in."""
@@ -234,7 +242,7 @@ class AppController:
         except Exception as exc:
             return str(exc)
 
-    def render_stage_png(self, project: Project, stage,
+    def render_stage_png(self, project: Project, stage: Stage | None,
                           width_px: int = 400, height_px: int = 300,
                           dpi: int = 96) -> bytes | None:
         """Render één fase naar PNG-bytes (Agg, geen Qt vereist)."""
@@ -251,6 +259,7 @@ class AppController:
             buf.seek(0)
             return buf.read()
         except Exception:
+            _log.exception("render_stage_png mislukt voor project '%s'", project.name)
             return None
 
     def render_results(self, fig: Figure) -> str | None:
@@ -263,7 +272,7 @@ class AppController:
         if not project or not project.result_steps:
             return None
         try:
-            render_output_charts(
+            self._output_renderer.render_figure(
                 fig, project,
                 self._state.active_output_stage_index,
                 self._state.active_result_step,
