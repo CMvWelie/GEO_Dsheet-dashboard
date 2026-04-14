@@ -12,6 +12,7 @@ from reporting.selection import ReportPlan
 from reporting.validation import ReportValidator, ValidationIssue
 from reporting.builders.input_description_builder import InputDescriptionBuilder, DamwandCard
 from reporting.builders.result_description_builder import ResultDescriptionBuilder
+from reporting.builders.soil_table_builder import SoilTableBuilder
 from exporters.excel_exporter import ExcelExporter
 from exporters.word_exporter import WordExporter
 
@@ -66,6 +67,19 @@ class ReportController:
             self._report.overrides,
         )
 
+    def build_soil_sections(self) -> list[ReportSection]:
+        """Bouw grondsoortentabelsecties voor het actieve project.
+
+        Returns
+        -------
+        list[ReportSection]
+            Één sectie per grondprofiel, lege lijst als er geen project is.
+        """
+        project = self._app.get_active_project()
+        if not project:
+            return []
+        return SoilTableBuilder().build(project)
+
     # ------------------------------------------------------------------
     # Templates
     # ------------------------------------------------------------------
@@ -119,6 +133,13 @@ class ReportController:
                 caption=sec.title,
                 source_ref=sec.id,
             ))
+        for sec in self.build_soil_sections():
+            self._report.plan.add_item(ReportItem(
+                id=f'grondsoorten_{sec.id}',
+                kind='grondsoorten',
+                caption=sec.title,
+                source_ref=sec.id,
+            ))
 
     # ------------------------------------------------------------------
     # Pakketbouw
@@ -128,8 +149,11 @@ class ReportController:
         """Bouw een ReportPackage op basis van huidige state."""
         input_secs = self.build_input_descriptions()
         result_secs = self.build_result_descriptions()
+        soil_secs = self.build_soil_sections()
         pkg = self._report.plan.build_package(
-            self._report.metadata, input_secs, result_secs)
+            self._report.metadata, input_secs, result_secs,
+            extra_sections=soil_secs,
+        )
         pkg.template_excel = self._report.template_excel
         pkg.template_word = self._report.template_word
         return pkg
