@@ -45,17 +45,20 @@ class SoilTableBuilder:
     def _bouw_sectie(
         self, profiel: SoilProfile, soil_map: dict[str, Soil]
     ) -> ReportSection:
+        """Bouw een ReportSection voor één grondprofiel."""
         sec_id = 'soil_table_' + re.sub(r'\s+', '_', profiel.name.lower())
         sec = ReportSection(id=sec_id, title=f'Grondsoortentabel \u2014 {profiel.name}')
-        sec.tables.append(self._bouw_tabel(profiel, soil_map, sec_id))
+        tabel = self._bouw_tabel(profiel, soil_map)
+        tabel.id = f'{sec_id}_tabel'
+        sec.tables.append(tabel)
         return sec
 
     def _bouw_tabel(
         self,
         profiel: SoilProfile,
         soil_map: dict[str, Soil],
-        sec_id: str,
     ) -> ReportTable:
+        """Bouw de grondparametertabel voor één grondprofiel."""
         n = len(profiel.layers)
         rijen: list[list[str]] = []
         for i, laag in enumerate(profiel.layers):
@@ -68,6 +71,7 @@ class SoilTableBuilder:
                     fmt_number(soil.cohesion),
                     fmt_number(soil.phi),
                     fmt_number(soil.delta),
+                    # kh=0 → '-': spiegelt gedrag van tab_grondsoorten (kh=0 betekent niet van toepassing in D-Sheet)
                     str(int(soil.kh1)) if soil.kh1 else '-',
                     str(int(soil.kh2)) if soil.kh2 else '-',
                     str(int(soil.kh3)) if soil.kh3 else '-',
@@ -76,7 +80,7 @@ class SoilTableBuilder:
                 params = ['-'] * 8
             rijen.append([fmt_number(laag.level), ok, laag.material] + params)
         return ReportTable(
-            id=f'{sec_id}_tabel',
+            id='',        # wordt gezet door _bouw_sectie
             title='',
             columns=_KOLOMMEN,
             rows=rijen,
