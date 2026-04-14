@@ -127,3 +127,20 @@ def test_ontbrekende_soil_geeft_streepjes() -> None:
 def test_lege_profielen_geeft_lege_lijst() -> None:
     project = _maak_project(profielen=[])
     assert SoilTableBuilder().build(project) == []
+
+
+from reporting.models import ReportSection, ReportPackage, ReportMetadata
+from reporting.selection import ReportPlan
+
+
+def test_build_package_bevat_extra_sections() -> None:
+    sec = ReportSection(id='soil_table_links', title='Grondsoortentabel \u2014 Links')
+    plan = ReportPlan()
+    pkg = plan.build_package(
+        metadata=ReportMetadata(),
+        input_sections=[],
+        result_sections=[],
+        extra_sections=[sec],
+    )
+    assert len(pkg.extra_sections) == 1
+    assert pkg.extra_sections[0].id == 'soil_table_links'

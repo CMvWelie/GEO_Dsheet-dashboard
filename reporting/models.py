@@ -87,5 +87,6 @@ class ReportPackage:
     input_sections: list[ReportSection] = field(default_factory=list)
     result_sections: list[ReportSection] = field(default_factory=list)
     selected_items: list[ReportItem] = field(default_factory=list)
+    extra_sections: list[ReportSection] = field(default_factory=list)
     template_excel: str | None = None
     template_word: str | None = None

@@ -56,6 +56,7 @@ class ReportPlan:
         metadata: ReportMetadata,
         input_sections: list[ReportSection],
         result_sections: list[ReportSection],
+        extra_sections: list[ReportSection] | None = None,
     ) -> ReportPackage:
         """Bouw een ReportPackage op basis van huidige plan en secties."""
         return ReportPackage(
@@ -63,6 +64,7 @@ class ReportPlan:
             input_sections=input_sections,
             result_sections=result_sections,
             selected_items=list(self.items),
+            extra_sections=extra_sections or [],
         )
 
     # ------------------------------------------------------------------
