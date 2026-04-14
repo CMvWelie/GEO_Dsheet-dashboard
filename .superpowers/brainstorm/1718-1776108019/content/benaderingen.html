@@ -1,0 +1,46 @@
+<h2>Drie benaderingen</h2>
+<p class="subtitle">Kies de architectuur voor het Word-preview venster</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Minimaal — QDialog + template-pad in Word-export tab</h3>
+      <p>Preview-venster als <code>QDialog</code>, template-pad blijft in het bestaande Word-export tabje maar wordt nu ook opgeslagen in de config. "Preview"-knop toegevoegd in de Word-export tab.</p>
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros"><h4>Voordelen</h4><ul><li>Kleinste wijziging</li><li>Geen nieuw tabblad</li></ul></div>
+        <div class="cons"><h4>Nadelen</h4><ul><li>Moeilijk uit te breiden</li><li>Template-instelling op verkeerde plek (export-tab ipv instellingen)</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Aanbevolen — QMainWindow + nieuw Instellingen-tabje ★</h3>
+      <p>Preview als zwevend <code>QMainWindow</code> (met eigen titelbalk). Nieuw tabblad <b>"Instellingen"</b> voor template-pad + toekomstige opties. <code>HtmlPreviewBuilder</code> als aparte klasse in <code>reporting/</code>. ConfigManager uitgebreid met <code>AppSettings</code> dataclass.</p>
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros"><h4>Voordelen</h4><ul><li>Cleanste architectuur</li><li>Instellingen-tab nuttig voor toekomst</li><li>Preview-venster uitbreidbaar (later: toolbar, zoom, PDF)</li><li>Past in bestaande patronen</li></ul></div>
+        <div class="cons"><h4>Nadelen</h4><ul><li>Meer bestanden</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Tussenweg — QWidget (Tool-venster) + template in Word-tab</h3>
+      <p>Preview als lichtgewicht <code>QWidget</code> met <code>Qt.WindowType.Tool</code> flag (blijft bovenop, geen taakbalk-item). Template-pad in Word-export tab, maar nu persistent opgeslagen. HTML-rendering inline in het preview-venster.</p>
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros"><h4>Voordelen</h4><ul><li>Eenvoudiger dan B</li><li>Zwevend zonder volledige QMainWindow</li></ul></div>
+        <div class="cons"><h4>Nadelen</h4><ul><li>HTML-logica in UI (tegen architectuurregels)</li><li>Minder uitbreidbaar</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:16px; padding:12px 16px; background:#e8f4e8; border-left:4px solid #2f7d32; border-radius:4px; font-size:12px;">
+  <b>Aanbeveling: B</b> — Het instellingen-tabje is sowieso nuttig (bedrijfsnaam, kleur, toekomstige opties). De <code>HtmlPreviewBuilder</code> past als rapportage-klasse naast de bestaande builders. En een <code>QMainWindow</code> maakt het makkelijk om later een PDF-knop toe te voegen voor optie B.
+</div>

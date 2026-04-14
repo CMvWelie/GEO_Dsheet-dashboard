@@ -1,0 +1,76 @@
+<h2>Waar komt het Word-preview paneel?</h2>
+<p class="subtitle">Kies de plek van het preview-venster in de applicatie</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Uitschuifbaar paneel rechts (splitter)</h3>
+      <p>Preview schuift in/uit aan de rechterkant van het hoofdvenster via een knop of knop in de toolbar. Blijft binnen hetzelfde applicatievenster.</p>
+      <div style="margin-top:12px; border:1px solid #ccc; border-radius:6px; overflow:hidden; font-size:11px;">
+        <div style="background:#1b3a5c; color:white; padding:5px 10px; font-size:11px;">D-Sheet Dashboard</div>
+        <div style="display:flex; height:120px;">
+          <div style="flex:1; background:#e8eef3; padding:8px; font-size:10px; color:#444;">
+            <div style="background:#274f77; color:white; padding:3px 6px; border-radius:3px; display:inline-block; margin-bottom:4px; font-size:9px;">Tabs (Import / Invoer / Export…)</div>
+            <div style="background:white; border:1px solid #ccc; height:70px; border-radius:3px; display:flex; align-items:center; justify-content:center; color:#888; font-size:9px;">Tabinhoud</div>
+          </div>
+          <div style="width:4px; background:#aaa; cursor:ew-resize;"></div>
+          <div style="width:130px; background:#f8fbfd; padding:8px; border-left:1px solid #c4d4e0;">
+            <div style="font-size:9px; color:#1b3a5c; font-weight:bold; margin-bottom:4px;">Word Preview</div>
+            <div style="background:white; border:1px solid #dce; height:55px; border-radius:2px; padding:4px; font-size:8px; color:#333; line-height:1.4;">
+              <div style="font-weight:bold;">Rapport titel</div>
+              <div style="color:#555;">1. Invoer...</div>
+              <div style="color:#555;">2. Resultaten...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Apart zwevend venster</h3>
+      <p>Preview opent als een apart Qt-venster. Je kan het los naast of boven het hoofdprogramma plaatsen, desgewenst op een tweede monitor.</p>
+      <div style="margin-top:12px; font-size:11px; position:relative; height:120px;">
+        <div style="position:absolute; left:0; top:0; width:160px; border:1px solid #aaa; border-radius:6px; overflow:hidden; box-shadow:2px 2px 8px rgba(0,0,0,0.15);">
+          <div style="background:#1b3a5c; color:white; padding:4px 8px; font-size:9px;">D-Sheet Dashboard</div>
+          <div style="background:#e8eef3; height:80px; padding:6px; font-size:9px; color:#444;">Hoofdapplicatie...</div>
+        </div>
+        <div style="position:absolute; left:130px; top:20px; width:140px; border:1px solid #2e5b8a; border-radius:6px; overflow:hidden; box-shadow:4px 4px 12px rgba(0,0,0,0.2);">
+          <div style="background:#274f77; color:white; padding:4px 8px; font-size:9px;">Word Preview ↗</div>
+          <div style="background:#f8fbfd; height:80px; padding:6px; font-size:8px; color:#333; line-height:1.5;">
+            <div style="font-weight:bold; margin-bottom:2px;">Rapport</div>
+            <div>1. Invoer</div>
+            <div>2. Resultaten</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Extra tabblad "Preview"</h3>
+      <p>Preview is gewoon een extra tab in de bestaande tabstructuur. Eenvoudigst te bouwen, maar je ziet de preview niet naast andere inhoud.</p>
+      <div style="margin-top:12px; border:1px solid #ccc; border-radius:6px; overflow:hidden; font-size:11px;">
+        <div style="background:#1b3a5c; color:white; padding:5px 10px; font-size:11px;">D-Sheet Dashboard</div>
+        <div style="background:#e8eef3; padding:4px 8px;">
+          <span style="background:white; border:1px solid #ccc; border-bottom:none; padding:2px 6px; border-radius:3px 3px 0 0; font-size:9px; margin-right:2px;">Import</span>
+          <span style="background:white; border:1px solid #ccc; border-bottom:none; padding:2px 6px; border-radius:3px 3px 0 0; font-size:9px; margin-right:2px;">Invoer</span>
+          <span style="background:#274f77; color:white; border:1px solid #274f77; border-bottom:none; padding:2px 6px; border-radius:3px 3px 0 0; font-size:9px; margin-right:2px;">Word Preview ★</span>
+          <span style="background:white; border:1px solid #ccc; border-bottom:none; padding:2px 6px; border-radius:3px 3px 0 0; font-size:9px;">Export</span>
+        </div>
+        <div style="background:white; height:70px; padding:8px; font-size:9px; color:#333; border-top:1px solid #ccc; line-height:1.5;">
+          <div style="font-weight:bold;">Rapport — Live preview</div>
+          <div style="color:#555;">1. Invoerbeschrijving...</div>
+          <div style="color:#555;">2. Resultaten...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

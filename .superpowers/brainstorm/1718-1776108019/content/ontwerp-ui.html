@@ -1,0 +1,103 @@
+<h2>Ontwerp — UI-componenten</h2>
+<p class="subtitle">Zwevend preview-venster + nieuw Instellingen-tabje</p>
+
+<div class="split">
+
+  <!-- PREVIEW VENSTER -->
+  <div class="mockup">
+    <div class="mockup-header">WordPreviewWindow — zwevend venster</div>
+    <div class="mockup-body" style="padding:0; font-family:'Segoe UI',sans-serif; font-size:11px;">
+
+      <!-- Titelbalk simulatie -->
+      <div style="background:#2c2c2c; color:white; padding:5px 10px; display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+        <span>Word Preview — Project XYZ</span>
+        <span style="opacity:0.6;">— □ ✕</span>
+      </div>
+
+      <!-- Toolbar -->
+      <div style="background:#f0f0f0; border-bottom:1px solid #ccc; padding:5px 8px; display:flex; gap:6px; align-items:center;">
+        <div class="mock-button" style="font-size:9px; padding:3px 8px; background:#1b3a5c; color:white; border-radius:3px; cursor:pointer;">↻ Vernieuwen</div>
+        <div style="width:1px; height:16px; background:#ccc;"></div>
+        <span style="font-size:9px; color:#666;">Rapport — 3 secties geselecteerd</span>
+        <div style="flex:1;"></div>
+        <span style="font-size:9px; color:#888; font-style:italic;">Bijgewerkt: 14:32</span>
+      </div>
+
+      <!-- Preview inhoud -->
+      <div style="background:white; padding:14px 16px; min-height:200px; overflow-y:auto;">
+        <div style="font-size:13px; font-weight:bold; color:#1b3a5c; border-bottom:2px solid #1b3a5c; padding-bottom:5px; margin-bottom:12px;">Geotechnisch Rapport — Project XYZ</div>
+
+        <div style="font-size:11px; font-weight:bold; color:#274f77; margin-bottom:5px;">1. Invoerbeschrijving — Fase 1</div>
+        <table style="width:100%; border-collapse:collapse; font-size:10px; margin-bottom:12px;">
+          <tr style="background:#1b3a5c; color:white;"><td style="padding:3px 8px;">Parameter</td><td style="padding:3px 8px; text-align:right;">Waarde</td></tr>
+          <tr style="background:#f3f8fc;"><td style="padding:3px 8px; border-bottom:1px solid #dce8f0;">Maaiveld Links</td><td style="padding:3px 8px; text-align:right; border-bottom:1px solid #dce8f0;">0,00 m NAP</td></tr>
+          <tr><td style="padding:3px 8px; border-bottom:1px solid #dce8f0;">Water Links</td><td style="padding:3px 8px; text-align:right; border-bottom:1px solid #dce8f0;">-0,50 m NAP</td></tr>
+        </table>
+
+        <div style="font-size:11px; font-weight:bold; color:#274f77; margin-bottom:5px;">2. Resultaten — Fase 1</div>
+        <div style="font-size:10px; color:#333; line-height:1.6; margin-bottom:12px;">
+          Max. moment: <b>142,3 kNm/m</b><br>
+          Max. verplaatsing: <b>18,4 mm</b>
+        </div>
+
+        <div style="font-size:11px; font-weight:bold; color:#274f77; margin-bottom:5px;">3. Grondlagen — Links</div>
+        <table style="width:100%; border-collapse:collapse; font-size:10px;">
+          <tr style="background:#1b3a5c; color:white;"><td style="padding:3px 8px;">Laag</td><td style="padding:3px 8px;">Materiaal</td><td style="padding:3px 8px; text-align:right;">Bovenzijde</td></tr>
+          <tr style="background:#f3f8fc;"><td style="padding:3px 8px; border-bottom:1px solid #dce8f0;">1</td><td style="padding:3px 8px; border-bottom:1px solid #dce8f0;">Zand</td><td style="padding:3px 8px; text-align:right; border-bottom:1px solid #dce8f0;">0,00</td></tr>
+          <tr><td style="padding:3px 8px;">2</td><td style="padding:3px 8px;">Klei</td><td style="padding:3px 8px; text-align:right;">-2,50</td></tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- INSTELLINGEN TAB -->
+  <div class="mockup">
+    <div class="mockup-header">TabInstellingen — nieuw tabblad</div>
+    <div class="mockup-body" style="padding:0; font-family:'Segoe UI',sans-serif; font-size:11px;">
+
+      <!-- Tab header simulatie -->
+      <div style="background:#1b3a5c; padding:4px 8px; font-size:10px; color:white; display:flex; gap:0;">
+        <span style="background:rgba(255,255,255,0.1); padding:3px 10px; border-radius:3px 3px 0 0; margin-right:2px; font-size:9px;">Import</span>
+        <span style="padding:3px 10px; font-size:9px; opacity:0.6; margin-right:2px;">Invoer</span>
+        <span style="padding:3px 10px; font-size:9px; opacity:0.6; margin-right:2px;">Export</span>
+        <span style="background:rgba(255,255,255,0.25); padding:3px 10px; border-radius:3px 3px 0 0; font-size:9px; font-weight:bold;">⚙ Instellingen</span>
+      </div>
+
+      <div style="background:#f5f5f5; padding:12px; min-height:220px;">
+
+        <!-- Groep: Rapportage -->
+        <div style="background:white; border:1px solid #ddd; border-radius:4px; margin-bottom:10px; overflow:hidden;">
+          <div style="background:#274f77; color:white; padding:5px 10px; font-size:10px; font-weight:bold;">Rapportage-instellingen</div>
+          <div style="padding:10px;">
+            <div style="font-size:10px; color:#444; margin-bottom:3px;">Word-template (.docx)</div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <div style="flex:1; background:#f8f8f8; border:1px solid #ccc; border-radius:3px; padding:4px 8px; font-size:9px; color:#888; font-style:italic;">C:\Projecten\templates\rapport_template.docx</div>
+              <div style="background:#1b3a5c; color:white; padding:3px 8px; border-radius:3px; font-size:9px; cursor:pointer;">Bladeren…</div>
+              <div style="background:#eee; border:1px solid #ccc; padding:3px 6px; border-radius:3px; font-size:9px; cursor:pointer;">✕</div>
+            </div>
+            <div style="font-size:9px; color:#888; margin-top:4px; font-style:italic;">Optioneel — wordt ook gebruikt bij Word-export</div>
+          </div>
+        </div>
+
+        <!-- Groep: Preview -->
+        <div style="background:white; border:1px solid #ddd; border-radius:4px; margin-bottom:10px; overflow:hidden;">
+          <div style="background:#274f77; color:white; padding:5px 10px; font-size:10px; font-weight:bold;">Preview-venster</div>
+          <div style="padding:10px; display:flex; align-items:center; gap:10px;">
+            <div style="background:#1b3a5c; color:white; padding:5px 12px; border-radius:3px; font-size:10px; cursor:pointer;">↗ Preview openen</div>
+            <span style="font-size:9px; color:#666;">Opent het zwevende Word-preview venster</span>
+          </div>
+        </div>
+
+        <!-- Toekomst placeholder -->
+        <div style="border:1px dashed #ccc; border-radius:4px; padding:8px 12px; font-size:9px; color:#aaa; font-style:italic;">
+          Toekomstige instellingen (bedrijfsnaam, logo, kleurpalet…)
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Klopt dit met de verwachting? Dan ga ik verder met de architectuur.</p>

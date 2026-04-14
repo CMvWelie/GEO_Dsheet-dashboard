@@ -1,0 +1,195 @@
+"""WordExporter — exporteert een ReportPackage naar Word (.docx).
+
+JSON-sidecar formaat (naast .docx template, zelfde naam + .map.json):
+{
+  "metadata": {
+    "project_name": "bookmark_project",
+    "title":        "bookmark_title"
+  },
+  "sections": {
+    "sheet_piling": "Sectie 2.1 Damwand",
+    "moment_max":   "Sectie 3.1 Momenten"
+  }
+}
+Sleutels in 'metadata' zijn bladwijzernamen in het template.
+Sleutels in 'sections' zijn koppen waaronder de secties worden ingevoegd.
+"""
+
+from __future__ import annotations
+import json
+from pathlib import Path
+
+from reporting.models import ReportPackage, ReportSection
+
+
+class WordExporter:
+    """Schrijft een ReportPackage naar een .docx-bestand met python-docx."""
+
+    def export(self, package: ReportPackage, template_path: str | None,
+               output_path: str) -> str | None:
+        """Exporteer naar Word.
+
+        Returns:
+            None bij succes, foutmelding (str) bij een uitzondering.
+        """
+        try:
+            from docx import Document
+        except ImportError:
+            return 'python-docx is niet geïnstalleerd. Voer uit: pip install python-docx'
+
+        try:
+            mapping = self._load_mapping(template_path)
+
+            if template_path and Path(template_path).exists():
+                doc = Document(template_path)
+            else:
+                doc = Document()
+
+            if mapping:
+                self._write_with_mapping(doc, package, mapping)
+            else:
+                self._write_metadata(doc, package)
+                all_sections = package.input_sections + package.result_sections
+                selected_ids = {f'input_{i.source_ref}' for i in package.selected_items
+                                if i.kind == 'invoer'} | \
+                               {f'result_{i.source_ref}' for i in package.selected_items
+                                if i.kind == 'resultaat'}
+                for sec in all_sections:
+                    item_id_input = f'input_{sec.id}'
+                    item_id_result = f'result_{sec.id}'
+                    if selected_ids and item_id_input not in selected_ids \
+                            and item_id_result not in selected_ids:
+                        continue
+                    self._write_section(doc, sec)
+
+            doc.save(output_path)
+            return None
+        except Exception as exc:
+            return str(exc)
+
+    # ------------------------------------------------------------------
+    # JSON-sidecar laden
+    # ------------------------------------------------------------------
+
+    def _load_mapping(self, template_path: str | None) -> dict | None:
+        if not template_path:
+            return None
+        sidecar = Path(template_path).with_suffix('').with_suffix('.map.json')
+        if not sidecar.exists():
+            sidecar2 = Path(str(template_path) + '.map.json')
+            if not sidecar2.exists():
+                return None
+            sidecar = sidecar2
+        try:
+            return json.loads(sidecar.read_text(encoding='utf-8'))
+        except Exception:
+            return None
+
+    # ------------------------------------------------------------------
+    # Schrijven met sidecar-mapping
+    # ------------------------------------------------------------------
+
+    def _write_with_mapping(self, doc, package: ReportPackage, mapping: dict) -> None:
+        """Vul template-bladwijzers in en voeg secties toe na genoemde koppen."""
+        # Metadata via bladwijzers
+        meta_map = mapping.get('metadata', {})
+        md = package.metadata
+        for attr, bookmark_name in meta_map.items():
+            value = getattr(md, attr, '') or ''
+            self._fill_bookmark(doc, bookmark_name, value)
+
+        # Secties
+        sec_map = mapping.get('sections', {})
+        all_sections = package.input_sections + package.result_sections
+        for sec in all_sections:
+            heading_text = sec_map.get(sec.id)
+            if heading_text:
+                self._insert_after_heading(doc, heading_text, sec)
+            else:
+                self._write_section(doc, sec)
+
+    def _fill_bookmark(self, doc, bookmark_name: str, value: str) -> None:
+        """Vervang tekst van een bladwijzer in het document."""
+        from docx.oxml.ns import qn
+        for para in doc.paragraphs:
+            for bm in para._element.findall(f'.//{qn("w:bookmarkStart")}'):
+                if bm.get(qn('w:name')) == bookmark_name:
+                    # Verwijder bestaande runs in de paragraaf en voeg waarde toe
+                    for run in para.runs:
+                        run.text = ''
+                    if para.runs:
+                        para.runs[0].text = value
+                    else:
+                        para.add_run(value)
+                    return
+
+    def _insert_after_heading(self, doc, heading_text: str,
+                               section: ReportSection) -> None:
+        """Voeg sectie-content toe na de paragraaf met de gegeven koptekst."""
+        from docx.oxml import OxmlElement
+        target = None
+        for i, para in enumerate(doc.paragraphs):
+            if para.text.strip() == heading_text.strip():
+                target = para._element
+                break
+        if target is None:
+            # Kop niet gevonden → aan het einde toevoegen
+            self._write_section(doc, section)
+            return
+        # Bouw sectie-XML op en voeg in na de kop
+        temp_doc = doc.__class__()
+        self._write_section(temp_doc, section)
+        parent = target.getparent()
+        idx = list(parent).index(target) + 1
+        for elem in list(temp_doc.element.body)[:-1]:  # skip sectPr
+            parent.insert(idx, elem)
+            idx += 1
+
+    # ------------------------------------------------------------------
+    # Standaard schrijven (geen mapping)
+    # ------------------------------------------------------------------
+
+    def _write_metadata(self, doc, package: ReportPackage) -> None:
+        md = package.metadata
+        doc.add_heading('Rapportgegevens', level=1)
+        table = doc.add_table(rows=1, cols=2)
+        table.rows[0].cells[0].text = 'Veld'
+        table.rows[0].cells[1].text = 'Waarde'
+        rows = [
+            ('Projectnaam',   md.project_name),
+            ('Ordernummer',   md.order_number),
+            ('Locatie',       md.location),
+            ('Fase',          md.phase),
+            ('Opdrachtgever', md.client),
+            ('Titel',         md.title),
+            ('Revisie',       md.revision),
+            ('Auteur',        md.author),
+            ('Datum',         md.date),
+        ]
+        for label, value in rows:
+            row = table.add_row()
+            row.cells[0].text = label
+            row.cells[1].text = value or ''
+
+    def _write_section(self, doc, section: ReportSection) -> None:
+        doc.add_heading(section.title, level=2)
+
+        for f in section.fields:
+            val = f'{f.value} {f.unit}'.strip() if f.unit else f.value
+            doc.add_paragraph(f'{f.label}: {val}')
+
+        for table_data in section.tables:
+            doc.add_paragraph(table_data.title, style='Intense Quote')
+            if not table_data.columns:
+                continue
+            tbl = doc.add_table(rows=1, cols=len(table_data.columns))
+            for col, header in enumerate(table_data.columns):
+                tbl.rows[0].cells[col].text = header
+            for data_row in table_data.rows:
+                row = tbl.add_row()
+                for col, cell in enumerate(data_row):
+                    if col < len(row.cells):
+                        row.cells[col].text = cell
+
+        for tb in section.text_blocks:
+            doc.add_paragraph(tb.effective_text)
