@@ -46,17 +46,16 @@ class ExcelExporter:
                 self._write_with_mapping(wb, package, mapping)
             else:
                 self._write_metadata(wb, package)
-                all_sections = package.input_sections + package.result_sections
-                selected_ids = {f'input_{i.source_ref}' for i in package.selected_items
-                                if i.kind == 'invoer'} | \
-                               {f'result_{i.source_ref}' for i in package.selected_items
-                                if i.kind == 'resultaat'}
+                selected_ids = {
+                    i.source_ref for i in package.selected_items if i.source_ref
+                }
+                all_sections = (
+                    package.input_sections
+                    + package.result_sections
+                    + package.extra_sections
+                )
                 for sec in all_sections:
-                    # Als er geselecteerde items zijn, filter dan; anders schrijf alles
-                    item_id_input = f'input_{sec.id}'
-                    item_id_result = f'result_{sec.id}'
-                    if selected_ids and item_id_input not in selected_ids \
-                            and item_id_result not in selected_ids:
+                    if selected_ids and sec.id not in selected_ids:
                         continue
                     self._write_section(wb, sec)
 
@@ -103,7 +102,11 @@ class ExcelExporter:
 
         # Secties: schrijf naar benoemde sheets als ze in mapping staan
         sec_map = mapping.get('sections', {})
-        all_sections = package.input_sections + package.result_sections
+        all_sections = (
+            package.input_sections
+            + package.result_sections
+            + package.extra_sections
+        )
         for sec in all_sections:
             sheet_name = sec_map.get(sec.id)
             if sheet_name and sheet_name in wb.sheetnames:
