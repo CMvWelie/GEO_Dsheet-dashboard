@@ -47,8 +47,11 @@ class ExcelExporter:
             else:
                 self._write_metadata(wb, package)
                 selected_ids = {
-                    i.source_ref for i in package.selected_items if i.source_ref
+                    i.source_ref for i in package.selected_items
+                    if i.source_ref and i.included_excel
                 }
+                # extra_sections worden alleen gefilterd als er een overeenkomend
+                # ReportItem met source_ref in selected_items bestaat.
                 all_sections = (
                     package.input_sections
                     + package.result_sections
