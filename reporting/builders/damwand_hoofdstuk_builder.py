@@ -10,7 +10,7 @@ from reporting.builders.input_description_builder import InputDescriptionBuilder
 from utils.formatting import fmt_number
 
 
-def _find(lst, name: str):
+def _find(lst: list | None, name: str) -> object | None:
     return next((x for x in (lst or []) if x.name == name), None)
 
 
@@ -40,7 +40,7 @@ class DamwandHoofdstukBuilder:
             return sec
         w = project.sheet_piling[0]
         profiel_naam = re.sub(r'\s*\([^)]+\)\s*$', '', w.name).strip()
-        lengte = abs((w.top or 0.0) - w.bottom)
+        lengte_str = fmt_number(abs(w.top - w.bottom)) if w.top is not None else '-'
         sec.fields = [
             ReportField('profiel',           'Profiel',                    profiel_naam),
             ReportField('staalkwaliteit',    'Staalkwaliteit',              w.steel_quality),
@@ -51,6 +51,6 @@ class DamwandHoofdstukBuilder:
             ReportField('opneembaar_moment', 'Opneembaar moment',           fmt_number(w.opneembaar_moment_knm), 'kNm/m'),
             ReportField('kopniveau',         'Kopniveau',                   fmt_number(w.top) if w.top is not None else '-', 'm NAP'),
             ReportField('teenniveau',        'Teenniveau',                  fmt_number(w.bottom),               'm NAP'),
-            ReportField('lengte',            'Lengte',                      fmt_number(lengte),                 'm'),
+            ReportField('lengte',            'Lengte',                      lengte_str,                         'm'),
         ]
         return sec
