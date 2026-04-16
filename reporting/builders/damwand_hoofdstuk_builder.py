@@ -3,15 +3,12 @@ from __future__ import annotations
 
 import re
 
-from parsers.models import Project, Stage
+from parsers.models import Project
 from reporting.models import ReportSection, ReportField, ReportTable, ReportImageRequest
 from reporting.builders.soil_table_builder import SoilTableBuilder
 from reporting.builders.input_description_builder import InputDescriptionBuilder
 from utils.formatting import fmt_number
 
-
-def _find(lst: list | None, name: str) -> object | None:
-    return next((x for x in (lst or []) if x.name == name), None)
 
 
 class DamwandHoofdstukBuilder:
@@ -157,7 +154,7 @@ class DamwandHoofdstukBuilder:
         Returns
         -------
         int
-            Index van de maatgevende fase; 0 als er geen summaries zijn.
+            Index van de maatgevende fase; index van de laatste fase als er geen summaries zijn.
         """
         if not project.result_summaries:
             return max(0, len(project.stages) - 1)
