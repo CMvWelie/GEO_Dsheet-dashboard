@@ -1,0 +1,140 @@
+"""Tests voor WordHoofdstukExporter."""
+from __future__ import annotations
+import sys, os, tempfile
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from docx import Document
+from reporting.models import ReportSection, ReportField, ReportTable, ReportImageRequest, ReportMetadata
+from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
+
+
+TEMPLATE = os.path.join(os.path.dirname(__file__), '..', 'templates', 'damwand_stijlen.docx')
+
+
+def _export(secties, metadata=None) -> Document:
+    """Exporteer naar een tijdelijk bestand en lees terug."""
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as f:
+        pad = f.name
+    exp = WordHoofdstukExporter()
+    fout = exp.export(
+        sections=secties,
+        metadata=metadata or ReportMetadata(project_name='Testproject'),
+        project=None,
+        template_path=TEMPLATE,
+        output_path=pad,
+    )
+    assert fout is None, f'Export fout: {fout}'
+    doc = Document(pad)
+    os.unlink(pad)
+    return doc
+
+
+def test_export_maakt_bestand_aan() -> None:
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as f:
+        pad = f.name
+    exp = WordHoofdstukExporter()
+    fout = exp.export(
+        sections=[],
+        metadata=ReportMetadata(project_name='P'),
+        project=None,
+        template_path=TEMPLATE,
+        output_path=pad,
+    )
+    assert fout is None
+    assert os.path.exists(pad)
+    os.unlink(pad)
+
+
+def test_sectietitel_wordt_heading() -> None:
+    sec = ReportSection(id='test', title='Mijn Sectie')
+    doc = _export([sec])
+    teksten = [p.text for p in doc.paragraphs]
+    assert 'Mijn Sectie' in teksten
+
+
+def test_veld_wordt_paragraaf() -> None:
+    sec = ReportSection(id='test', title='Sectie')
+    sec.fields.append(ReportField('k', 'Profiel', 'AZ 14-700', ''))
+    doc = _export([sec])
+    tekst = ' '.join(p.text for p in doc.paragraphs)
+    assert 'Profiel' in tekst
+    assert 'AZ 14-700' in tekst
+
+
+def test_tabel_kolommen_aanwezig() -> None:
+    sec = ReportSection(id='test', title='Sectie')
+    sec.tables.append(ReportTable(
+        id='t', title='',
+        columns=['Fase', 'Moment'],
+        rows=[['F1', '100']],
+    ))
+    doc = _export([sec])
+    assert len(doc.tables) >= 1
+    header_cellen = [c.text for c in doc.tables[0].rows[0].cells]
+    assert 'Fase' in header_cellen
+    assert 'Moment' in header_cellen
+
+
+def test_export_zonder_template_gebruikt_lege_doc() -> None:
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as f:
+        pad = f.name
+    fout = WordHoofdstukExporter().export(
+        sections=[ReportSection(id='x', title='Y')],
+        metadata=ReportMetadata(),
+        project=None,
+        template_path=None,
+        output_path=pad,
+    )
+    assert fout is None
+    os.unlink(pad)
+
+
+# ---------------------------------------------------------------------------
+# Taak 6: figuurrendering
+# ---------------------------------------------------------------------------
+
+from parsers.models import Project, FileBundle, SheetPilingElement, Stage, Surface
+
+
+def _mini_project() -> Project:
+    return Project(
+        base_name='t', project_name='T', file_bundle=FileBundle(),
+        sheet_piling=[SheetPilingElement(
+            name='AZ 14-700', x=0.0, bottom=-10.0, top=-2.0, width=1.4,
+        )],
+        stages=[Stage(name='F1')],
+        surfaces=[Surface(nr=1, name='MV', points=[{'x': -10, 'y': 0}, {'x': 10, 'y': 0}])],
+    )
+
+
+def test_figuur_placeholder_zonder_project() -> None:
+    sec = ReportSection(id='test', title='Grafieken')
+    sec.images.append(ReportImageRequest(
+        id='fig1', caption='Dwarsdoorsnede fase 1',
+        figure_key='section', stage_index=0, step_key=None,
+    ))
+    doc = _export([sec], metadata=ReportMetadata())
+    tekst = ' '.join(p.text for p in doc.paragraphs)
+    assert 'Figuur' in tekst
+
+
+def test_render_figuur_section_geeft_bytes() -> None:
+    from reporting.models import ReportImageRequest as RIR
+    from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
+    project = _mini_project()
+    img_req = RIR(id='f', caption='c', figure_key='section', stage_index=0, step_key=None)
+    exp = WordHoofdstukExporter()
+    result = exp._render_figuur(img_req, project)
+    assert result is not None
+    assert result[:4] == b'\x89PNG'
+
+
+def test_render_figuur_moment_shear_geeft_bytes() -> None:
+    from reporting.models import ReportImageRequest as RIR
+    from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
+    project = _mini_project()
+    img_req = RIR(id='f', caption='c', figure_key='moment_shear', stage_index=0, step_key=None)
+    exp = WordHoofdstukExporter()
+    result = exp._render_figuur(img_req, project)
+    assert result is not None
+    assert result[:4] == b'\x89PNG'
