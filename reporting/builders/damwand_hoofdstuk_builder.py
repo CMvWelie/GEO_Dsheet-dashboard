@@ -80,9 +80,9 @@ class DamwandHoofdstukBuilder:
                 id=f'fase_{i + 1}_invoer',
                 title=f'Fase {kaart.fase_num}: {kaart.stage_name}',
             )
-            for rij in kaart.rows:
+            for j, rij in enumerate(kaart.rows):
                 sec.fields.append(ReportField(
-                    key=f'fase_{i + 1}_{rij.label.lower().replace(" ", "_")}',
+                    key=f'fase_{i + 1}_{j}_{rij.label.lower().replace(" ", "_")}',
                     label=rij.label,
                     value=rij.value,
                     unit=rij.extra,
