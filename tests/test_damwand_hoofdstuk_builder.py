@@ -102,3 +102,72 @@ def test_fase_secties_leeg_project() -> None:
     project = _basis_project(stages=[])
     secties = DamwandHoofdstukBuilder()._bouw_fase_secties(project)
     assert secties == []
+
+
+def _maak_summary(stage_nr: int, moment: float = 100.0) -> ResultSummary:
+    return ResultSummary(
+        stage_number=stage_nr,
+        max_moment_knm=moment,
+        max_shear_kn=80.0,
+        max_disp_mm=30.0,
+        mob_moment_pct=75.0,
+        mob_grond_pct=70.0,
+        ondersteuningen=[('Anker A', 120.0, -8.5)],
+    )
+
+
+def test_conclusietabel_sectie_id() -> None:
+    project = _basis_project(result_summaries=[_maak_summary(1)])
+    sec = DamwandHoofdstukBuilder()._bouw_conclusietabel(project)
+    assert sec.id == 'conclusietabel'
+
+
+def test_conclusietabel_bevat_tabel() -> None:
+    project = _basis_project(result_summaries=[_maak_summary(1), _maak_summary(2)])
+    sec = DamwandHoofdstukBuilder()._bouw_conclusietabel(project)
+    assert len(sec.tables) == 1
+    assert len(sec.tables[0].rows) == 2
+
+
+def test_conclusietabel_kolommen() -> None:
+    project = _basis_project(result_summaries=[_maak_summary(1)])
+    sec = DamwandHoofdstukBuilder()._bouw_conclusietabel(project)
+    kolommen = sec.tables[0].columns
+    assert 'Fase' in kolommen[0]
+    assert 'kNm' in kolommen[1]
+
+
+def test_conclusietabel_lege_summaries() -> None:
+    project = _basis_project(result_summaries=[])
+    sec = DamwandHoofdstukBuilder()._bouw_conclusietabel(project)
+    assert sec.tables == []
+
+
+def test_grafiek_secties_bevatten_twee_image_requests() -> None:
+    project = _basis_project(
+        stages=[_maak_stage('F1')],
+        result_summaries=[_maak_summary(1)],
+    )
+    secties = DamwandHoofdstukBuilder()._bouw_grafiek_secties(
+        project, governing_step_key='ULS', disp_step_key='6.5'
+    )
+    alle_images = [img for sec in secties for img in sec.images]
+    figuur_keys = {img.figure_key for img in alle_images}
+    assert 'moment_shear' in figuur_keys
+    assert 'displacement' in figuur_keys
+
+
+def test_build_geeft_vijf_sectiegroepenblokken() -> None:
+    project = _basis_project(
+        sheet_piling=[_wall()],
+        stages=[_maak_stage('F1')],
+        result_summaries=[_maak_summary(1)],
+    )
+    secties = DamwandHoofdstukBuilder().build(
+        project, governing_step_key='ULS', disp_step_key='6.5'
+    )
+    ids = [s.id for s in secties]
+    # Minstens: grondlagen (0+), damwand, fase_1_invoer, conclusietabel, grafieken
+    assert 'damwand_gegevens' in ids
+    assert 'fase_1_invoer' in ids
+    assert 'conclusietabel' in ids
