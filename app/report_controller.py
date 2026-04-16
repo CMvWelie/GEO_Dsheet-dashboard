@@ -9,7 +9,6 @@ from app.state import AppState
 from app.report_state import ReportState
 from reporting.models import ReportSection, ReportPackage
 from reporting.selection import ReportPlan
-from reporting.validation import ReportValidator, ValidationIssue
 from reporting.builders.input_description_builder import InputDescriptionBuilder, DamwandCard
 from reporting.builders.result_description_builder import ResultDescriptionBuilder
 from reporting.builders.soil_table_builder import SoilTableBuilder
@@ -26,7 +25,6 @@ class ReportController:
         self._input_builder = InputDescriptionBuilder()
         self._result_builder = ResultDescriptionBuilder()
         self._soil_builder = SoilTableBuilder()
-        self._validator = ReportValidator()
         self._excel = ExcelExporter()
         self._word = WordExporter()
 
@@ -160,13 +158,17 @@ class ReportController:
         pkg.template_word = self._report.template_word
         return pkg
 
-    # ------------------------------------------------------------------
-    # Validatie
-    # ------------------------------------------------------------------
-
-    def validate(self) -> list[ValidationIssue]:
-        """Valideer het huidige rapportpakket."""
-        return self._validator.validate(self.build_package())
+    def build_metadata(self) -> 'ReportMetadata':
+        """Geef ReportMetadata op basis van de huidige rapport-state."""
+        from reporting.models import ReportMetadata
+        rs = self._report
+        return ReportMetadata(
+            project_name=getattr(rs, 'project_name', '') or '',
+            client=getattr(rs, 'client', '') or '',
+            author=getattr(rs, 'author', '') or '',
+            date=getattr(rs, 'date', '') or '',
+            revision=getattr(rs, 'revision', '') or '',
+        )
 
     # ------------------------------------------------------------------
     # Export

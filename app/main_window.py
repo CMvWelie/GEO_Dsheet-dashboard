@@ -44,7 +44,6 @@ from ui.tabs.tab_result_view import TabResultView
 from ui.tabs.tab_result_desc import TabResultDesc
 from ui.tabs.tab_report_select import TabReportSelect
 from ui.tabs.tab_export import TabExport
-from ui.tabs.tab_validation import TabValidation
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
 from ui.preview_window import WordPreviewWindow
@@ -117,6 +116,12 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._tab_instellingen.set_template_path(
             self._state.app_settings.word_template_path
+        )
+        self._tab_instellingen.set_import_map(
+            self._state.app_settings.standaard_importmap
+        )
+        self._tab_result_view.set_breedte(
+            self._state.render_settings.resultaat_half_breedte_m * 2
         )
         self._sync_render_spinboxes(self._state.render_settings)
         self._sync_viewport_spinboxes(self._state.viewport_settings)
@@ -192,18 +197,14 @@ class MainWindow(QMainWindow):
         self._tab_export = TabExport()
         self._main_tabs.addTab(self._tab_export, 'Export')
 
-        # Tab 5: Validatie
-        self._tab_validation = TabValidation()
-        self._main_tabs.addTab(self._tab_validation, 'Validatie')
-
-        # Tab 6: Instellingen
+        # Tab 5: Instellingen
         self._tab_instellingen = TabInstellingen()
         self._main_tabs.addTab(self._tab_instellingen, 'Instellingen')
 
         root_layout.addWidget(self._main_tabs, stretch=1)
 
     def _build_project_corner(self) -> QWidget:
-        """Project-selector als corner-widget in de tab-balk."""
+        """Project-selector + export-knop als corner-widget in de tab-balk."""
         corner = QWidget()
         layout = QHBoxLayout(corner)
         layout.setContentsMargins(4, 2, 8, 2)
@@ -214,6 +215,10 @@ class MainWindow(QMainWindow):
         self._project_combo = QComboBox()
         self._project_combo.setMinimumWidth(160)
         layout.addWidget(self._project_combo)
+        self._btn_export_rapport = QPushButton('Exporteer rapport (Word)')
+        self._btn_export_rapport.setStyleSheet(_BTN_PRIMARY)
+        self._btn_export_rapport.setEnabled(False)
+        layout.addWidget(self._btn_export_rapport)
         return corner
 
     # ------------------------------------------------------------------
@@ -225,6 +230,7 @@ class MainWindow(QMainWindow):
         self._tab_import.project_selected.connect(self._on_list_project_selected)
         self._tab_import.remove_requested.connect(self._on_remove_project)
         self._tab_export.export_png_requested.connect(self._on_export_png)
+        self._btn_export_rapport.clicked.connect(self._on_export_hoofdstuk)
 
         self._project_combo.currentIndexChanged.connect(self._on_project_changed)
         self._tab_input_view.stage_tabs.currentChanged.connect(self._on_stage_changed)
@@ -232,6 +238,8 @@ class MainWindow(QMainWindow):
             self._on_output_stage_changed)
         self._tab_result_view.result_step_combo.currentIndexChanged.connect(
             self._on_result_step_changed)
+        self._tab_result_view.breedte_slider.valueChanged.connect(
+            self._on_resultaat_breedte_changed)
 
         self._tab_input_view.auto_check.toggled.connect(self._on_viewport_change)
         for sp in [self._tab_input_view.xmin_spin, self._tab_input_view.xmax_spin,
@@ -265,7 +273,6 @@ class MainWindow(QMainWindow):
         self._tab_export.export_word_requested.connect(self._on_export_word)
         self._tab_export.word_template_changed.connect(
             self._report_controller.set_template_word)
-        self._tab_validation.validate_requested.connect(self._on_validate)
         self._tab_report_context.metadata_changed.connect(self._on_metadata_changed)
         self._tab_input_desc.override_changed.connect(self._on_override_changed)
         self._tab_report_select.set_plan(self._report_state.plan)
@@ -274,16 +281,21 @@ class MainWindow(QMainWindow):
         self._tab_instellingen.template_path_changed.connect(
             self._on_template_path_changed
         )
-        self._tab_instellingen.preview_open_requested.connect(
+        self._tab_instellingen.import_map_changed.connect(
+            self._on_import_map_changed
+        )
+        self._tab_report_select.preview_open_requested.connect(
             self._on_preview_open
         )
+        self._tab_report_select.selection_changed.connect(self._update_preview)
 
     # ------------------------------------------------------------------
     # Event handlers
     # ------------------------------------------------------------------
     def _on_import(self) -> None:
+        startmap = self._state.app_settings.standaard_importmap or ''
         paths, _ = QFileDialog.getOpenFileNames(
-            self, 'Selecteer D-Sheet bestanden', '',
+            self, 'Selecteer D-Sheet bestanden', startmap,
             'D-Sheet bestanden (*.shi *.shd *.shs);;Alle bestanden (*)'
         )
         self._ingest_paths(paths)
@@ -471,6 +483,7 @@ class MainWindow(QMainWindow):
             fs_damwand=iv.fs_damwand.value(),
             fs_assen=iv.fs_assen.value(),
             fs_titel=iv.fs_titel.value(),
+            resultaat_half_breedte_m=self._tab_result_view.breedte_slider.value() / 2.0,
         )
 
     def _sync_viewport_spinboxes(self, vp: ViewportSettings) -> None:
@@ -504,6 +517,7 @@ class MainWindow(QMainWindow):
             sp.blockSignals(True)
             sp.setValue(val)
             sp.blockSignals(False)
+        self._tab_result_view.set_breedte(rs.resultaat_half_breedte_m * 2)
 
     # ------------------------------------------------------------------
     # Parseren
@@ -621,6 +635,7 @@ class MainWindow(QMainWindow):
     # Rendering
     # ------------------------------------------------------------------
     def _update_all(self) -> None:
+        self._btn_export_rapport.setEnabled(bool(self._state.projects))
         self._update_render_views()
         self._refresh_active_report_tab()
         self._update_preview()
@@ -746,13 +761,69 @@ class MainWindow(QMainWindow):
         else:
             self._tab_export.word_tab.set_status(f'Geëxporteerd naar {output_path}', ok=True)
 
-    def _on_validate(self) -> None:
-        issues = self._report_controller.validate()
-        self._tab_validation.populate(issues)
+    def _on_export_hoofdstuk(self) -> None:
+        """Exporteer het actieve project als Word-rapport."""
+        from reporting.builders.damwand_hoofdstuk_builder import DamwandHoofdstukBuilder
+        from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
+        from reporting.models import ReportMetadata
+
+        project = self._state.get_active_project()
+        if not project:
+            QMessageBox.warning(self, 'Exporteer rapport', 'Geen actief project geladen.')
+            return
+
+        stap_sleutels = list(project.result_steps.keys())
+        governing_step_key = stap_sleutels[0] if stap_sleutels else None
+        disp_step_key = next((k for k in stap_sleutels if '6.5' in k), None)
+        if disp_step_key is None and stap_sleutels:
+            QMessageBox.warning(
+                self, 'Exporteer rapport',
+                'Geen resultaatstap met "6.5" gevonden. '
+                'Vervormingsgrafiek wordt weggelaten.',
+            )
+
+        pad, _ = QFileDialog.getSaveFileName(
+            self, 'Sla rapport op', f'{project.base_name}_rapport.docx',
+            'Word-document (*.docx)',
+        )
+        if not pad:
+            return
+
+        secties = DamwandHoofdstukBuilder().build(project, governing_step_key, disp_step_key)
+        metadata = self._report_controller.build_metadata()
+        template_pad = self._state.app_settings.word_template_path or 'templates/damwand_stijlen.docx'
+        fout = WordHoofdstukExporter().export(
+            sections=secties,
+            metadata=metadata,
+            project=project,
+            template_path=template_pad,
+            output_path=pad,
+        )
+        if fout:
+            QMessageBox.warning(self, 'Exporteer rapport', f'Export mislukt:\n{fout}')
+        else:
+            QMessageBox.information(self, 'Exporteer rapport', f'Rapport opgeslagen:\n{pad}')
 
     def _on_template_path_changed(self, pad: str) -> None:
         """Sla gewijzigd template-pad op in state en config."""
-        self._controller.apply_app_settings(AppSettings(word_template_path=pad))
+        huidig = self._state.app_settings
+        self._controller.apply_app_settings(AppSettings(
+            word_template_path=pad,
+            standaard_importmap=huidig.standaard_importmap,
+        ))
+
+    def _on_resultaat_breedte_changed(self, _: int) -> None:
+        """Slider voor zichtbare breedte resultaatgrafieken is gewijzigd."""
+        self._controller.apply_render_settings(self._read_render())
+        self._render_results()
+
+    def _on_import_map_changed(self, pad: str) -> None:
+        """Sla gewijzigde standaard importmap op in state en config."""
+        huidig = self._state.app_settings
+        self._controller.apply_app_settings(AppSettings(
+            word_template_path=huidig.word_template_path,
+            standaard_importmap=pad,
+        ))
 
     def _on_preview_open(self) -> None:
         """Open het preview-venster en render direct."""
