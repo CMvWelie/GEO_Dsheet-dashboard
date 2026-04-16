@@ -70,3 +70,35 @@ def test_damwand_sectie_geen_damwand_geeft_lege_fields() -> None:
     project = _basis_project(sheet_piling=[])
     sec = DamwandHoofdstukBuilder()._bouw_damwand_sectie(project)
     assert sec.fields == []
+
+
+def _maak_stage(naam: str) -> Stage:
+    return Stage(name=naam, left_surface='MV', right_surface='MV',
+                 left_water='GWS', right_water='GWS',
+                 left_profile='Links', right_profile='Rechts')
+
+
+def test_fase_secties_één_per_fase() -> None:
+    project = _basis_project(stages=[_maak_stage('Fase 1'), _maak_stage('Fase 2')])
+    secties = DamwandHoofdstukBuilder()._bouw_fase_secties(project)
+    assert len(secties) == 2
+
+
+def test_fase_sectie_id_bevat_fasenummer() -> None:
+    project = _basis_project(stages=[_maak_stage('Fase 1')])
+    secties = DamwandHoofdstukBuilder()._bouw_fase_secties(project)
+    assert 'fase_1' in secties[0].id
+
+
+def test_fase_sectie_bevat_image_request() -> None:
+    project = _basis_project(stages=[_maak_stage('Fase 1')])
+    secties = DamwandHoofdstukBuilder()._bouw_fase_secties(project)
+    assert len(secties[0].images) == 1
+    assert secties[0].images[0].figure_key == 'section'
+    assert secties[0].images[0].stage_index == 0
+
+
+def test_fase_secties_leeg_project() -> None:
+    project = _basis_project(stages=[])
+    secties = DamwandHoofdstukBuilder()._bouw_fase_secties(project)
+    assert secties == []

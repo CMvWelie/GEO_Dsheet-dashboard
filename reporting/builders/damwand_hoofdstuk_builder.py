@@ -54,3 +54,45 @@ class DamwandHoofdstukBuilder:
             ReportField('lengte',            'Lengte',                      lengte_str,                         'm'),
         ]
         return sec
+
+    # ------------------------------------------------------------------
+    # Sectie 3: Invoer per fase
+    # ------------------------------------------------------------------
+
+    def _bouw_fase_secties(self, project: Project) -> list[ReportSection]:
+        """Bouw één ReportSection per constructiefase, inclusief een figuurverzoek.
+
+        Parameters
+        ----------
+        project:
+            Actief project met een of meer fases.
+
+        Returns
+        -------
+        list[ReportSection]
+            Lijst van secties, één per fase; leeg als het project geen fases heeft.
+        """
+        idb = InputDescriptionBuilder()
+        kaarten = idb.build_all_stages(project)
+        secties: list[ReportSection] = []
+        for i, kaart in enumerate(kaarten):
+            sec = ReportSection(
+                id=f'fase_{i + 1}_invoer',
+                title=f'Fase {kaart.fase_num}: {kaart.stage_name}',
+            )
+            for rij in kaart.rows:
+                sec.fields.append(ReportField(
+                    key=f'fase_{i + 1}_{rij.label.lower().replace(" ", "_")}',
+                    label=rij.label,
+                    value=rij.value,
+                    unit=rij.extra,
+                ))
+            sec.images.append(ReportImageRequest(
+                id=f'fase_{i + 1}_doorsnede',
+                caption=f'Dwarsdoorsnede fase {kaart.fase_num}',
+                figure_key='section',
+                stage_index=i,
+                step_key=None,
+            ))
+            secties.append(sec)
+        return secties
