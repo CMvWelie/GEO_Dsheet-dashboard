@@ -7,12 +7,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal
 
-_BTN_PRIMARY = (
-    'QPushButton { background: #245b7a; color: white; border: 1px solid #1a4560; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 600; } '
-    'QPushButton:hover { background: #1a4560; } '
-    'QPushButton:pressed { background: #122f42; }'
-)
 _BTN_NORMAL = (
     'QPushButton { background: white; color: #2c3e50; border: 1px solid #aabdca; '
     'border-radius: 5px; padding: 4px 10px; font-size: 11px; } '
@@ -32,8 +26,8 @@ class TabInstellingen(QWidget):
     template_path_changed = pyqtSignal(str)
     """Afgegeven zodra het Word-template-pad wijzigt (ook bij wissen)."""
 
-    preview_open_requested = pyqtSignal()
-    """Afgegeven als de gebruiker op 'Preview openen' klikt."""
+    import_map_changed = pyqtSignal(str)
+    """Afgegeven zodra de standaard importmap wijzigt (ook bij wissen)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -81,30 +75,58 @@ class TabInstellingen(QWidget):
         tmpl_vl.addWidget(hint)
         root.addWidget(tmpl_box)
 
-        # ── Groep: Preview-venster ────────────────────────────────────
-        prev_box = QGroupBox('Preview-venster')
-        prev_vl = QVBoxLayout(prev_box)
-        prev_vl.setSpacing(6)
+        # ── Groep: Import-instellingen ────────────────────────────────
+        imp_box = QGroupBox('Import-instellingen')
+        imp_vl = QVBoxLayout(imp_box)
+        imp_vl.setSpacing(6)
 
-        prev_rij = QHBoxLayout()
-        open_btn = QPushButton('↗ Preview openen')
-        open_btn.setStyleSheet(_BTN_PRIMARY)
-        open_btn.clicked.connect(self.preview_open_requested)
+        imp_lbl = QLabel('Standaard importmap')
+        imp_lbl.setStyleSheet('font-size: 11px; color: #444;')
 
-        prev_hint = QLabel('Opent een zwevend Word-preview venster naast de applicatie')
-        prev_hint.setStyleSheet('font-size: 10px; color: #666;')
+        imp_rij = QHBoxLayout()
+        self._import_map_edit = QLineEdit()
+        self._import_map_edit.setPlaceholderText('Map om import-dialoog in te openen… (optioneel)')
+        self._import_map_edit.textChanged.connect(self.import_map_changed)
 
-        prev_rij.addWidget(open_btn)
-        prev_rij.addWidget(prev_hint)
-        prev_rij.addStretch()
-        prev_vl.addLayout(prev_rij)
-        root.addWidget(prev_box)
+        imp_bladeren_btn = QPushButton('Bladeren…')
+        imp_bladeren_btn.setStyleSheet(_BTN_NORMAL)
+        imp_bladeren_btn.clicked.connect(self._on_bladeren_importmap)
+
+        imp_wis_btn = QPushButton('✕')
+        imp_wis_btn.setStyleSheet(_BTN_CLEAR)
+        imp_wis_btn.setFixedWidth(28)
+        imp_wis_btn.setToolTip('Verwijder standaard importmap')
+        imp_wis_btn.clicked.connect(self._on_wis_importmap)
+
+        imp_rij.addWidget(self._import_map_edit)
+        imp_rij.addWidget(imp_bladeren_btn)
+        imp_rij.addWidget(imp_wis_btn)
+
+        imp_hint = QLabel('Het importeer-dialoogvenster opent voortaan in deze map')
+        imp_hint.setStyleSheet('font-size: 10px; color: #888; font-style: italic;')
+
+        imp_vl.addWidget(imp_lbl)
+        imp_vl.addLayout(imp_rij)
+        imp_vl.addWidget(imp_hint)
+        root.addWidget(imp_box)
 
         root.addStretch()
 
     # ------------------------------------------------------------------
     # Publieke API
     # ------------------------------------------------------------------
+
+    def set_import_map(self, pad: str) -> None:
+        """Toon een opgeslagen importmap zonder een signal af te geven.
+
+        Parameters
+        ----------
+        pad:
+            Te tonen mappad (leeg = veld wissen).
+        """
+        self._import_map_edit.blockSignals(True)
+        self._import_map_edit.setText(pad)
+        self._import_map_edit.blockSignals(False)
 
     def set_template_path(self, pad: str) -> None:
         """Toon een opgeslagen template-pad zonder een signal af te geven.
@@ -131,3 +153,14 @@ class TabInstellingen(QWidget):
 
     def _on_wis_template(self) -> None:
         self._template_edit.clear()
+
+    def _on_bladeren_importmap(self) -> None:
+        map_pad = QFileDialog.getExistingDirectory(
+            self, 'Selecteer standaard importmap',
+            self._import_map_edit.text() or '',
+        )
+        if map_pad:
+            self._import_map_edit.setText(map_pad)
+
+    def _on_wis_importmap(self) -> None:
+        self._import_map_edit.clear()

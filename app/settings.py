@@ -33,6 +33,10 @@ class RenderSettings:
     """As-labels en tick-labels."""
     fs_titel: float = 12.0
 
+    # Resultaatgrafieken
+    resultaat_half_breedte_m: float = 10.0
+    """Halve zichtbare breedte in meters voor resultaatgrafieken, gecentreerd op de damwand."""
+
 
 @dataclass
 class ViewportSettings:
@@ -50,3 +54,5 @@ class AppSettings:
     """Algemene applicatie-instellingen."""
     word_template_path: str = ''
     """Pad naar het Word-sjabloon (.dotx, ook .docx ondersteund); leeg = geen sjabloon."""
+    standaard_importmap: str = ''
+    """Standaard startmap voor het importeer-dialoogvenster; leeg = systeemstandaard."""

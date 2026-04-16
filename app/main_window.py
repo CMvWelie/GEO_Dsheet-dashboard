@@ -37,7 +37,6 @@ from app.report_state import ReportState
 from app.report_controller import ReportController
 from ui.info_panel import InfoPanel
 from ui.tabs.tab_report_context import TabReportContext
-from ui.tabs.tab_import import TabImport
 from ui.tabs.tab_input_view import TabInputView
 from ui.tabs.tab_input_desc import TabInputDesc
 from ui.tabs.tab_result_view import TabResultView
@@ -160,15 +159,11 @@ class MainWindow(QMainWindow):
             self._build_project_corner(), Qt.Corner.TopRightCorner
         )
 
-        # Tab 0: Rapportcontext
+        # Tab 0: Rapportcontext (gecombineerd met import)
         self._tab_report_context = TabReportContext()
         self._main_tabs.addTab(self._tab_report_context, 'Rapportcontext')
 
-        # Tab 1: Import
-        self._tab_import = TabImport()
-        self._main_tabs.addTab(self._tab_import, 'Import')
-
-        # Tab 2A: Doorsnede
+        # Tab 1: Doorsnede
         self._tab_input_view = TabInputView()
         self._info_panel = InfoPanel()
         self._main_tabs.addTab(self._tab_input_view, 'Doorsnede')
@@ -225,18 +220,18 @@ class MainWindow(QMainWindow):
     # Signaalverbindingen
     # ------------------------------------------------------------------
     def _connect_signals(self) -> None:
-        self._tab_import.import_btn.clicked.connect(self._on_import)
-        self._tab_import.reset_btn.clicked.connect(self._on_reset)
-        self._tab_import.project_selected.connect(self._on_list_project_selected)
-        self._tab_import.remove_requested.connect(self._on_remove_project)
+        self._tab_report_context.import_btn.clicked.connect(self._on_import)
+        self._tab_report_context.reset_btn.clicked.connect(self._on_reset)
+        self._tab_report_context.project_selected.connect(self._on_list_project_selected)
+        self._tab_report_context.remove_requested.connect(self._on_remove_project)
         self._tab_export.export_png_requested.connect(self._on_export_png)
         self._btn_export_rapport.clicked.connect(self._on_export_hoofdstuk)
 
         self._project_combo.currentIndexChanged.connect(self._on_project_changed)
         self._tab_input_view.stage_tabs.currentChanged.connect(self._on_stage_changed)
-        self._tab_result_view.output_stage_combo.currentIndexChanged.connect(
+        self._tab_result_view.output_stage_tabs.currentChanged.connect(
             self._on_output_stage_changed)
-        self._tab_result_view.result_step_combo.currentIndexChanged.connect(
+        self._tab_result_view.result_step_tabs.currentChanged.connect(
             self._on_result_step_changed)
         self._tab_result_view.breedte_slider.valueChanged.connect(
             self._on_resultaat_breedte_changed)
@@ -309,7 +304,7 @@ class MainWindow(QMainWindow):
         self._parse_files()
 
     def _refresh_files_list(self) -> None:
-        self._tab_import.refresh_projects(self._state.projects)
+        self._tab_report_context.refresh_projects(self._state.projects)
 
     def _on_process(self) -> None:
         if not self._state.raw_files:
@@ -319,18 +314,18 @@ class MainWindow(QMainWindow):
             self._parse_files()
         except Exception as exc:
             QMessageBox.critical(self, 'Parseer-fout', str(exc))
-            self._tab_import.status_widget.set_status('err', 'Parseer-fout', str(exc))
+            self._tab_report_context.status_widget.set_status('err', 'Parseer-fout', str(exc))
 
     def _on_reset(self) -> None:
         self._controller.reset()
-        self._tab_import.refresh_projects({})
+        self._tab_report_context.refresh_projects({})
         self._project_combo.blockSignals(True)
         self._project_combo.clear()
         self._project_combo.blockSignals(False)
         self._populate_stage_tabs()
-        self._tab_result_view.output_stage_combo.clear()
-        self._tab_result_view.result_step_combo.clear()
-        self._tab_import.status_widget.set_status('idle', 'Gereed', 'Reset voltooid.')
+        self._tab_result_view.clear_output_stages()
+        self._tab_result_view.clear_result_steps()
+        self._tab_report_context.status_widget.set_status('idle', 'Gereed', 'Reset voltooid.')
         self._tab_input_view.section_ax.cla()
         self._tab_input_view.section_canvas.draw()
         self._tab_result_view.results_fig.clear()
@@ -341,7 +336,7 @@ class MainWindow(QMainWindow):
         key = self._project_combo.currentData()
         if key and key in self._state.projects:
             self._controller.set_active_project(key)
-            self._tab_import.select_project(key)
+            self._tab_report_context.select_project(key)
             self._populate_stage_tabs()
             self._populate_output_stage_combo()
             self._populate_result_step_combo()
@@ -372,7 +367,7 @@ class MainWindow(QMainWindow):
         self._project_combo.blockSignals(False)
         self._refresh_files_list()
         if self._state.active_project:
-            self._tab_import.select_project(self._state.active_project)
+            self._tab_report_context.select_project(self._state.active_project)
             idx = self._project_combo.findData(self._state.active_project)
             if idx >= 0:
                 self._project_combo.blockSignals(True)
@@ -382,18 +377,18 @@ class MainWindow(QMainWindow):
             self._populate_output_stage_combo()
             self._populate_result_step_combo()
             self._update_all()
-            self._tab_import.status_widget.set_status(
+            self._tab_report_context.status_widget.set_status(
                 'ok', 'Project verwijderd', f'"{base_name}" is verwijderd.')
         else:
             self._populate_stage_tabs()
-            self._tab_result_view.output_stage_combo.clear()
-            self._tab_result_view.result_step_combo.clear()
+            self._tab_result_view.clear_output_stages()
+            self._tab_result_view.clear_result_steps()
             self._tab_input_view.section_ax.cla()
             self._tab_input_view.section_canvas.draw()
             self._tab_result_view.results_fig.clear()
             self._tab_result_view.results_canvas.draw()
             self._clear_info()
-            self._tab_import.status_widget.set_status(
+            self._tab_report_context.status_widget.set_status(
                 'idle', 'Gereed', 'Alle projecten verwijderd.')
 
     def _on_stage_changed(self, index: int) -> None:
@@ -407,7 +402,7 @@ class MainWindow(QMainWindow):
 
     def _on_result_step_changed(self, _index: int) -> None:
         self._controller.set_active_result_step(
-            self._tab_result_view.result_step_combo.currentData() or None)
+            self._tab_result_view.current_result_step_key())
         self._render_results()
 
     def _on_viewport_change(self) -> None:
@@ -528,7 +523,7 @@ class MainWindow(QMainWindow):
     def _parse_files(self) -> None:
         ok, msg = self._controller.process_files()
         if not ok:
-            self._tab_import.status_widget.set_status('err', 'Geen projecten', msg)
+            self._tab_report_context.status_widget.set_status('err', 'Geen projecten', msg)
             return
 
         self._project_combo.blockSignals(True)
@@ -539,7 +534,7 @@ class MainWindow(QMainWindow):
 
         self._refresh_files_list()
         if self._state.active_project:
-            self._tab_import.select_project(self._state.active_project)
+            self._tab_report_context.select_project(self._state.active_project)
 
         self._populate_stage_tabs()
         self._populate_output_stage_combo()
@@ -550,7 +545,7 @@ class MainWindow(QMainWindow):
         self._report_controller.auto_populate_plan()
         self._tab_report_select.set_plan(self._report_state.plan)
 
-        self._tab_import.status_widget.set_status('ok', 'Parser gereed', msg)
+        self._tab_report_context.status_widget.set_status('ok', 'Parser gereed', msg)
         self._controller.save_config()
 
     def _populate_stage_tabs(self) -> None:
@@ -600,33 +595,25 @@ class MainWindow(QMainWindow):
 
     def _populate_output_stage_combo(self) -> None:
         project = self._state.get_active_project()
-        combo = self._tab_result_view.output_stage_combo
-        combo.blockSignals(True)
-        combo.clear()
         if project:
-            for i, st in enumerate(project.stages):
-                combo.addItem(st.name or f'Fase {i + 1}')
-        combo.blockSignals(False)
+            namen = [st.name or f'Fase {i + 1}' for i, st in enumerate(project.stages)]
+            self._tab_result_view.populate_output_stages(namen)
+        else:
+            self._tab_result_view.clear_output_stages()
 
     def _populate_result_step_combo(self) -> None:
         project = self._state.get_active_project()
-        combo = self._tab_result_view.result_step_combo
-        combo.blockSignals(True)
-        combo.clear()
         if project and project.result_steps:
             keys = sorted(project.result_steps.keys(),
                            key=lambda k: self._result_step_sort(k))
-            for k in keys:
-                label = k.replace('x factor', 'x 1.2')
-                combo.addItem(label, userData=k)
+            labels = [k.replace('x factor', 'x 1.2') for k in keys]
             if not self._state.active_result_step:
                 default_key = '6.1' if '6.1' in keys else (keys[0] if keys else None)
                 self._controller.set_active_result_step(default_key)
-            if self._state.active_result_step:
-                idx = combo.findData(self._state.active_result_step)
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
-        combo.blockSignals(False)
+            self._tab_result_view.populate_result_steps(
+                keys, labels, actief=self._state.active_result_step)
+        else:
+            self._tab_result_view.clear_result_steps()
 
     def _result_step_sort(self, step: str) -> float:
         return AppController._result_step_sort(step)
@@ -678,7 +665,7 @@ class MainWindow(QMainWindow):
         err = self._controller.render_section(ax, fig)
         canvas.draw()
         if err:
-            self._tab_import.status_widget.set_status('err', 'Renderfout', err)
+            self._tab_report_context.status_widget.set_status('err', 'Renderfout', err)
 
     def _render_results(self) -> None:
         project = self._state.get_active_project()
@@ -698,7 +685,7 @@ class MainWindow(QMainWindow):
         err = self._controller.render_results(fig)
         canvas.draw()
         if err:
-            self._tab_import.status_widget.set_status('warn', 'Resultaatfout', err)
+            self._tab_report_context.status_widget.set_status('warn', 'Resultaatfout', err)
 
     def _clear_info(self) -> None:
         self._info_panel.clear()

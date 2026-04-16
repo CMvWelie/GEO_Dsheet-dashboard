@@ -49,49 +49,36 @@ class TabGrondsoorten(QWidget):
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(8)
 
-        # ── Toolbar ──────────────────────────────────────────────────────
-        toolbar = QWidget()
-        toolbar.setStyleSheet(f'background: {_HDR_BG};')
-        toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(12, 8, 12, 8)
-        toolbar_layout.setSpacing(8)
+        # ── Profielkeuze ─────────────────────────────────────────────────
+        ctrl_row = QHBoxLayout()
+        ctrl_row.setSpacing(8)
 
         lbl = QLabel('Profiel:')
-        lbl.setStyleSheet(
-            f'color: {_HDR_FG}; font-family: {_FONT}; font-size: 13px; font-weight: 600;'
-        )
-        toolbar_layout.addWidget(lbl)
+        ctrl_row.addWidget(lbl)
 
         self._profiel_combo = QComboBox()
         self._profiel_combo.setMinimumWidth(260)
-        self._profiel_combo.setStyleSheet(
-            'QComboBox { background: white; color: #1b3a5c; '
-            'border: 1px solid #c4d4e0; border-radius: 4px; padding: 4px 8px; font-size: 12px; }'
-            'QComboBox::drop-down { border: none; }'
-        )
-        toolbar_layout.addWidget(self._profiel_combo)
-        toolbar_layout.addStretch()
+        ctrl_row.addWidget(self._profiel_combo)
+        ctrl_row.addStretch()
 
-        root.addWidget(toolbar)
+        root.addLayout(ctrl_row)
 
         # ── Scrollgebied ─────────────────────────────────────────────────
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet(f'QScrollArea {{ background: {_SCROLL_BG}; border: none; }}')
 
         self._content = QWidget()
-        self._content.setStyleSheet(f'background: {_SCROLL_BG};')
         self._content_layout = QVBoxLayout(self._content)
-        self._content_layout.setContentsMargins(16, 16, 16, 16)
+        self._content_layout.setContentsMargins(0, 0, 0, 0)
         self._content_layout.setSpacing(0)
         self._content_layout.addStretch()
 
         scroll.setWidget(self._content)
-        root.addWidget(scroll)
+        root.addWidget(scroll, stretch=1)
 
         # ── Signalen ─────────────────────────────────────────────────────
         self._profiel_combo.currentIndexChanged.connect(self._on_profiel_changed)
@@ -148,6 +135,9 @@ class TabGrondsoorten(QWidget):
         profiel = self._project.profiles[index]
         soil_map = {s.name: s for s in self._project.soils}
 
+        intro = self._maak_intro_tekst()
+        self._content_layout.insertWidget(self._content_layout.count() - 1, intro)
+
         tabel = self._maak_tabel(profiel, soil_map)
         self._content_layout.insertWidget(self._content_layout.count() - 1, tabel)
 
@@ -169,6 +159,22 @@ class TabGrondsoorten(QWidget):
     # ------------------------------------------------------------------
     # Tabelopbouw
     # ------------------------------------------------------------------
+
+    def _maak_intro_tekst(self) -> QWidget:
+        """Toelichting boven de grondsoortentabel."""
+        tekst = (
+            'In de onderstaande tabel zijn de sterkteparameters opgenomen die meegenomen zijn '
+            'in de toetsing en dimensionering van de damwand. De grondopbouw en bijbehorende '
+            'grondparameters zijn bepaald met behulp van NEN-EN\u00a01997-1:2025/NB '
+            'tabel\u00a02.b karakteristieke waarde van grondeigenschappen.'
+        )
+        lbl = QLabel(tekst)
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(
+            f'font-family: {_FONT}; font-size: 12px; color: {_LABEL_CLR}; '
+            f'background: transparent; padding: 0px 4px 12px 4px;'
+        )
+        return lbl
 
     def _maak_tabel(self, profiel: SoilProfile, soil_map: dict) -> QWidget:
         """Maak een volledig gestijlde tabelframe voor één profiel.

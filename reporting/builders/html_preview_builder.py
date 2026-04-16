@@ -70,6 +70,8 @@ class HtmlPreviewBuilder:
 
         secties: list[str] = []
         for item in package.selected_items:
+            if not item.included_word:
+                continue
             sec = alle_secties.get(item.source_ref)
             if sec is not None:
                 secties.append(self._sectie_html(sec))

@@ -25,11 +25,6 @@ class ReportPlan:
             # Zet source_ref alsnog bij bestaande items zonder ref (migratie)
             bestaand.source_ref = item.source_ref
 
-    def remove_item(self, item_id: str) -> None:
-        """Verwijder item op id."""
-        self.items = [i for i in self.items if i.id != item_id]
-        self._renumber()
-
     def reorder(self, item_id: str, new_order: int) -> None:
         """Verplaats item naar nieuwe positie (0-gebaseerd)."""
         item = next((i for i in self.items if i.id == item_id), None)

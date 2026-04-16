@@ -17,7 +17,10 @@
       "Bash(python -c \"from ui.tabs.tab_grondsoorten import TabGrondsoorten; print\\('OK'\\)\")",
       "Bash(python -c \"from app.main_window import MainWindow; print\\('OK'\\)\")",
       "Bash(pytest tests/test_parsers.py -v)",
-      "Bash(python -c \"from ui.tabs.tab_result_desc import TabResultDesc; print\\('OK'\\)\")"
+      "Bash(python -c \"from ui.tabs.tab_result_desc import TabResultDesc; print\\('OK'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python *)",
+      "Bash(pytest tests/test_damwand_hoofdstuk_builder.py -v)"
     ]
   }
 }

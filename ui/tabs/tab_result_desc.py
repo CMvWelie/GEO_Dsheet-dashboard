@@ -3,7 +3,7 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame, QLabel,
-    QGroupBox, QComboBox, QGridLayout, QSizePolicy,
+    QGroupBox, QComboBox, QGridLayout, QSizePolicy, QTabWidget,
 )
 from PyQt6.QtCore import Qt
 
@@ -35,48 +35,34 @@ class TabResultDesc(QWidget):
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(8)
 
-        # Toolbar met fase-combo
-        toolbar = QWidget()
-        toolbar.setStyleSheet(f'background: {_HDR_BG};')
-        tb_lay = QHBoxLayout(toolbar)
-        tb_lay.setContentsMargins(12, 8, 12, 8)
-        tb_lay.setSpacing(8)
-
-        lbl = QLabel('Fase:')
-        lbl.setStyleSheet(
-            f'color: {_HDR_FG}; font-family: {_FONT}; font-size: 13px; font-weight: 600;'
-        )
-        tb_lay.addWidget(lbl)
+        # Fase-keuze
+        ctrl_row = QHBoxLayout()
+        ctrl_row.setSpacing(8)
+        ctrl_row.addWidget(QLabel('Fase:'))
 
         self._fase_combo = QComboBox()
         self._fase_combo.setMinimumWidth(200)
-        self._fase_combo.setStyleSheet(
-            'QComboBox { background: white; color: #1b3a5c; '
-            'border: 1px solid #c4d4e0; border-radius: 4px; padding: 4px 8px; font-size: 12px; }'
-        )
-        tb_lay.addWidget(self._fase_combo)
-        tb_lay.addStretch()
+        ctrl_row.addWidget(self._fase_combo)
+        ctrl_row.addStretch()
 
-        root.addWidget(toolbar)
+        root.addLayout(ctrl_row)
 
         # Scrollgebied
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet(f'QScrollArea {{ background: {_SCROLL_BG}; border: none; }}')
 
         self._content = QWidget()
-        self._content.setStyleSheet(f'background: {_SCROLL_BG};')
         self._main_layout = QVBoxLayout(self._content)
-        self._main_layout.setContentsMargins(16, 16, 16, 16)
+        self._main_layout.setContentsMargins(0, 0, 0, 0)
         self._main_layout.setSpacing(12)
         self._main_layout.addStretch()
 
         scroll.setWidget(self._content)
-        root.addWidget(scroll)
+        root.addWidget(scroll, stretch=1)
 
         self._fase_combo.currentIndexChanged.connect(self._on_fase_changed)
 
@@ -126,20 +112,79 @@ class TabResultDesc(QWidget):
                 'QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }'
             )
             vl = QVBoxLayout(box)
+            vl.setContentsMargins(0, 4, 0, 0)
+            vl.setSpacing(6)
             for field in sec.fields:
                 val = f'{field.value} {field.unit}'.strip() if field.unit else field.value
-                vl.addWidget(QLabel(f'<b>{field.label}:</b> {val}'))
-            for table in sec.tables:
-                vl.addWidget(QLabel(f'<b>{table.title}</b>'))
-                header = ' | '.join(table.columns)
-                vl.addWidget(QLabel(f'<i>{header}</i>'))
-                for row in table.rows:
-                    vl.addWidget(QLabel('  ' + ' | '.join(row)))
+                lbl = QLabel(f'<b>{field.label}:</b> {val}')
+                lbl.setStyleSheet('padding: 0 8px;')
+                vl.addWidget(lbl)
+            if len(sec.tables) > 1:
+                tabs = QTabWidget()
+                tabs.setDocumentMode(True)
+                for table in sec.tables:
+                    tabs.addTab(self._maak_styled_tabel(table), table.title)
+                vl.addWidget(tabs)
+            else:
+                for table in sec.tables:
+                    vl.addWidget(self._maak_styled_tabel(table))
             self._main_layout.insertWidget(self._main_layout.count() - 1, box)
 
     # ------------------------------------------------------------------
     # Intern
     # ------------------------------------------------------------------
+
+    def _maak_styled_tabel(self, table) -> QWidget:
+        """Rendert een ReportTable als gestijlde grid-tabel, op inhoudsbreedte."""
+        wrapper = QWidget()
+        wrapper.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+        buitenste = QHBoxLayout(wrapper)
+        buitenste.setContentsMargins(0, 0, 0, 0)
+        buitenste.setSpacing(0)
+
+        frame = QFrame()
+        frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')
+        frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum)
+        buitenste.addWidget(frame)
+        buitenste.addStretch()
+
+        # Één grid voor header + alle datarijen — kolommen lopen door over alle rijen
+        grid = QGridLayout(frame)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+
+        n_cols = len(table.columns)
+
+        # Kolomhoofden (grid-rij 0)
+        for col, kop in enumerate(table.columns):
+            lbl = QLabel(kop)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            border_r = 'border-right: 1px solid #1d4568;' if col < n_cols - 1 else ''
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
+                f'color: #b8d4ea; background: {_HDR_BG}; '
+                f'padding: 6px 10px; {border_r}'
+            )
+            grid.addWidget(lbl, 0, col)
+
+        # Datarijen (grid-rij 1+)
+        for row_i, rij in enumerate(table.rows):
+            bg = _ROW_ODD_BG if row_i % 2 == 0 else _ROW_EVN_BG
+            is_last = row_i == len(table.rows) - 1
+            border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
+            for col, cel in enumerate(rij):
+                uitlijning = (Qt.AlignmentFlag.AlignLeft if col == 0
+                              else Qt.AlignmentFlag.AlignRight)
+                cel_lbl = QLabel(cel)
+                cel_lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+                border_r = f'border-right: 1px solid {_ROW_SEP};' if col < n_cols - 1 else ''
+                cel_lbl.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: 12px; color: {_VALUE_CLR}; '
+                    f'background: {bg}; padding: 6px 10px; {border_r} {border_b}'
+                )
+                grid.addWidget(cel_lbl, row_i + 1, col)
+
+        return wrapper
 
     def _on_fase_changed(self, index: int) -> None:
         self._render_tabel(index)
@@ -182,9 +227,9 @@ class TabResultDesc(QWidget):
         rijen.append(('Gemobiliseerd Grond', fmt_number(summary.mob_grond_pct), '[%]'))
         rijen.append(('Verplaatsing urep BGT', fmt_number(summary.max_disp_mm), '[mm]'))
 
-        for nr, (naam, kracht, niveau) in enumerate(summary.ondersteuningen[:4], start=1):
-            rijen.append((f'Ondersteuning {nr}', naam, '[kN/m]'))
-            rijen.append((f'Niveau ondersteuning {nr}', fmt_number(niveau), '[m NAP]'))
+        for naam, kracht, niveau in summary.ondersteuningen[:4]:
+            rijen.append((naam, fmt_number(kracht), '[kN/m]'))
+            rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]'))
 
         frame = QFrame()
         frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')

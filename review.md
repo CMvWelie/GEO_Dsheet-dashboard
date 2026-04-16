@@ -1,3 +1,5 @@
+Inmiddels verholpen. Niet meer gebruiken!
+
 # D-Sheet Dashboard — Code Review (2026-04-14)
 
 Gegenereerd via adversarial review door Claude Code + Codex Explore agent.

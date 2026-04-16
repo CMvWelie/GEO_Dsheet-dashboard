@@ -51,12 +51,10 @@ class TabInputDesc(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet(f'QScrollArea {{ background: {_SCROLL_BG}; border: none; }}')
 
         self._content = QWidget()
-        self._content.setStyleSheet(f'background: {_SCROLL_BG};')
         self._layout = QVBoxLayout(self._content)
-        self._layout.setContentsMargins(16, 16, 16, 16)
+        self._layout.setContentsMargins(8, 8, 8, 8)
         self._layout.setSpacing(20)
         self._layout.addStretch()
 
@@ -186,8 +184,8 @@ class TabInputDesc(QWidget):
         hdr_lay.addWidget(titel)
         lay.addWidget(hdr)
 
-        # Datarijen
-        rijen: list[tuple[str, str, str]] = [
+        # Datarijen — None als schildwacht voor een horizontale deelstreep
+        rijen: list[tuple[str, str, str] | None] = [
             ('Profiel',          card.profiel,                        ''),
             ('Staalkwaliteit',   card.staalkwaliteit,                 ''),
             ('Hoogte h',         fmt_number(card.hoogte_mm),          '[mm]'),
@@ -197,8 +195,10 @@ class TabInputDesc(QWidget):
             ('Teenniveau',       fmt_number(card.teenniveau),         '[m NAP]'),
             ('Lengte',           fmt_number(card.lengte),             '[m]'),
         ]
-        for nr, (naam, niveau) in enumerate(card.ondersteuningen[:4], start=1):
-            rijen.append((f'Niveau ondersteuning {nr}', fmt_number(niveau), '[m NAP]'))
+        if card.ondersteuningen:
+            rijen.append(None)  # deelstreep
+            for naam, niveau in card.ondersteuningen[:4]:
+                rijen.append((naam, fmt_number(niveau), '[m NAP]'))
 
         grid_w = QWidget()
         grid = QGridLayout(grid_w)
@@ -208,9 +208,21 @@ class TabInputDesc(QWidget):
         grid.setColumnStretch(1, 1)
         grid.setColumnMinimumWidth(2, 120)
 
-        for i, (label, waarde, eenheid) in enumerate(rijen):
-            bg = _ROW_ODD_BG if i % 2 == 0 else _ROW_EVEN_BG
-            is_last = i == len(rijen) - 1
+        n_data = sum(1 for r in rijen if r is not None)
+        grid_row = 0
+        data_index = 0
+        for rij in rijen:
+            if rij is None:
+                sep = QFrame()
+                sep.setFrameShape(QFrame.Shape.HLine)
+                sep.setStyleSheet(f'background: {_BORDER}; max-height: 2px; border: none;')
+                grid.addWidget(sep, grid_row, 0, 1, 3)
+                grid_row += 1
+                continue
+
+            label, waarde, eenheid = rij
+            bg = _ROW_ODD_BG if data_index % 2 == 0 else _ROW_EVEN_BG
+            is_last = data_index == n_data - 1
             border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
 
             lbl = QLabel(label)
@@ -231,9 +243,11 @@ class TabInputDesc(QWidget):
                 f'font-family: {_FONT}; font-size: 11px; font-style: italic; '
                 f'color: {_EXTRA_CLR}; background: {bg}; padding: 6px 10px; {border_b}'
             )
-            grid.addWidget(lbl, i, 0)
-            grid.addWidget(val, i, 1)
-            grid.addWidget(ext, i, 2)
+            grid.addWidget(lbl, grid_row, 0)
+            grid.addWidget(val, grid_row, 1)
+            grid.addWidget(ext, grid_row, 2)
+            grid_row += 1
+            data_index += 1
 
         lay.addWidget(grid_w)
         return wrapper

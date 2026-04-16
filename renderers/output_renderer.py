@@ -6,6 +6,7 @@ Dsheet_dashboard_v89.html.
 
 from __future__ import annotations
 import math
+import matplotlib.ticker as ticker
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -40,70 +41,80 @@ def draw_result_chart(
     result_stage,
     project: Project,
     stage: Stage | None,
-    y_min: float,
-    y_max: float,
     render_settings: RenderSettings | None = None,
+    half_width_m: float = 10.0,
 ) -> None:
     """Teken één resultaatgrafiek (moment, dwarskracht of verplaatsing).
 
     Parameters
     ----------
-    ax:           Matplotlib Axes.
-    title:        Grafiektitel (bijv. "Bending Moments").
-    unit:         Eenheid (bijv. "kNm").
-    series_key:   Attribuut op ResultPoint ('moment', 'shear', 'disp').
-    result_stage: ResultStage object of None.
-    project:      Huidig project.
-    stage:        Actieve bouwfase.
-    y_min/y_max:  y-bereik voor de diepte-as.
+    ax:            Matplotlib Axes.
+    title:         Grafiektitel (bijv. "Momenten").
+    unit:          Eenheid (bijv. "kNm").
+    series_key:    Attribuut op ResultPoint ('moment', 'shear', 'disp').
+    result_stage:  ResultStage object of None.
+    project:       Huidig project.
+    stage:         Actieve bouwfase.
+    half_width_m:  Halve zichtbare breedte in meters, gecentreerd op de damwand.
     """
     ax.cla()
     ax.set_facecolor('white')
 
+    # ── Damwandgrenzen (basis voor y-bereik) ────────────────────────────
+    wall = project.sheet_piling[0] if project.sheet_piling else None
+    wall_top = wall.top if wall and wall.top is not None else 0.0
+    wall_bottom = wall.bottom if wall and math.isfinite(wall.bottom) else -10.0
+
+    wall_height = wall_top - wall_bottom
+    marge = wall_height * 0.10
+    y_hi = wall_top + marge
+    y_lo = wall_bottom - marge
+
     points = result_stage.points if result_stage else []
 
-    y_vals = [p.depth for p in points] if points else [0.0, -10.0]
-    y_lo = min(y_vals)
-    y_hi = max(y_vals)
-
+    # Resultaatwaarden (in eenheden: kNm / kN / mm)
     x_vals = [getattr(p, series_key, 0.0) or 0.0 for p in points] if points else [0.0]
     max_abs = max(1.0, *(abs(v) for v in x_vals))
-    x_pad = max_abs * 0.10
-    x_lo = -(max_abs + x_pad)
-    x_hi = max_abs + x_pad
 
+    # Schaalfactor: max_abs eenheden → 42 % van half_width_m
+    # De resultaatlijn vult ~84 % van de zichtbare breedte; de rest is ruimte voor
+    # geometrie en annotaties.
+    scale = (half_width_m * 0.42) / max_abs  # m per eenheid
+
+    # X-as in meters, gecentreerd op de damwand (x = 0)
+    x_lo = -half_width_m
+    x_hi = half_width_m
     ax.set_xlim(x_lo, x_hi)
-    ax.set_ylim(y_lo - 0.5, y_hi + 0.5)
+    ax.set_ylim(y_lo, y_hi)
 
-    # Achtergrond: maaiveld / grond / water (vereenvoudigd)
+    # ── Achtergrond: maaiveld / grond / water (in meters) ───────────────
     left_surface = _find_by_name(project.surfaces,
-                                   stage.left_surface if stage else None)
+                                  stage.left_surface if stage else None)
     right_surface = _find_by_name(project.surfaces,
-                                    stage.right_surface if stage else None)
+                                   stage.right_surface if stage else None)
     left_pts = clip_surface_points(
-        getattr(left_surface, 'points', None) or [{'x': -10, 'y': 0}, {'x': 0, 'y': 0}],
-        x_lo, 0.0
+        getattr(left_surface, 'points', None) or [{'x': x_lo, 'y': 0}, {'x': 0, 'y': 0}],
+        x_lo, 0.0,
     )
     right_pts = clip_surface_points(
-        getattr(right_surface, 'points', None) or [{'x': 0, 'y': 0}, {'x': 10, 'y': 0}],
-        0.0, x_hi
+        getattr(right_surface, 'points', None) or [{'x': 0, 'y': 0}, {'x': x_hi, 'y': 0}],
+        0.0, x_hi,
     )
     left_water = _find_by_name(project.waterlevels,
-                                 stage.left_water if stage else None)
+                                stage.left_water if stage else None)
     right_water = _find_by_name(project.waterlevels,
-                                  stage.right_water if stage else None)
+                                 stage.right_water if stage else None)
 
-    def _get_profile(side):
+    def _get_profile(side: str):
         from renderers.section_renderer import get_stage_profile
         return get_stage_profile(project, stage, side)
 
     left_profile = _get_profile('left')
     right_profile = _get_profile('right')
 
-    # Grondlagen links en rechts van de wand (x=0)
-    for profile, pts_side, x1, x2 in [
-        (left_profile, left_pts, x_lo, 0.0),
-        (right_profile, right_pts, 0.0, x_hi),
+    for profile, pts_side in [
+        (left_profile, left_pts),
+        (right_profile, right_pts),
     ]:
         if not profile or not pts_side:
             continue
@@ -117,63 +128,78 @@ def draw_result_chart(
             color = color_for_matplotlib(
                 project.soil_color_map.get(layer.material, 'rgb(220,220,220)')
             )
-            draw_polygon_on_ax(ax, poly, face_color=color, edge_color='#aaa', line_width=0.6)
+            draw_polygon_on_ax(ax, poly, face_color=color, edge_color='#aaa',
+                               line_width=0.6)
 
-    # Maaiveldlijn
     for pts_side in [left_pts, right_pts]:
         if pts_side:
             ax.plot([p['x'] for p in pts_side], [p['y'] for p in pts_side],
                     color='#8b7d1a', linewidth=1.2, clip_on=True)
 
-    # Waterpeilen
-    for water, x1, x2 in [(left_water, x_lo, 0.0), (right_water, 0.0, x_hi)]:
+    for water, wx1, wx2 in [(left_water, x_lo, 0.0), (right_water, 0.0, x_hi)]:
         if water and math.isfinite(water.level):
-            ax.plot([x1, x2], [water.level, water.level],
+            ax.plot([wx1, wx2], [water.level, water.level],
                     color='#2d64d8', linewidth=1.3, clip_on=True)
 
-    # Damwand (dunne grijze balk op x=0)
-    wall = project.sheet_piling[0] if project.sheet_piling else None
-    wall_top = (wall.top if wall and wall.top is not None else 0.0)
-    wall_bottom = (wall.bottom if wall and math.isfinite(wall.bottom) else y_lo)
-    ax.fill_betweenx([wall_bottom, wall_top], [-0.05, -0.05], [0.05, 0.05],
-                      color='#777777', alpha=0.9, zorder=5)
+    # ── Damwand (dunne grijze balk op x = 0 m) ──────────────────────────
+    wall_w = half_width_m * 0.008  # breedte schaalt mee met zichtvenster
+    ax.fill_betweenx([wall_bottom, wall_top],
+                     [-wall_w, -wall_w], [wall_w, wall_w],
+                     color='#777777', alpha=0.9, zorder=5)
 
-    # Resultaatlijn
+    # ── Resultaatlijn (waarden omgezet naar meters) ──────────────────────
     if points:
-        result_x = [getattr(p, series_key, 0.0) or 0.0 for p in points]
+        result_x_m = [v * scale for v in x_vals]
         result_y = [p.depth for p in points]
-        ax.plot(result_x, result_y, color='#111111', linewidth=1.5, zorder=6)
+        ax.plot(result_x_m, result_y, color='#111111', linewidth=1.5, zorder=6)
 
         # Piek-annotaties: min en max
-        max_v = max(result_x)
-        min_v = min(result_x)
-        max_i = result_x.index(max_v)
-        min_i = result_x.index(min_v)
-        label_pad = max_abs * 0.06
+        max_v = max(x_vals)
+        min_v = min(x_vals)
+        max_i = x_vals.index(max_v)
+        min_i = x_vals.index(min_v)
+        label_pad_m = half_width_m * 0.04
         seen: set[int] = set()
         for val, idx in [(max_v, max_i), (min_v, min_i)]:
             if abs(val) < 0.01 or idx in seen:
                 continue
             seen.add(idx)
+            lx_m = val * scale + (label_pad_m if val >= 0 else -label_pad_m)
             ha = 'left' if val >= 0 else 'right'
-            lx = val + (label_pad if val >= 0 else -label_pad)
-            ax.plot(val, result_y[idx], 'o', color='#333333',
+            ax.plot(val * scale, result_y[idx], 'o', color='#333333',
                     markersize=4, zorder=9, clip_on=True)
-            ax.text(lx, result_y[idx], f'{val:.1f}',
+            ax.text(lx_m, result_y[idx], f'{val:.1f}',
                     ha=ha, va='center', fontsize=7.5, color='#111111',
-                    fontweight='bold', clip_on=True, zorder=8,
+                    fontweight='bold', clip_on=False, zorder=8,
                     bbox=dict(boxstyle='round,pad=0.15', facecolor='white',
-                              edgecolor='none', alpha=0.75))
+                              edgecolor='none', alpha=0.85))
 
-    # Verticale nul-lijn
+    # ── Verticale nul-lijn ───────────────────────────────────────────────
     ax.axvline(x=0, color='#999999', linewidth=0.8, linestyle='--')
 
-    # Labels en ticks
-    ax.set_title(f'{title} [{unit}]', fontsize=10, fontweight='bold')
-    ax.set_xlabel('')
-    ax.set_ylabel('Diepte [m]', fontsize=9)
-    ax.tick_params(axis='both', labelsize=8)
+    # ── Onder-as: resultaatwaarden (kNm / kN / mm) ──────────────────────
+    ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, symmetric=True))
+    ax.xaxis.set_major_formatter(
+        ticker.FuncFormatter(
+            lambda x, _: (f'{x / scale:.0f}' if abs(x) > 1e-9 else '0')
+            if abs(scale) > 1e-12 else '0'
+        )
+    )
+    ax.set_xlabel(f'[{unit}]', fontsize=8, labelpad=2)
 
+    # ── Boven-as: schaallat in meters t.o.v. damwand ────────────────────
+    ax2 = ax.secondary_xaxis('top')
+    ax2.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True, symmetric=True))
+    ax2.xaxis.set_major_formatter(
+        ticker.FuncFormatter(lambda x, _: f'{x:.0f}')
+    )
+    ax2.set_xlabel('[m]', fontsize=8, labelpad=2)
+    ax2.tick_params(labelsize=7)
+
+    # ── Overige opmaak ───────────────────────────────────────────────────
+    ax.set_title(title, fontsize=10, fontweight='bold', pad=22)
+    ax.set_ylabel('Diepte [m NAP]', fontsize=9)
+    ax.tick_params(axis='both', labelsize=8)
     ax.grid(True, axis='x', linestyle=':', linewidth=0.5, alpha=0.5)
 
 
@@ -212,10 +238,9 @@ class OutputRenderer(BaseRenderer):
         stage_index = (project.stages.index(stage)
                        if stage and stage in project.stages else 0)
         result_stage = _get_stage_result(project, None, stage_index + 1)
-        y_min, y_max = self._y_bereik(project)
         title, unit, key = self._CHARTS[0]
         draw_result_chart(ax, title, unit, key, result_stage, project,
-                          stage, y_min, y_max, settings)
+                          stage, settings)
 
     def render_figure(
         self,
@@ -246,24 +271,11 @@ class OutputRenderer(BaseRenderer):
         stage_number = output_stage_index + 1
 
         result_stage = _get_stage_result(project, active_result_step, stage_number)
-        y_min, y_max = self._y_bereik(project)
-
+        half_width_m = (render_settings.resultaat_half_breedte_m
+                        if render_settings else 10.0)
         for ax, (title, unit, key) in zip(axes, self._CHARTS):
             draw_result_chart(ax, title, unit, key, result_stage, project,
-                              output_stage, y_min, y_max, render_settings)
+                              output_stage, render_settings,
+                              half_width_m=half_width_m)
 
         fig.tight_layout()
-
-    def _y_bereik(self, project: Project) -> tuple[float, float]:
-        """Bereken het y-bereik over alle resultaatstappen en -fasen."""
-        y_min = min(
-            (p.depth for step in project.result_steps.values()
-             for st in step.stages.values() for p in st.points),
-            default=-10.0,
-        )
-        y_max = max(
-            (p.depth for step in project.result_steps.values()
-             for st in step.stages.values() for p in st.points),
-            default=0.0,
-        )
-        return y_min, y_max
