@@ -128,10 +128,10 @@ class TabHydraulischeGrondbreuk(QWidget):
         rijen: list[tuple[str, QDoubleSpinBox, QPushButton | None]] = [
             ('Bouwputniveau (m NAP)', self._spin_bouwput, None),
             ('Inheiniveau damwand (m NAP)', self._spin_inhei, self._btn_reset_inhei),
-            ('Grondgewicht gamma (kN/m3)', self._spin_grondgewicht, self._btn_reset_grondgewicht),
+            ('Grondgewicht γ (kN/m³)', self._spin_grondgewicht, self._btn_reset_grondgewicht),
             ('Grondwaterstand buiten (m NAP)', self._spin_grondwater, self._btn_reset_grondwater),
-            ('Materiaalfactor psi (-)', self._spin_materiaalfactor, None),
-            ('Watergewicht gamma_w (kN/m3)', self._spin_watergewicht, None),
+            ('Materiaalfactor ψ (–)', self._spin_materiaalfactor, None),
+            ('Watergewicht γ_w (kN/m³)', self._spin_watergewicht, None),
         ]
         for rij, (label_tekst, spin, reset) in enumerate(rijen):
             grid.addWidget(QLabel(label_tekst), rij, 0)
@@ -254,11 +254,18 @@ class TabHydraulischeGrondbreuk(QWidget):
         uc_tekst = fmt_number(uc, 3) if not math.isinf(uc) else '∞'
         self._lbl_uc.setText(uc_tekst)
 
-        voldoet = uc >= 1.0
-        status_tekst = 'VOLDOET' if voldoet else 'VOLDOET NIET'
-        kleur = '#2e7d32' if voldoet else '#c62828'
-        self._lbl_status.setText(status_tekst)
-        self._lbl_status.setStyleSheet(
-            f'background-color: {kleur}; color: white; font-weight: bold;'
-            f' font-size: 14pt; border-radius: 4px; padding: 4px;'
-        )
+        if math.isinf(uc) and self._auto_waarden is None:
+            self._lbl_status.setText('–')
+            self._lbl_status.setStyleSheet(
+                'background-color: #78909c; color: white; font-weight: bold;'
+                ' font-size: 14pt; border-radius: 4px; padding: 4px;'
+            )
+        else:
+            voldoet = uc >= 1.0
+            status_tekst = 'VOLDOET' if voldoet else 'VOLDOET NIET'
+            kleur = '#2e7d32' if voldoet else '#c62828'
+            self._lbl_status.setText(status_tekst)
+            self._lbl_status.setStyleSheet(
+                f'background-color: {kleur}; color: white; font-weight: bold;'
+                f' font-size: 14pt; border-radius: 4px; padding: 4px;'
+            )
