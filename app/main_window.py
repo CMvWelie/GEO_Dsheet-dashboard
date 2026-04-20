@@ -45,6 +45,7 @@ from ui.tabs.tab_report_select import TabReportSelect
 from ui.tabs.tab_export import TabExport
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
+from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.preview_window import WordPreviewWindow
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
 
@@ -192,7 +193,11 @@ class MainWindow(QMainWindow):
         self._tab_export = TabExport()
         self._main_tabs.addTab(self._tab_export, 'Export')
 
-        # Tab 5: Instellingen
+        # Tab 5: Aanvullende berekeningen
+        self._tab_aanvullende_berekeningen = TabAanvullendeBerekeningen()
+        self._main_tabs.addTab(self._tab_aanvullende_berekeningen, 'Aanvullende berekeningen')
+
+        # Tab 6: Instellingen
         self._tab_instellingen = TabInstellingen()
         self._main_tabs.addTab(self._tab_instellingen, 'Instellingen')
 
@@ -318,6 +323,7 @@ class MainWindow(QMainWindow):
 
     def _on_reset(self) -> None:
         self._controller.reset()
+        self._tab_aanvullende_berekeningen.update_project(None)
         self._tab_report_context.refresh_projects({})
         self._project_combo.blockSignals(True)
         self._project_combo.clear()
@@ -626,6 +632,9 @@ class MainWindow(QMainWindow):
         self._update_render_views()
         self._refresh_active_report_tab()
         self._update_preview()
+        self._tab_aanvullende_berekeningen.update_project(
+            self._state.get_active_project()
+        )
 
     def _update_render_views(self) -> None:
         project = self._state.get_active_project()
