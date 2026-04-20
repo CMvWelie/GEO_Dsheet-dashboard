@@ -90,6 +90,7 @@ class TabHydraulischeGrondbreuk(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._auto_waarden: AutoWaarden | None = None
+        self._laatste_project_naam: str | None = None
         self._build()
 
     # ------------------------------------------------------------------
@@ -205,6 +206,10 @@ class TabHydraulischeGrondbreuk(QWidget):
         project:
             Actief project, of None als geen project geladen.
         """
+        nieuwe_naam = project.base_name if project else None
+        if nieuwe_naam == self._laatste_project_naam:
+            return
+        self._laatste_project_naam = nieuwe_naam
         if project is None:
             self._auto_waarden = None
             return
@@ -256,6 +261,12 @@ class TabHydraulischeGrondbreuk(QWidget):
 
         if math.isinf(uc) and self._auto_waarden is None:
             self._lbl_status.setText('–')
+            self._lbl_status.setStyleSheet(
+                'background-color: #78909c; color: white; font-weight: bold;'
+                ' font-size: 14pt; border-radius: 4px; padding: 4px;'
+            )
+        elif math.isinf(uc):
+            self._lbl_status.setText('GEEN WATERDRUK')
             self._lbl_status.setStyleSheet(
                 'background-color: #78909c; color: white; font-weight: bold;'
                 ' font-size: 14pt; border-radius: 4px; padding: 4px;'
