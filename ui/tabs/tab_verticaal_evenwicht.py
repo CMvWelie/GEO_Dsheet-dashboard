@@ -235,12 +235,18 @@ def extraheer_auto_waarden_ve(
 
     stijghoogte = max((wl.level for wl in project.waterlevels), default=None)
 
-    water_naam = (
-        (stage.left_water if profiel_zijde == 'links' else stage.right_water)
-        if stage else None
-    ) or ''
-    water_obj = next((wl for wl in project.waterlevels if wl.name == water_naam), None)
-    waterpeil_bouwput = water_obj.level if water_obj else stijghoogte
+    # Waterpeil in bouwput = laagste van de twee stage-waterpeilen (bemalingsside)
+    _wl_map = {wl.name: wl for wl in project.waterlevels}
+    _links_obj = _wl_map.get(stage.left_water) if stage else None
+    _rechts_obj = _wl_map.get(stage.right_water) if stage else None
+    _kandidaten = [wl for wl in [_links_obj, _rechts_obj] if wl is not None]
+    if _kandidaten:
+        _bouwput_obj = min(_kandidaten, key=lambda wl: wl.level)
+        water_naam = _bouwput_obj.name
+        waterpeil_bouwput: float | None = _bouwput_obj.level
+    else:
+        water_naam = ''
+        waterpeil_bouwput = stijghoogte
 
     surf_links_naam = stage.left_surface if stage else None
     surf_rechts_naam = stage.right_surface if stage else None

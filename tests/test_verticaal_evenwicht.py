@@ -314,7 +314,8 @@ def test_extraheer_auto_waarden_ve_waterpeil_bouwput_uit_stage():
         ],
         soils=[klei], profiles=[profiel], stages=[stage],
     )
+    # Laagste van de twee stage-waterpeilen = WP bouwput (-3.5), ongeacht profiel_zijde
     auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'links')
     assert abs(auto.waterpeil_bouwput - (-3.5)) < 0.01
     auto_rechts = extraheer_auto_waarden_ve(project, 'Fase 1', 'rechts')
-    assert abs(auto_rechts.waterpeil_bouwput - (-0.5)) < 0.01
+    assert abs(auto_rechts.waterpeil_bouwput - (-3.5)) < 0.01
