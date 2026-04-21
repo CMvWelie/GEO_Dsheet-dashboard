@@ -550,16 +550,15 @@ class TabVerticaalEvenwicht(QWidget):
         self._reset_talud_rechts()
 
     def _vul_evenwicht_combo(self) -> None:
-        """Vul de evenwichtsniveau-dropdown met laagnamen uit het grondprofiel."""
+        """Vul de evenwichtsniveau-dropdown met genummerde laagnamen uit het grondprofiel."""
         self._combo_evenwicht.blockSignals(True)
-        huidig = self._combo_evenwicht.currentText()
+        huidig_idx = self._combo_evenwicht.currentIndex()
         self._combo_evenwicht.clear()
         if self._auto_waarden:
-            for naam, _bk, _ok, _gdr, _gnat in self._auto_waarden.grondlagen:
-                self._combo_evenwicht.addItem(naam)
-            idx = self._combo_evenwicht.findText(huidig)
-            if idx >= 0:
-                self._combo_evenwicht.setCurrentIndex(idx)
+            for i, (naam, _bk, _ok, _gdr, _gnat) in enumerate(self._auto_waarden.grondlagen):
+                self._combo_evenwicht.addItem(f'{i + 1} \u2013 {naam}')
+            if 0 <= huidig_idx < self._combo_evenwicht.count():
+                self._combo_evenwicht.setCurrentIndex(huidig_idx)
         self._combo_evenwicht.blockSignals(False)
 
     def _on_stage_gewijzigd(self) -> None:
@@ -635,13 +634,12 @@ class TabVerticaalEvenwicht(QWidget):
     # Berekening
     # ------------------------------------------------------------------
     def _evenwichtsniveau(self) -> float | None:
-        """Lees de o.k. van de gekozen evenwichtsniveau-laag uit de grondlagen."""
+        """Lees de o.k. van de gekozen evenwichtsniveau-laag via index."""
         if not self._auto_waarden:
             return None
-        laagnaam = self._combo_evenwicht.currentText()
-        for naam, _bk, ok, _gdr, _gnat in self._auto_waarden.grondlagen:
-            if naam == laagnaam:
-                return ok
+        idx = self._combo_evenwicht.currentIndex()
+        if 0 <= idx < len(self._auto_waarden.grondlagen):
+            return self._auto_waarden.grondlagen[idx][2]
         return None
 
     def _herbereken(self) -> None:
