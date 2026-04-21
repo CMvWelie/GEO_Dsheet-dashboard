@@ -39,6 +39,8 @@ class AutoWaardenVE:
     talud_rechts: TaludGeometrie | None = None
     bodem_punten_raw: list[dict] = field(default_factory=list)
     # ruwe bodempunten {'nr', 'x', 'y'} uit de surface — voor debugdoeleinden
+    waterpeil_bouwput_naam: str = ''
+    # naam van het waterpeil zoals gevonden in de stage — voor debugdoeleinden
 
 
 def bereken_taludinvloed(d1: float, a: float, b: float, d2: float) -> float:
@@ -236,7 +238,7 @@ def extraheer_auto_waarden_ve(
     water_naam = (
         (stage.left_water if profiel_zijde == 'links' else stage.right_water)
         if stage else None
-    )
+    ) or ''
     water_obj = next((wl for wl in project.waterlevels if wl.name == water_naam), None)
     waterpeil_bouwput = water_obj.level if water_obj else stijghoogte
 
@@ -286,6 +288,7 @@ def extraheer_auto_waarden_ve(
         talud_links=talud_links,
         talud_rechts=talud_rechts,
         bodem_punten_raw=bodem_punten_raw,
+        waterpeil_bouwput_naam=water_naam,
     )
 
 
@@ -611,6 +614,9 @@ class TabVerticaalEvenwicht(QWidget):
             self._spin_waterpeil.blockSignals(True)
             self._spin_waterpeil.setValue(self._auto_waarden.waterpeil_bouwput)
             self._spin_waterpeil.blockSignals(False)
+            self._spin_waterpeil.setToolTip(
+                f"Waterpeilnaam uit stage: '{self._auto_waarden.waterpeil_bouwput_naam}'"
+            )
         self._herbereken()
 
     def _reset_stijghoogte(self) -> None:
