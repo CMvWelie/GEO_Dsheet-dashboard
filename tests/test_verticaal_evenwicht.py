@@ -9,6 +9,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ui.tabs.tab_verticaal_evenwicht import (
     bereken_taludinvloed,
     bereken_verticaal_evenwicht,
+    bereken_gewicht_talud,
+    extraheer_talud_links,
+    extraheer_talud_rechts,
+    extraheer_auto_waarden_ve,
+    _zoek_bodem_punten,
+    TaludGeometrie,
+    AutoWaardenVE,
 )
 from parsers.models import Project, FileBundle, Surface, WaterLevel, Soil, SoilProfile, SoilLayer, Stage
 
@@ -175,3 +182,81 @@ def test_extraheer_talud_vlak_geeft_helling_nul():
     talud_l = extraheer_talud_links(surf)
     assert talud_l is not None
     assert talud_l.helling_h_per_v == 0.0
+
+
+# ---------------------------------------------------------------------------
+# extraheer_auto_waarden_ve
+# ---------------------------------------------------------------------------
+
+def _maak_project_ve() -> Project:
+    """Minimaal testproject met surface, waterlevels, profiel en grondsoorten."""
+    surf = Surface(nr=1, name='Maaiveld', points=[
+        {'nr': 1, 'x': -15.325, 'y':  0.0},
+        {'nr': 2, 'x':  -3.325, 'y': -4.0},
+        {'nr': 3, 'x':   3.325, 'y': -4.0},
+        {'nr': 4, 'x':  15.325, 'y':  0.0},
+    ])
+    klei = Soil(name='Klei', color='rgb(0,0,0)', color_int=None,
+                gamma_dry=14.0, gamma_wet=14.0)
+    profiel = SoilProfile(
+        name='Links', normalized_name='links', occurrence=1, x=None, y=None,
+        layers=[
+            SoilLayer(nr=1, level=0.3,  wosp_top=0.0, wosp_bottom=0.0, material='Klei'),
+            SoilLayer(nr=2, level=-6.5, wosp_top=0.0, wosp_bottom=0.0, material='Klei'),
+        ],
+    )
+    stage = Stage(
+        name='Fase 1',
+        left_surface='Maaiveld', right_surface='Maaiveld',
+        left_profile='Links',   right_profile='Links',
+    )
+    return Project(
+        base_name='test', project_name='Test', file_bundle=FileBundle(),
+        surfaces=[surf],
+        waterlevels=[WaterLevel(name='Stijghoogte', level=-2.8)],
+        soils=[klei],
+        profiles=[profiel],
+        stages=[stage],
+    )
+
+
+def test_extraheer_auto_waarden_ve_breedte_en_ontgraving():
+    """Breedte = 6.65 m, ontgravingsniveau = -4.0 m NAP."""
+    project = _maak_project_ve()
+    auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'links')
+    assert abs(auto.breedte_bouwputbodem - 6.65) < 0.01
+    assert abs(auto.ontgravingsniveau - (-4.0)) < 0.01
+
+
+def test_extraheer_auto_waarden_ve_stijghoogte():
+    """Stijghoogte = hoogste waterpeil."""
+    project = _maak_project_ve()
+    auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'links')
+    assert abs(auto.stijghoogte - (-2.8)) < 0.01
+
+
+def test_extraheer_auto_waarden_ve_talud_helling():
+    """Links talud: helling_h_per_v = (15.325 - 3.325) / 4.0 = 3.0."""
+    project = _maak_project_ve()
+    auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'links')
+    assert auto.talud_links is not None
+    assert abs(auto.talud_links.helling_h_per_v - 3.0) < 0.01
+
+
+def test_extraheer_auto_waarden_ve_grondlagen():
+    """Grondlagen bevat minstens 1 laag met correcte naam."""
+    project = _maak_project_ve()
+    auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'links')
+    assert len(auto.grondlagen) >= 1
+    naam, bk, ok, gdr, gnat = auto.grondlagen[0]
+    assert naam == 'Klei'
+    assert abs(gdr - 14.0) < 0.01
+    assert abs(gnat - 14.0) < 0.01
+
+
+def test_extraheer_auto_waarden_ve_onbekende_stage():
+    """Onbekende stage-naam → ontgravingsniveau en breedte None."""
+    project = _maak_project_ve()
+    auto = extraheer_auto_waarden_ve(project, 'Onbekend', 'links')
+    assert auto.ontgravingsniveau is None
+    assert auto.breedte_bouwputbodem is None

@@ -119,3 +119,147 @@ def bereken_gewicht_talud(
             continue
         gewicht += (effectief_bk - effectief_ok) * gamma_dr
     return gewicht
+
+
+# ------------------------------------------------------------------
+# Surface-extractie
+# ------------------------------------------------------------------
+
+def _zoek_bodem_punten(surface: Surface) -> tuple[float, float, float]:
+    """Geeft (x_links, x_rechts, min_y) van de twee laagste Surface-punten.
+
+    Parameters
+    ----------
+    surface: D-Sheet maaiveldprofiel.
+
+    Returns
+    -------
+    tuple[float, float, float]
+        (x_links, x_rechts, ontgravingsniveau_m_NAP).
+    """
+    min_y = min(pt['y'] for pt in surface.points)
+    bodem = [pt for pt in surface.points if abs(pt['y'] - min_y) <= 0.01]
+    x_links = min(pt['x'] for pt in bodem)
+    x_rechts = max(pt['x'] for pt in bodem)
+    return x_links, x_rechts, min_y
+
+
+def extraheer_talud_links(surface: Surface) -> TaludGeometrie:
+    """Leid maaiveldniveau en helling af voor het linkse talud.
+
+    Parameters
+    ----------
+    surface: D-Sheet maaiveldprofiel (dekt volledige breedte).
+
+    Returns
+    -------
+    TaludGeometrie
+        Maaiveldniveau en helling_h_per_v (0.0 bij vlak terrein).
+    """
+    min_y = min(pt['y'] for pt in surface.points)
+    maaiveld_niveau = max(pt['y'] for pt in surface.points)
+    bodem = [pt for pt in surface.points if abs(pt['y'] - min_y) <= 0.01]
+    x_links_bodem = min(pt['x'] for pt in bodem)
+    links_punten = [pt for pt in surface.points if pt['x'] <= x_links_bodem]
+    d1 = maaiveld_niveau - min_y
+    if not links_punten or d1 <= 0.0:
+        return TaludGeometrie(maaiveld_niveau=maaiveld_niveau, helling_h_per_v=0.0)
+    x_top_links = min(pt['x'] for pt in links_punten)
+    dx = x_links_bodem - x_top_links
+    return TaludGeometrie(maaiveld_niveau=maaiveld_niveau, helling_h_per_v=dx / d1)
+
+
+def extraheer_talud_rechts(surface: Surface) -> TaludGeometrie:
+    """Leid maaiveldniveau en helling af voor het rechtse talud.
+
+    Parameters
+    ----------
+    surface: D-Sheet maaiveldprofiel (dekt volledige breedte).
+
+    Returns
+    -------
+    TaludGeometrie
+        Maaiveldniveau en helling_h_per_v (0.0 bij vlak terrein).
+    """
+    min_y = min(pt['y'] for pt in surface.points)
+    maaiveld_niveau = max(pt['y'] for pt in surface.points)
+    bodem = [pt for pt in surface.points if abs(pt['y'] - min_y) <= 0.01]
+    x_rechts_bodem = max(pt['x'] for pt in bodem)
+    rechts_punten = [pt for pt in surface.points if pt['x'] >= x_rechts_bodem]
+    d1 = maaiveld_niveau - min_y
+    if not rechts_punten or d1 <= 0.0:
+        return TaludGeometrie(maaiveld_niveau=maaiveld_niveau, helling_h_per_v=0.0)
+    x_top_rechts = max(pt['x'] for pt in rechts_punten)
+    dx = x_top_rechts - x_rechts_bodem
+    return TaludGeometrie(maaiveld_niveau=maaiveld_niveau, helling_h_per_v=dx / d1)
+
+
+def extraheer_auto_waarden_ve(
+    project: Project,
+    stage_naam: str,
+    profiel_zijde: str,
+) -> AutoWaardenVE:
+    """Extraheert auto-invulwaarden voor verticaal evenwicht uit een Project.
+
+    Parameters
+    ----------
+    project:      Geparseerd D-Sheet project.
+    stage_naam:   Naam van de te gebruiken rekenfase.
+    profiel_zijde: 'links' of 'rechts' — welk grondprofiel als basis.
+
+    Returns
+    -------
+    AutoWaardenVE
+        Alle auto-waarden; velden zijn None als bron ontbreekt.
+    """
+    def _find_surface(naam: str) -> Surface | None:
+        return next((s for s in project.surfaces if s.name == naam), None)
+
+    stage = next((s for s in project.stages if s.name == stage_naam), None)
+
+    stijghoogte = max((wl.level for wl in project.waterlevels), default=None)
+
+    surf_links_naam = stage.left_surface if stage else None
+    surf_rechts_naam = stage.right_surface if stage else None
+    surf_links = _find_surface(surf_links_naam) if surf_links_naam else None
+    surf_rechts = _find_surface(surf_rechts_naam) if surf_rechts_naam else None
+
+    ref_surf = surf_links or surf_rechts
+    breedte = None
+    ontgravingsniveau = None
+    if ref_surf and ref_surf.points:
+        x_l, x_r, min_y = _zoek_bodem_punten(ref_surf)
+        breedte = abs(x_r - x_l)
+        ontgravingsniveau = min_y
+
+    talud_links = extraheer_talud_links(surf_links) if surf_links and surf_links.points else None
+    talud_rechts = extraheer_talud_rechts(surf_rechts) if surf_rechts and surf_rechts.points else None
+
+    profiel_naam = (
+        (stage.left_profile if profiel_zijde == 'links' else stage.right_profile)
+        if stage else None
+    )
+    profiel = next((p for p in project.profiles if p.name == profiel_naam), None)
+    soil_map = {s.name: s for s in project.soils}
+    grondlagen: list[tuple[str, float, float, float, float]] = []
+    if profiel and profiel.layers:
+        for i, laag in enumerate(profiel.layers):
+            ok = (
+                profiel.layers[i + 1].level
+                if i + 1 < len(profiel.layers)
+                else laag.level - 30.0
+            )
+            bodem = soil_map.get(laag.material)
+            gamma_dr = bodem.gamma_dry if bodem else 0.0
+            gamma_nat = bodem.gamma_wet if bodem else 0.0
+            grondlagen.append((laag.material, laag.level, ok, gamma_dr, gamma_nat))
+
+    return AutoWaardenVE(
+        ontgravingsniveau=ontgravingsniveau,
+        breedte_bouwputbodem=breedte,
+        stijghoogte=stijghoogte,
+        waterpeil_bouwput=stijghoogte,
+        grondlagen=grondlagen,
+        talud_links=talud_links,
+        talud_rechts=talud_rechts,
+    )
