@@ -233,6 +233,13 @@ def extraheer_auto_waarden_ve(
 
     stijghoogte = max((wl.level for wl in project.waterlevels), default=None)
 
+    water_naam = (
+        (stage.left_water if profiel_zijde == 'links' else stage.right_water)
+        if stage else None
+    )
+    water_obj = next((wl for wl in project.waterlevels if wl.name == water_naam), None)
+    waterpeil_bouwput = water_obj.level if water_obj else stijghoogte
+
     surf_links_naam = stage.left_surface if stage else None
     surf_rechts_naam = stage.right_surface if stage else None
     surf_links = _find_surface(surf_links_naam) if surf_links_naam else None
@@ -274,7 +281,7 @@ def extraheer_auto_waarden_ve(
         ontgravingsniveau=ontgravingsniveau,
         breedte_bouwputbodem=breedte,
         stijghoogte=stijghoogte,
-        waterpeil_bouwput=stijghoogte,
+        waterpeil_bouwput=waterpeil_bouwput,
         grondlagen=grondlagen,
         talud_links=talud_links,
         talud_rechts=talud_rechts,

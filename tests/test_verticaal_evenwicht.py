@@ -288,3 +288,33 @@ def test_extraheer_auto_waarden_ve_rechts_gebruikt_rechts_surface():
                       soils=[klei], profiles=[profiel], stages=[stage])
     auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'rechts')
     assert abs(auto.ontgravingsniveau - (-6.0)) < 0.01
+
+
+def test_extraheer_auto_waarden_ve_waterpeil_bouwput_uit_stage():
+    """waterpeil_bouwput komt van stage.left_water / right_water, niet van max(waterlevels)."""
+    surf = Surface(nr=1, name='Mv', points=[
+        {'nr': 1, 'x': -5.0, 'y': 0.0},
+        {'nr': 2, 'x': -2.0, 'y': -4.0},
+        {'nr': 3, 'x':  2.0, 'y': -4.0},
+        {'nr': 4, 'x':  5.0, 'y':  0.0},
+    ])
+    klei = Soil(name='Klei', color='rgb(0,0,0)', color_int=None, gamma_dry=14.0, gamma_wet=14.0)
+    profiel = SoilProfile(name='Links', normalized_name='links', occurrence=1, x=None, y=None,
+                          layers=[SoilLayer(nr=1, level=0.0, wosp_top=0.0, wosp_bottom=0.0, material='Klei')])
+    stage = Stage(name='Fase 1',
+                  left_surface='Mv', right_surface='Mv',
+                  left_profile='Links', right_profile='Links',
+                  left_water='WP bouwput', right_water='WP buiten')
+    project = Project(
+        base_name='test', project_name='Test', file_bundle=FileBundle(),
+        surfaces=[surf],
+        waterlevels=[
+            WaterLevel(name='WP bouwput', level=-3.5),
+            WaterLevel(name='WP buiten',  level=-0.5),
+        ],
+        soils=[klei], profiles=[profiel], stages=[stage],
+    )
+    auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'links')
+    assert abs(auto.waterpeil_bouwput - (-3.5)) < 0.01
+    auto_rechts = extraheer_auto_waarden_ve(project, 'Fase 1', 'rechts')
+    assert abs(auto_rechts.waterpeil_bouwput - (-0.5)) < 0.01
