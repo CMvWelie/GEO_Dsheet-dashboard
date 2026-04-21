@@ -37,6 +37,8 @@ class AutoWaardenVE:
     # (naam, bovenkant_m_NAP, onderkant_m_NAP, gamma_dr_kNm3, gamma_nat_kNm3)
     talud_links: TaludGeometrie | None = None
     talud_rechts: TaludGeometrie | None = None
+    bodem_punten_raw: list[dict] = field(default_factory=list)
+    # ruwe bodempunten {'nr', 'x', 'y'} uit de surface — voor debugdoeleinden
 
 
 def bereken_taludinvloed(d1: float, a: float, b: float, d2: float) -> float:
@@ -239,10 +241,12 @@ def extraheer_auto_waarden_ve(
     ref_surf = surf_links if profiel_zijde == 'links' else surf_rechts
     breedte = None
     ontgravingsniveau = None
+    bodem_punten_raw: list[dict] = []
     if ref_surf and ref_surf.points:
         x_l, x_r, min_y = _zoek_bodem_punten(ref_surf)
         breedte = abs(x_r - x_l)
         ontgravingsniveau = min_y
+        bodem_punten_raw = [pt for pt in ref_surf.points if abs(pt['y'] - min_y) <= 0.01]
 
     talud_links = extraheer_talud_links(surf_links) if surf_links and surf_links.points else None
     talud_rechts = extraheer_talud_rechts(surf_rechts) if surf_rechts and surf_rechts.points else None
@@ -274,6 +278,7 @@ def extraheer_auto_waarden_ve(
         grondlagen=grondlagen,
         talud_links=talud_links,
         talud_rechts=talud_rechts,
+        bodem_punten_raw=bodem_punten_raw,
     )
 
 
@@ -581,6 +586,17 @@ class TabVerticaalEvenwicht(QWidget):
             self._spin_ontgraving.blockSignals(True)
             self._spin_ontgraving.setValue(self._auto_waarden.ontgravingsniveau)
             self._spin_ontgraving.blockSignals(False)
+            punten = self._auto_waarden.bodem_punten_raw
+            if punten:
+                regels = '\n'.join(
+                    f"  punt {pt['nr']}: x = {pt['x']:.4f} m,  y = {pt['y']:.4f} m NAP"
+                    for pt in punten
+                )
+                self._spin_ontgraving.setToolTip(
+                    f"Bodempunten uit surface ({len(punten)} punt(en)):\n{regels}"
+                )
+            else:
+                self._spin_ontgraving.setToolTip('')
         self._herbereken()
 
     def _reset_waterpeil(self) -> None:
