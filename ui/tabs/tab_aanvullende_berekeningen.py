@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
 
 from parsers.models import Project
 from ui.tabs.tab_hydraulische_grondbreuk import TabHydraulischeGrondbreuk
+from ui.tabs.tab_verticaal_evenwicht import TabVerticaalEvenwicht
 
 
 class TabAanvullendeBerekeningen(QWidget):
@@ -21,7 +22,9 @@ class TabAanvullendeBerekeningen(QWidget):
 
         self._tabs = QTabWidget()
         self._tab_hydraulische_grondbreuk = TabHydraulischeGrondbreuk()
+        self._tab_verticaal_evenwicht = TabVerticaalEvenwicht()
         self._tabs.addTab(self._tab_hydraulische_grondbreuk, 'Hydraulische Grondbreuk')
+        self._tabs.addTab(self._tab_verticaal_evenwicht, 'Verticaal evenwicht')
 
         layout.addWidget(self._tabs)
 
@@ -34,3 +37,4 @@ class TabAanvullendeBerekeningen(QWidget):
             Actief project, of None als geen project geladen.
         """
         self._tab_hydraulische_grondbreuk.update_project(project)
+        self._tab_verticaal_evenwicht.update_project(project)
