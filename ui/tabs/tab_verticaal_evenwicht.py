@@ -8,7 +8,7 @@ from parsers.models import Project, Surface, SoilProfile, Stage
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QDoubleSpinBox,
     QPushButton, QGroupBox, QGridLayout, QComboBox,
-    QCheckBox,
+    QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -297,6 +297,7 @@ class TabVerticaalEvenwicht(QWidget):
         layout.addWidget(self._bouw_instellingen_groep())
         layout.addWidget(self._bouw_invoer_groep())
         layout.addWidget(self._bouw_resultaat_groep())
+        layout.addWidget(self._bouw_spanningsopbouw_groep())
         layout.addStretch()
         self._verbind_signalen()
         self._herbereken()
@@ -432,6 +433,31 @@ class TabVerticaalEvenwicht(QWidget):
 
         self._lbl_uc_talud_label.setVisible(False)
         self._lbl_uc_talud.setVisible(False)
+        return groep
+
+    def _bouw_spanningsopbouw_groep(self) -> QGroupBox:
+        groep = QGroupBox('Spanningsopbouw Gstb;d')
+        lay = QVBoxLayout(groep)
+        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setSpacing(4)
+
+        kolommen = [
+            'Laag', 'b.k. eff.\n(m NAP)', 'o.k. eff.\n(m NAP)',
+            'Dikte droog\n(m)', 'Dikte nat\n(m)',
+            '\u03b3_dr\n(kN/m\u00b3)', '\u03b3_nat\n(kN/m\u00b3)',
+            'Bijdrage\n(kN/m\u00b2)',
+        ]
+        self._tabel_spanning = QTableWidget(0, len(kolommen))
+        self._tabel_spanning.setHorizontalHeaderLabels(kolommen)
+        self._tabel_spanning.verticalHeader().setVisible(False)
+        self._tabel_spanning.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._tabel_spanning.setAlternatingRowColors(True)
+        header = self._tabel_spanning.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for col in range(1, len(kolommen)):
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+
+        lay.addWidget(self._tabel_spanning)
         return groep
 
     def _maak_spin(self, minimum: float, maximum: float, decimalen: int) -> QDoubleSpinBox:
@@ -627,17 +653,34 @@ class TabVerticaalEvenwicht(QWidget):
             self._lbl_vdst.setText('-')
             self._lbl_uc_basis.setText('-')
             self._lbl_uc_talud.setText('-')
+            self._wis_spanning_tabel()
             self._toon_status_neutraal()
             return
 
+        ontgravingsniveau = self._spin_ontgraving.value()
+        waterpeil_bouwput = self._spin_waterpeil.value()
+        stijghoogte       = self._spin_stijghoogte.value()
+        materiaalfactor   = self._spin_materiaalfactor.value()
+        watergewicht      = self._spin_watergewicht.value()
+
         gstb, vdst, uc = bereken_verticaal_evenwicht(
             lagen=lagen,
-            ontgravingsniveau=self._spin_ontgraving.value(),
-            waterpeil_bouwput=self._spin_waterpeil.value(),
-            stijghoogte=self._spin_stijghoogte.value(),
+            ontgravingsniveau=ontgravingsniveau,
+            waterpeil_bouwput=waterpeil_bouwput,
+            stijghoogte=stijghoogte,
             evenwichtsniveau=evenwichtsniveau,
-            materiaalfactor=self._spin_materiaalfactor.value(),
-            watergewicht=self._spin_watergewicht.value(),
+            materiaalfactor=materiaalfactor,
+            watergewicht=watergewicht,
+        )
+
+        self._vul_spanning_tabel(
+            lagen=lagen,
+            ontgravingsniveau=ontgravingsniveau,
+            waterpeil_bouwput=waterpeil_bouwput,
+            stijghoogte=stijghoogte,
+            evenwichtsniveau=evenwichtsniveau,
+            materiaalfactor=materiaalfactor,
+            watergewicht=watergewicht,
         )
 
         self._lbl_gstb.setText(f'{fmt_number(gstb, 2)} kN/m\u00b2')
@@ -648,7 +691,6 @@ class TabVerticaalEvenwicht(QWidget):
 
         uc_maatgevend = uc
         if self._chk_taludinvloed.isChecked() and not math.isinf(vdst) and vdst > 0.0:
-            ontgravingsniveau = self._spin_ontgraving.value()
             b = self._spin_breedte.value() / 2.0
             d2 = abs(ontgravingsniveau - evenwichtsniveau)
             bijdragen: list[float] = []
@@ -677,6 +719,76 @@ class TabVerticaalEvenwicht(QWidget):
                 self._lbl_uc_talud.setText('-')
 
         self._toon_status(uc_maatgevend, vdst)
+
+    def _wis_spanning_tabel(self) -> None:
+        self._tabel_spanning.setRowCount(0)
+
+    def _vul_spanning_tabel(
+        self,
+        lagen: list[tuple[str, float, float, float, float]],
+        ontgravingsniveau: float,
+        waterpeil_bouwput: float,
+        stijghoogte: float,
+        evenwichtsniveau: float,
+        materiaalfactor: float,
+        watergewicht: float,
+    ) -> None:
+        """Vul de spanningsopbouw-tabel met laag-voor-laag bijdragen aan Gstb;d."""
+        tabel = self._tabel_spanning
+        tabel.setRowCount(0)
+
+        def _cel(tekst: str, rechts: bool = False) -> QTableWidgetItem:
+            item = QTableWidgetItem(tekst)
+            if rechts:
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            return item
+
+        totaal = 0.0
+        for naam, bk, ok, gamma_dr, gamma_nat in lagen:
+            eff_bk = min(bk, ontgravingsniveau)
+            eff_ok = max(ok, evenwichtsniveau)
+            if eff_bk <= eff_ok:
+                continue
+            dikte_droog = max(0.0, eff_bk - max(eff_ok, waterpeil_bouwput))
+            dikte_nat   = max(0.0, min(eff_bk, waterpeil_bouwput) - eff_ok)
+            bijdrage = (dikte_droog * gamma_dr + dikte_nat * gamma_nat) * materiaalfactor
+            totaal += bijdrage
+
+            rij = tabel.rowCount()
+            tabel.insertRow(rij)
+            tabel.setItem(rij, 0, _cel(naam))
+            tabel.setItem(rij, 1, _cel(fmt_number(eff_bk, 2), True))
+            tabel.setItem(rij, 2, _cel(fmt_number(eff_ok, 2), True))
+            tabel.setItem(rij, 3, _cel(fmt_number(dikte_droog, 2), True))
+            tabel.setItem(rij, 4, _cel(fmt_number(dikte_nat,   2), True))
+            tabel.setItem(rij, 5, _cel(fmt_number(gamma_dr,    1), True))
+            tabel.setItem(rij, 6, _cel(fmt_number(gamma_nat,   1), True))
+            tabel.setItem(rij, 7, _cel(fmt_number(bijdrage,    2), True))
+
+        # Totaalrij Gstb;d
+        rij = tabel.rowCount()
+        tabel.insertRow(rij)
+        tabel.setItem(rij, 0, _cel('Gstb;d (totaal)'))
+        tabel.setItem(rij, 7, _cel(fmt_number(totaal, 2), True))
+        font_bold = tabel.item(rij, 0).font()
+        font_bold.setBold(True)
+        for col in range(tabel.columnCount()):
+            item = tabel.item(rij, col)
+            if item:
+                item.setFont(font_bold)
+
+        # Vdst;d-rij
+        vdst = max(0.0, (stijghoogte - evenwichtsniveau) * watergewicht)
+        rij = tabel.rowCount()
+        tabel.insertRow(rij)
+        tabel.setItem(rij, 0, _cel(
+            f'Vdst;d = ({fmt_number(stijghoogte, 2)} \u2212 {fmt_number(evenwichtsniveau, 2)}) \u00d7 {fmt_number(watergewicht, 1)}'
+        ))
+        tabel.setItem(rij, 7, _cel(fmt_number(vdst, 2), True))
+        for col in range(tabel.columnCount()):
+            item = tabel.item(rij, col)
+            if item:
+                item.setFont(font_bold)
 
     def _toon_status_neutraal(self) -> None:
         self._lbl_status.setText('\u2013')
