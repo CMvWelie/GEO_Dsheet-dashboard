@@ -236,7 +236,7 @@ def extraheer_auto_waarden_ve(
     surf_links = _find_surface(surf_links_naam) if surf_links_naam else None
     surf_rechts = _find_surface(surf_rechts_naam) if surf_rechts_naam else None
 
-    ref_surf = surf_links or surf_rechts
+    ref_surf = surf_links if profiel_zijde == 'links' else surf_rechts
     breedte = None
     ontgravingsniveau = None
     if ref_surf and ref_surf.points:

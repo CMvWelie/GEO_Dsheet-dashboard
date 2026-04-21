@@ -260,3 +260,31 @@ def test_extraheer_auto_waarden_ve_onbekende_stage():
     auto = extraheer_auto_waarden_ve(project, 'Onbekend', 'links')
     assert auto.ontgravingsniveau is None
     assert auto.breedte_bouwputbodem is None
+
+
+def test_extraheer_auto_waarden_ve_rechts_gebruikt_rechts_surface():
+    """Profiel_zijde='rechts' leest ontgravingsniveau uit right_surface (-6 m), niet left_surface (-4 m)."""
+    surf_links = Surface(nr=1, name='Maaiveld links', points=[
+        {'nr': 1, 'x': -10.0, 'y':  0.0},
+        {'nr': 2, 'x':  -3.0, 'y': -4.0},
+        {'nr': 3, 'x':   3.0, 'y': -4.0},
+        {'nr': 4, 'x':  10.0, 'y':  0.0},
+    ])
+    surf_rechts = Surface(nr=2, name='Maaiveld rechts', points=[
+        {'nr': 1, 'x': -10.0, 'y':  0.0},
+        {'nr': 2, 'x':  -3.0, 'y': -6.0},
+        {'nr': 3, 'x':   3.0, 'y': -6.0},
+        {'nr': 4, 'x':  10.0, 'y':  0.0},
+    ])
+    klei = Soil(name='Klei', color='rgb(0,0,0)', color_int=None, gamma_dry=14.0, gamma_wet=14.0)
+    profiel = SoilProfile(name='Rechts', normalized_name='rechts', occurrence=1, x=None, y=None,
+                          layers=[SoilLayer(nr=1, level=0.0, wosp_top=0.0, wosp_bottom=0.0, material='Klei')])
+    stage = Stage(name='Fase 1',
+                  left_surface='Maaiveld links', right_surface='Maaiveld rechts',
+                  left_profile='Links', right_profile='Rechts')
+    project = Project(base_name='test', project_name='Test', file_bundle=FileBundle(),
+                      surfaces=[surf_links, surf_rechts],
+                      waterlevels=[WaterLevel(name='GWS', level=-1.0)],
+                      soils=[klei], profiles=[profiel], stages=[stage])
+    auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'rechts')
+    assert abs(auto.ontgravingsniveau - (-6.0)) < 0.01
