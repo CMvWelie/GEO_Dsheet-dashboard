@@ -614,9 +614,12 @@ class TabVerticaalEvenwicht(QWidget):
             self._spin_waterpeil.blockSignals(True)
             self._spin_waterpeil.setValue(self._auto_waarden.waterpeil_bouwput)
             self._spin_waterpeil.blockSignals(False)
-            self._spin_waterpeil.setToolTip(
-                f"Waterpeilnaam uit stage: '{self._auto_waarden.waterpeil_bouwput_naam}'"
-            )
+            regels = [f"Waterpeilnaam uit stage: '{self._auto_waarden.waterpeil_bouwput_naam}'"]
+            if self._project and self._project.waterlevels:
+                regels.append('\nBeschikbare waterpeilen in project:')
+                for wl in self._project.waterlevels:
+                    regels.append(f"  \u2013 {wl.name}: {fmt_number(wl.level, 2)} m NAP")
+            self._spin_waterpeil.setToolTip('\n'.join(regels))
         self._herbereken()
 
     def _reset_stijghoogte(self) -> None:
