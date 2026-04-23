@@ -133,9 +133,10 @@ def _normaal_rij(n: NormalForce) -> list[str]:
             str(n.surface_right), str(n.bottom), str(n.permanent), str(n.favourable)]
 
 
-def _niet_gevonden(naam: str, n_cols: int, naam_kolom: int = 1) -> list[str]:
-    rij = ['—'] * n_cols
-    rij[min(naam_kolom, n_cols - 1)] = f'⚠ NIET GEVONDEN: {naam}'
+def _niet_gevonden(naam: str, hdrs: list[str]) -> list[str]:
+    kolom = hdrs.index('name') if 'name' in hdrs else 0
+    rij = ['—'] * len(hdrs)
+    rij[kolom] = f'NIET GEVONDEN: {naam}'
     return rij
 
 
@@ -373,7 +374,7 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Ankers'))
             rijen = [
                 _anchor_rij(a) if (a := _find(p.anchors, naam))
-                else _niet_gevonden(naam, len(_ANCHOR_HDRS))
+                else _niet_gevonden(naam, _ANCHOR_HDRS)
                 for naam in stage.anchors
             ]
             self._voeg_in(_maak_tabel(_ANCHOR_HDRS, rijen))
@@ -382,7 +383,7 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Stempels'))
             rijen = [
                 _strut_rij(s) if (s := _find(p.struts, naam))
-                else _niet_gevonden(naam, len(_STRUT_HDRS))
+                else _niet_gevonden(naam, _STRUT_HDRS)
                 for naam in stage.struts
             ]
             self._voeg_in(_maak_tabel(_STRUT_HDRS, rijen))
@@ -391,7 +392,7 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Veringssteunen'))
             rijen = [
                 _spring_rij(s) if (s := _find(p.spring_supports, naam))
-                else _niet_gevonden(naam, len(_SPRING_HDRS))
+                else _niet_gevonden(naam, _SPRING_HDRS)
                 for naam in stage.spring_supports
             ]
             self._voeg_in(_maak_tabel(_SPRING_HDRS, rijen))
@@ -400,7 +401,7 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Stijve steunen'))
             rijen = [
                 _rigid_rij(r) if (r := _find(p.rigid_supports, naam))
-                else _niet_gevonden(naam, len(_RIGID_HDRS))
+                else _niet_gevonden(naam, _RIGID_HDRS)
                 for naam in stage.rigid_supports
             ]
             self._voeg_in(_maak_tabel(_RIGID_HDRS, rijen))
@@ -409,10 +410,20 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Gelijkmatige belastingen'))
             rijen = [
                 _uniform_rij(u) if (u := _find(p.uniform_loads, naam))
-                else _niet_gevonden(naam, len(_UNIFORM_HDRS), naam_kolom=0)
+                else _niet_gevonden(naam, _UNIFORM_HDRS)
                 for naam in stage.uniform_loads
             ]
             self._voeg_in(_maak_tabel(_UNIFORM_HDRS, rijen))
+
+        if stage.surcharge_loads:
+            self._voeg_in(_maak_subheader('Maaiveldbelastingen (gecombineerd)'))
+            for naam in stage.surcharge_loads:
+                sl = _find(p.surcharge_loads, naam)
+                self._voeg_in(_maak_subheader(f'  {naam}'))
+                if sl and sl.points:
+                    self._voeg_in(_maak_tabel(_SURCHARGE_HDRS, _surcharge_rijen(sl)))
+                else:
+                    self._voeg_in(_geen_data_label())
 
         if stage.surcharge_loads_left:
             self._voeg_in(_maak_subheader('Maaiveldbelastingen links'))
@@ -438,7 +449,7 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Lijnbelastingen'))
             rijen = [
                 _lijnlast_rij(h) if (h := _find(p.horizontal_line_loads, naam))
-                else _niet_gevonden(naam, len(_LIJNLAST_HDRS))
+                else _niet_gevonden(naam, _LIJNLAST_HDRS)
                 for naam in stage.horizontal_line_loads
             ]
             self._voeg_in(_maak_tabel(_LIJNLAST_HDRS, rijen))
@@ -447,7 +458,7 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Momenten'))
             rijen = [
                 _moment_rij(m) if (m := _find(p.moments, naam))
-                else _niet_gevonden(naam, len(_MOMENT_HDRS))
+                else _niet_gevonden(naam, _MOMENT_HDRS)
                 for naam in stage.moments
             ]
             self._voeg_in(_maak_tabel(_MOMENT_HDRS, rijen))
@@ -456,7 +467,7 @@ class TabDebugInvoer(QWidget):
             self._voeg_in(_maak_subheader('Normaalkrachten'))
             rijen = [
                 _normaal_rij(n) if (n := _find(p.normal_forces, naam))
-                else _niet_gevonden(naam, len(_NORMAAL_HDRS))
+                else _niet_gevonden(naam, _NORMAAL_HDRS)
                 for naam in stage.normal_forces
             ]
             self._voeg_in(_maak_tabel(_NORMAAL_HDRS, rijen))
