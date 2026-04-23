@@ -5,10 +5,12 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import pytest
 from parsers.models import (
-    Project, FileBundle, Soil, WaterLevel, SheetPilingElement,
-    Anchor, Stage, ResultSummary, ResultStep, ResultStage, ResultPoint,
+    Project, FileBundle, Soil, SoilProfile, SoilLayer, Surface, WaterLevel,
+    SheetPilingElement, Anchor, Strut, SpringSupport, RigidSupport,
+    UniformLoad, SurchargeLoad, HorizontalLineLoad, Moment, NormalForce,
+    Stage, ResultSummary, ResultStep, ResultStage, ResultPoint,
+    AnchorStrutResumeItem, SupportResumeItem,
 )
 
 
@@ -28,6 +30,37 @@ def _maak_sample_project() -> Project:
             length=10.0, yield_f=450.0, angle=30.0, height=0.5,
             side=1, name='Anker-A',
         )],
+        soil_profiles=[SoilProfile(
+            name='Profiel 1',
+            normalized_name='profiel_1',
+            occurrence=1,
+            x=0.0,
+            y=0.0,
+            layers=[
+                SoilLayer(nr=1, level=0.0, wosp_top=0.0, wosp_bottom=-3.0, material='Zand'),
+                SoilLayer(nr=2, level=-3.0, wosp_top=-3.0, wosp_bottom=-8.0, material='Zand'),
+            ],
+        )],
+        surfaces=[
+            Surface(
+                nr=1,
+                name='Maaiveld',
+                points=[
+                    {'nr': 1, 'x': -10.0, 'y': 1.0},
+                    {'nr': 2, 'x': 0.0, 'y': 1.0},
+                    {'nr': 3, 'x': 10.0, 'y': 1.0},
+                ],
+            ),
+            Surface(
+                nr=2,
+                name='Bouwput',
+                points=[
+                    {'nr': 1, 'x': -10.0, 'y': -2.0},
+                    {'nr': 2, 'x': 0.0, 'y': -2.0},
+                    {'nr': 3, 'x': 10.0, 'y': -2.0},
+                ],
+            ),
+        ],
         stages=[Stage(
             name='Fase 1',
             method_line='1 0 Ec3 DA1',
@@ -38,6 +71,48 @@ def _maak_sample_project() -> Project:
             left_profile='Profiel 1',
             right_profile='Profiel 1',
             anchors=['Anker-A'],
+            struts=[Strut(
+                nr=1, level=-3.0, emod=210000.0, cross_section=20.0,
+                length=15.0, yield_f=500.0, angle=45.0, aux=0.0,
+                side=1, name='Strut-1',
+            )],
+            spring_supports=[SpringSupport(
+                nr=1, level=-5.0, rot_stiff=1000.0, tr_stiff=5000.0, name='SpringSupport-1',
+            )],
+            rigid_supports=[RigidSupport(
+                nr=1, level=-6.0, rot_stiff=10000.0, tr_stiff=50000.0, name='RigidSupport-1',
+            )],
+            uniform_loads=[UniformLoad(
+                name='UniformLoad-1', left=2.0, right=3.0, permanent=1.0, favourable=0.5,
+            )],
+            surcharge_loads_left=[SurchargeLoad(
+                name='SurchargeLoad-1',
+                points=[
+                    {'distance': 0.0, 'value': 10.0},
+                    {'distance': 5.0, 'value': 15.0},
+                ],
+            )],
+            horizontal_line_loads=[HorizontalLineLoad(
+                nr=1, level=-4.0, value=25.0, permanent=1.0, favourable=0.5, name='HorizontalLineLoad-1',
+            )],
+            moments=[Moment(
+                nr=1, level=-4.5, value=50.0, permanent=1.0, favourable=0.5, name='Moment-1',
+            )],
+            normal_forces=[NormalForce(
+                nr=1, top=100.0, surface_left=0.0, surface_right=0.0,
+                bottom=0.0, permanent=1, favourable=0, name='NormalForce-1',
+            )],
+            anchor_strut_resume=[AnchorStrutResumeItem(
+                stage_number=1, verification_type=1, basis_cur_step=1,
+                partial_factor_set=1, representative_factor=1.0, force=85.0,
+                anchor_type=1, anchor_state=0, changed_to_yielding=0,
+                calculation_status=0, name='Anker-A',
+            )],
+            support_resume=[SupportResumeItem(
+                stage_number=1, verification_type=1, basis_cur_step=1,
+                partial_factor_set=1, representative_factor=1.0, force=50.0,
+                moment=0.0, support_rigidity_type=1, calculation_status=0, name='SpringSupport-1',
+            )],
         )],
         result_summaries=[ResultSummary(
             stage_number=1,
