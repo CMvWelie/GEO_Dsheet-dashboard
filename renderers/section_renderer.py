@@ -51,9 +51,9 @@ def y_range_for_project(project: Project) -> tuple[float, float]:
         vals.append(w.level)
     for sp in project.sheet_piling:
         if sp.top is not None and math.isfinite(sp.top):
-            vals.append(sp.top)
+            vals.append(sp.top + 2.0)   # ruimte voor gekanteld kop-label
         if math.isfinite(sp.bottom):
-            vals.append(sp.bottom)
+            vals.append(sp.bottom - 2.0)  # ruimte voor gekanteld teen-label
     for a in project.anchors:
         vals.append(a.level)
         vals.append(a.level - abs(a.height or 0))
@@ -355,6 +355,8 @@ class SectionRenderer(BaseRenderer):
 
         left_pts = actual_surface_points(left_surf, 'left', wall_x, x_min, fb_left_y)
         right_pts = actual_surface_points(right_surf, 'right', wall_x, x_max, fb_right_y)
+        _left_surf_y  = surface_y_at(left_pts,  wall_x) if left_pts  else fb_left_y
+        _right_surf_y = surface_y_at(right_pts, wall_x) if right_pts else fb_right_y
 
         # ── Rasterlijnen: 1 m hoofdlijnen + 0,1 m hulplijnen ────────
         from matplotlib.ticker import MultipleLocator
@@ -384,7 +386,40 @@ class SectionRenderer(BaseRenderer):
                 fc = color_for_matplotlib(
                     project.soil_color_map.get(layer.material, 'rgb(220,220,220)')
                 )
-                _draw_poly(ax, poly, fc=fc, ec='#6c7882', lw=0.8, zorder=2)
+                _draw_poly(ax, poly, fc=fc, ec='none', lw=0, zorder=2)
+                # Laaggrens als horizontale lijn, alleen waar maaiveld erboven ligt
+                if i > 0 and layer_top > y_min:
+                    # Bereken alle x-knikpunten incl. kruisingen met layer_top
+                    crit_xs: list[float] = [x_start, x_end]
+                    for p in pts:
+                        if x_start <= p['x'] <= x_end:
+                            crit_xs.append(p['x'])
+                    for pi in range(len(pts) - 1):
+                        p1, p2 = pts[pi], pts[pi + 1]
+                        dy = p2['y'] - p1['y']
+                        if abs(dy) > 1e-12:
+                            t = (layer_top - p1['y']) / dy
+                            if 0 < t < 1:
+                                xi = p1['x'] + t * (p2['x'] - p1['x'])
+                                if x_start <= xi <= x_end:
+                                    crit_xs.append(xi)
+                    crit_xs = sorted(set(crit_xs))
+                    seg_x0: float | None = None
+                    for ci in range(len(crit_xs) - 1):
+                        xm = (crit_xs[ci] + crit_xs[ci + 1]) / 2
+                        if surface_y_at(pts, xm) >= layer_top - 1e-6:
+                            if seg_x0 is None:
+                                seg_x0 = crit_xs[ci]
+                        else:
+                            if seg_x0 is not None:
+                                ax.plot([seg_x0, crit_xs[ci]], [layer_top, layer_top],
+                                        color='#6c7882', linewidth=0.8,
+                                        clip_on=True, zorder=3)
+                                seg_x0 = None
+                    if seg_x0 is not None:
+                        ax.plot([seg_x0, crit_xs[-1]], [layer_top, layer_top],
+                                color='#6c7882', linewidth=0.8,
+                                clip_on=True, zorder=3)
 
                 # laagnaam op meest zichtbare positie
                 best_x, best_mid_y, best_th = None, None, -1.0
@@ -655,8 +690,7 @@ class SectionRenderer(BaseRenderer):
         # translation + rot : rot-box op wand + tr-staaf naar lage zijde
 
         # Richting voor translation: kant met laagste maaiveld
-        left_surf_y  = surface_y_at(left_pts,  wall_x) if left_pts  else fb_left_y
-        right_surf_y = surface_y_at(right_pts, wall_x) if right_pts else fb_right_y
+        left_surf_y, right_surf_y = _left_surf_y, _right_surf_y
         tr_dir = -1.0 if left_surf_y < right_surf_y else 1.0  # -1=links, +1=rechts
 
         for rs in act_rigid:
@@ -861,6 +895,15 @@ class SectionRenderer(BaseRenderer):
             if len(wall_segs) > 1 and seg.name:
                 ax.text(wall_x + seg_half_w + 0.1, (seg_top + seg_bot) / 2,
                         seg.name, ha='left', va='center',
+                        fontsize=settings.fs_damwand,
+                        color='#1e2a32', clip_on=True, zorder=7)
+            elif len(wall_segs) == 1 and seg.name and math.isfinite(wall_top):
+                rechts_lager = _right_surf_y < _left_surf_y
+                rot = 45 if rechts_lager else -45
+                ox = 0.2 if rechts_lager else -0.2
+                ha = 'left' if rechts_lager else 'right'
+                ax.text(wall_x + ox, wall_top, seg.name,
+                        ha=ha, va='bottom', rotation=rot,
                         fontsize=settings.fs_damwand,
                         color='#1e2a32', clip_on=True, zorder=7)
 
