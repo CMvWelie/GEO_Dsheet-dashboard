@@ -273,8 +273,8 @@ def _draw_attachment_label(ax: Axes, level: float, wall_x: float, side: str,
         return
     ox = -0.25 if side == 'left' else 0.25
     ha = 'right' if side == 'left' else 'left'
-    ax.text(wall_x + ox, level + 0.05, f'({fmt_number(level)})',
-            ha=ha, va='bottom', fontsize=fontsize, color='#1e2a32',
+    ax.text(wall_x + ox, level, f'({fmt_number(level)})',
+            ha=ha, va='center', fontsize=fontsize, color='#1e2a32',
             clip_on=True, zorder=8)
 
 
@@ -586,7 +586,7 @@ class SectionRenderer(BaseRenderer):
                     ha=ha, va='center', fontsize=settings.fs_constructie,
                     color='#111', clip_on=True, zorder=7)
             _draw_attachment_label(ax, a.level, wall_x,
-                                    'left' if side_mult < 0 else 'right',
+                                    'right' if side_mult < 0 else 'left',
                                     settings.fs_constructie)
 
         # ── Stempels ─────────────────────────────────────────────────
@@ -607,13 +607,13 @@ class SectionRenderer(BaseRenderer):
                     ha=ha, va='center', fontsize=settings.fs_constructie,
                     color='#111', clip_on=True, zorder=7)
             _draw_attachment_label(ax, st.level, wall_x,
-                                    'left' if side_mult < 0 else 'right',
+                                    'right' if side_mult < 0 else 'left',
                                     settings.fs_constructie)
 
         # ── Veersteun ─────────────────────────────────────────────────
         # Symbool (links van de wand): wand ——[■]——/\/\/——|
         for ss in act_springs:
-            u = max(0.25, abs(y_max - y_min) * 0.022)
+            u = max(0.25, abs(y_max - y_min) * 0.022) * 2 / 3
             L = u * 5.5          # totale symboollengte
             sq = u * 0.7         # zijde van het vierkantje
             amp = u * 0.35       # zigzag-amplitude
@@ -727,7 +727,7 @@ class SectionRenderer(BaseRenderer):
                     color='#111', clip_on=True, zorder=7)
             # Hoogtelabel: tr/gecombineerd → hoogste maaiveld; rot-only → laagste
             if has_rot and not has_tr:
-                level_label_side = 'left' if tr_dir < 0 else 'right'
+                level_label_side = 'right' if tr_dir < 0 else 'left'
             else:
                 level_label_side = 'right' if tr_dir < 0 else 'left'
             _draw_attachment_label(ax, rs.level, wall_x, level_label_side,
@@ -865,14 +865,16 @@ class SectionRenderer(BaseRenderer):
                         color='#1e2a32', clip_on=True, zorder=7)
 
         if math.isfinite(wall_top):
-            ax.text(wall_x, wall_top + y_span * 0.010,
+            ax.text(wall_x, wall_top + 0.1,
                     f'Kop ({fmt_number(wall_top)})',
-                    ha='center', va='bottom', fontsize=settings.fs_damwand,
+                    ha='center', va='bottom', rotation=90,
+                    fontsize=settings.fs_damwand,
                     color='#1e2a32', clip_on=True, zorder=7)
         if math.isfinite(wall_bot):
-            ax.text(wall_x, wall_bot - y_span * 0.010,
+            ax.text(wall_x, wall_bot - 0.1,
                     f'Teen ({fmt_number(wall_bot)})',
-                    ha='center', va='top', fontsize=settings.fs_damwand,
+                    ha='center', va='top', rotation=90,
+                    fontsize=settings.fs_damwand,
                     color='#1e2a32', clip_on=True, zorder=7)
 
         # ── Assen ─────────────────────────────────────────────────────

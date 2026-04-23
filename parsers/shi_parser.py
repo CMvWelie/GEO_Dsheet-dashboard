@@ -214,10 +214,23 @@ def parse_surfaces(text: str) -> list[Surface]:
             i += 1
             continue
         header = re.match(r'^(\d+)\s+(\d+)\s+(.+)$', line)
-        if header:
+        if header and not re.search(r'Number of surfaces', line):
+            n_punten = int(header.group(2))
             surface = Surface(nr=int(header.group(1)), name=header.group(3).strip(), points=[])
             i += 1
+            # Sla metadata-regels over (Standard deviation, Distribution type, Nr X-coord Value)
             while i < len(lines):
+                cur = lines[i].strip()
+                if not cur:
+                    i += 1
+                    continue
+                if re.search(r'Standard deviation|Distribution type|Nr\s+X-coord|Nr\s+x-coord', cur, re.IGNORECASE):
+                    i += 1
+                    continue
+                break
+            # Lees precies n_punten coördinaatregels
+            punten_gelezen = 0
+            while i < len(lines) and punten_gelezen < n_punten:
                 cur = lines[i].strip()
                 if not cur:
                     i += 1
@@ -229,11 +242,7 @@ def parse_surfaces(text: str) -> list[Surface]:
                         'x': float(pt.group(2)),
                         'y': float(pt.group(3))
                     })
-                    i += 1
-                    continue
-                if (re.match(r'^(\d+)\s+(\d+)\s+(.+)$', cur)
-                        and not re.search(r'Standard deviation|Distribution type', cur)):
-                    break
+                    punten_gelezen += 1
                 i += 1
             surfaces.append(surface)
             continue
@@ -476,7 +485,7 @@ def parse_horizontal_line_loads(text: str) -> list[HorizontalLineLoad]:
     out: list[HorizontalLineLoad] = []
     for line in sec.split('\n'):
         parts = line.strip().split()
-        if len(parts) >= 6 and re.match(r'^\d+$', parts[0]):
+        if len(parts) >= 6 and re.match(r'^\d+$', parts[0]) and re.match(r'^[-\d.]+$', parts[1]):
             out.append(HorizontalLineLoad(
                 nr=int(parts[0]),
                 level=float(parts[1]),
