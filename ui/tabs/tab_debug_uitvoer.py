@@ -1,6 +1,8 @@
 """Tab Debug Uitvoer — toont geparste resultaatdata met collapsible grafiekpunten."""
 from __future__ import annotations
 
+import re
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea, QFrame, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, QPushButton,
@@ -14,7 +16,10 @@ _FONT      = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
 _HDR_BG    = '#1b3a5c'
 _HDR_FG    = '#ffffff'
 _SUBHDR_BG = '#274f77'
-_SUBHDR_FG = '#b8d4ea'
+
+
+def _natural_sort_key(s: str) -> list:
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s)]
 
 
 def _maak_header(title: str) -> QLabel:
@@ -78,7 +83,7 @@ class _CollapsibleSectie(QWidget):
             f'QPushButton {{ text-align: left; padding: 6px 10px; '
             f'font-family: {_FONT}; font-size: 11px; font-weight: 700; '
             f'color: {_HDR_FG}; background: {_HDR_BG}; border: none; }}'
-            f'QPushButton:hover {{ background: #274f77; }}'
+            f'QPushButton:hover {{ background: {_SUBHDR_BG}; }}'
         )
         self._btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._btn.clicked.connect(self._toggle)
@@ -212,7 +217,9 @@ class TabDebugUitvoer(QWidget):
 
         # 5+ – GRAFIEKPUNTEN per rekenstap (collapsible, standaard ingeklapt)
         if p.result_steps:
-            for stap_label, result_step in sorted(p.result_steps.items()):
+            for stap_label, result_step in sorted(
+                p.result_steps.items(), key=lambda kv: _natural_sort_key(kv[0])
+            ):
                 rijen = []
                 for stage_nr in sorted(result_step.stages):
                     rs = result_step.stages[stage_nr]
