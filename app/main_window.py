@@ -46,6 +46,7 @@ from ui.tabs.tab_export import TabExport
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
 from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
+from ui.tabs.tab_debug import TabDebug
 from ui.preview_window import WordPreviewWindow
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
 
@@ -163,6 +164,10 @@ class MainWindow(QMainWindow):
         # Tab 0: Rapportcontext (gecombineerd met import)
         self._tab_report_context = TabReportContext()
         self._main_tabs.addTab(self._tab_report_context, 'Rapportcontext')
+
+        # Tab 0.5: Debug
+        self._tab_debug = TabDebug()
+        self._main_tabs.addTab(self._tab_debug, 'Debug')
 
         # Tab 1: Doorsnede
         self._tab_input_view = TabInputView()
@@ -324,6 +329,7 @@ class MainWindow(QMainWindow):
     def _on_reset(self) -> None:
         self._controller.reset()
         self._tab_aanvullende_berekeningen.update_project(None)
+        self._tab_debug.update_project(None)
         self._tab_report_context.refresh_projects({})
         self._project_combo.blockSignals(True)
         self._project_combo.clear()
@@ -633,6 +639,9 @@ class MainWindow(QMainWindow):
         self._refresh_active_report_tab()
         self._update_preview()
         self._tab_aanvullende_berekeningen.update_project(
+            self._state.get_active_project()
+        )
+        self._tab_debug.update_project(
             self._state.get_active_project()
         )
 
