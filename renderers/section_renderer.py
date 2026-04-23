@@ -278,6 +278,74 @@ def _draw_attachment_label(ax: Axes, level: float, wall_x: float, side: str,
             clip_on=True, zorder=8)
 
 
+def _draw_maaiveld_symbool(
+    ax: Axes,
+    x_anker: float,
+    y_anker: float,
+    extend_dir: float,
+    sym_breedte: float,
+    schaal: float = 1.0,
+    color: str = '#8b7d1a',
+    zorder: int = 4,
+) -> None:
+    """Maaiveld-symbool: zigzag van ▽ en △ driehoeken met analytische inwendige diagonalen.
+
+    ▽ (basis boven): 4 lijnen evenwijdig aan linker zijde → '\\'-richting
+    △ (basis onder, niet getekend): 4 lijnen evenwijdig aan linker zijde → '/'-richting
+
+    Parameters
+    ----------
+    extend_dir
+        +1 → rechts van x_anker, -1 → links.
+    """
+    db = 0.45 * schaal                               # driehoekbreedte geschaald [m]
+    n = min(4, max(1, int(sym_breedte / db)))        # max 4 ▽-driehoeken, niet oprekken
+    h = db * 0.80                             # hoogte
+    yt = y_anker
+    yb = y_anker - h
+    x_start = x_anker if extend_dir > 0 else x_anker - n * db
+    lw = 0.9
+
+    # ── Zigzag-omtrek (alle diagonale zijden, geen horizontale boven/onderlijn) ──
+    zx: list[float] = []
+    zy: list[float] = []
+    for i in range(n):
+        zx.append(x_start + i * db)
+        zy.append(yt)
+        zx.append(x_start + (2 * i + 1) * db / 2)
+        zy.append(yb)
+    zx.append(x_start + n * db)
+    zy.append(yt)
+    ax.plot(zx, zy, color=color, linewidth=lw, clip_on=True, zorder=zorder)
+
+    # ── Inwendige diagonalen ▽ (basis boven, \-richting) ──────────────────────
+    # Lijn j start op bovenkant: (xl + j*db/5, yt)
+    # Eindpunt op rechter zijde (afgeleid via parametrische snijberekening):
+    #   x = xl + (j+5)*db/10,  y = yt - (5-j)*h/5
+    for i in range(n):
+        xl = x_start + i * db
+        for j in range(1, 5):
+            sx = xl + j * db / 5
+            ex = xl + (j + 5) * db / 10
+            ey = yt - (5 - j) * h / 5
+            ax.plot([sx, ex], [yt, ey], color=color, linewidth=lw,
+                    clip_on=True, zorder=zorder)
+
+    # ── Inwendige diagonalen △ (basis onder niet getekend, /-richting) ─────────
+    # △ j zit tussen ▽ i en ▽ i+1: xl_u = x_start + (2j+1)*db/2
+    # Lijn k start op onderkant: (xl_u + k*db/5, yb)
+    # Eindpunt op rechter zijde:
+    #   x = xl_u + (k+5)*db/10,  y = yb + (5-k)*h/5
+    for j in range(n - 1):
+        xl_u = x_start + (2 * j + 1) * db / 2
+        for k in range(1, 5):
+            sx = xl_u + k * db / 5
+            ex = xl_u + (k + 5) * db / 10
+            ey = yb + (5 - k) * h / 5
+            ax.plot([sx, ex], [yb, ey], color=color, linewidth=lw,
+                    clip_on=True, zorder=zorder)
+
+
 # ---------------------------------------------------------------------------
 # Hoofd-renderer
 # ---------------------------------------------------------------------------
@@ -445,6 +513,40 @@ class SectionRenderer(BaseRenderer):
         draw_ground(left_prof, left_pts, 'left')
         draw_ground(right_prof, right_pts, 'right')
 
+        # ── Waterarcering (waterpeil boven maaiveld) ─────────────────
+        def draw_water_inundation(water, pts: list[dict], x1: float, x2: float) -> None:
+            if not water or not math.isfinite(water.level) or not pts:
+                return
+            wl = water.level
+            xs: set[float] = {x1, x2} | {p['x'] for p in pts if x1 <= p['x'] <= x2}
+            # Voeg exacte snijpunten toe waar maaiveld de waterlijn kruist
+            for i in range(len(pts) - 1):
+                p1, p2 = pts[i], pts[i + 1]
+                if not (x1 <= p1['x'] <= x2 and x1 <= p2['x'] <= x2):
+                    continue
+                dy = p2['y'] - p1['y']
+                if abs(dy) > 1e-12:
+                    t = (wl - p1['y']) / dy
+                    if 0.0 < t < 1.0:
+                        xs.add(p1['x'] + t * (p2['x'] - p1['x']))
+            xs_sorted = sorted(xs)
+            if not any(surface_y_at(pts, x) < wl - 1e-6 for x in xs_sorted):
+                return
+            top_pts = [(x, wl) for x in xs_sorted]
+            bot_pts = [(x, min(surface_y_at(pts, x), wl)) for x in reversed(xs_sorted)]
+            patch = MplPolygon(
+                top_pts + bot_pts, closed=True,
+                facecolor=(0.55, 0.78, 1.0, 0.18),
+                edgecolor=(0.2, 0.5, 0.9, 0.40),
+                hatch='//',
+                linewidth=0.0,
+                clip_on=True, zorder=3,
+            )
+            ax.add_patch(patch)
+
+        draw_water_inundation(left_water, left_pts, x_min, wall_x)
+        draw_water_inundation(right_water, right_pts, wall_x, x_max)
+
         # ── Maaiveldlijn ─────────────────────────────────────────────
         def draw_surface_line(pts: list[dict]):
             if not pts:
@@ -454,6 +556,24 @@ class SectionRenderer(BaseRenderer):
 
         draw_surface_line(left_pts)
         draw_surface_line(right_pts)
+
+        # Maaiveld-symbolen aan de buitenranden; breedte = buitenste segment tot eerste knikpunt
+        # Niet tekenen als het waterpeil aan de betreffende zijde boven het maaiveld uitkomt
+        sym_w_fallback = min(2.5, max(0.8, (x_max - x_min) * 0.09))
+        if left_pts:
+            lw_lv = left_water.level if (left_water and math.isfinite(left_water.level)) else -1e9
+            if lw_lv <= left_pts[0]['y']:
+                seg_l = (abs(left_pts[1]['x'] - left_pts[0]['x'])
+                         if len(left_pts) > 1 else sym_w_fallback)
+                _draw_maaiveld_symbool(ax, left_pts[0]['x'], left_pts[0]['y'],
+                                        +1.0, seg_l, schaal=settings.maaiveld_schaal)
+        if right_pts:
+            rw_lv = right_water.level if (right_water and math.isfinite(right_water.level)) else -1e9
+            if rw_lv <= right_pts[-1]['y']:
+                seg_r = (abs(right_pts[-1]['x'] - right_pts[-2]['x'])
+                         if len(right_pts) > 1 else sym_w_fallback)
+                _draw_maaiveld_symbool(ax, right_pts[-1]['x'], right_pts[-1]['y'],
+                                        -1.0, seg_r, schaal=settings.maaiveld_schaal)
 
         # Niveaulabels op knikpunten (exacte portage van drawSurfaceLevelLabels)
         def draw_kink_labels(pts: list[dict]):
@@ -484,13 +604,14 @@ class SectionRenderer(BaseRenderer):
             lv = water.level
             span_d = abs(x2 - x1)
             mid_x = (x1 + x2) / 2
+            wp_s = settings.waterpeil_schaal
             # Hoofdlijn
             ax.plot([x1, x2], [lv, lv], color='#2d64d8', linewidth=1.8,
                     clip_on=True, zorder=5)
-            # Drie korte golftekens: vaste 0.1 m verticale stap, ±8/5/3 % van breedte
+            # Drie korte golftekens: schalfactor op breedte en verticale stap
             for i, hw_frac in enumerate([0.08, 0.05, 0.03]):
-                hw = span_d * hw_frac
-                y_w = lv - (i + 1) * 0.1
+                hw = span_d * hw_frac * wp_s
+                y_w = lv - (i + 1) * 0.1 * wp_s
                 ax.plot([mid_x - hw, mid_x + hw], [y_w, y_w],
                         color='#2d64d8', linewidth=1.0, clip_on=True, zorder=5)
             # Label vlak boven de lijn

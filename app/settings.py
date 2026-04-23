@@ -33,6 +33,12 @@ class RenderSettings:
     """As-labels en tick-labels."""
     fs_titel: float = 12.0
 
+    # Doorsnede-symbolen
+    waterpeil_schaal: float = 1.0
+    """Schalfactor voor het waterpeils-symbool (golflijntjes en verticale stap)."""
+    maaiveld_schaal: float = 1.0
+    """Schalfactor voor de driehoekbreedte van het maaiveld-symbool."""
+
     # Resultaatgrafieken
     resultaat_half_breedte_m: float = 10.0
     """Halve zichtbare breedte in meters voor resultaatgrafieken, gecentreerd op de damwand."""

@@ -89,6 +89,10 @@ class ControlsPanel(QWidget):
             ('H-last midden (m)', '_hload_mid', 2.0, 'Lijnlast 30-60 kN/m'),
             ('H-last hoog (m)', '_hload_high', 3.0, 'Lijnlast > 60 kN/m'),
             ('Moment radius (m)', '_mom_radius', 1.0, 'Straal momentensymbool'),
+            ('Waterpeil schaal', '_waterpeil_schaal', 1.0,
+             'Schalfactor golflijntjes en verticale stap waterpeils-symbool'),
+            ('Maaiveld schaal', '_maaiveld_schaal', 1.0,
+             'Schalfactor driehoekbreedte maaiveld-symbool'),
         ]:
             row = QWidget()
             row_l = QHBoxLayout(row)
@@ -131,6 +135,8 @@ class ControlsPanel(QWidget):
             hload_mid_scale=self._hload_mid.value(),
             hload_high_scale=self._hload_high.value(),
             moment_radius_meters=self._mom_radius.value(),
+            waterpeil_schaal=self._waterpeil_schaal.value(),
+            maaiveld_schaal=self._maaiveld_schaal.value(),
         )
 
     def set_viewport(self, vp: ViewportSettings) -> None:

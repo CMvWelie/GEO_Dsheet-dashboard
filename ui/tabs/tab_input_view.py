@@ -139,7 +139,9 @@ class TabInputView(QWidget):
             ('H-last < 30 kN',  'hload_low',   0.1, 10.0,  1.0),
             ('H-last 30–60 kN', 'hload_mid',   0.1, 10.0,  2.0),
             ('H-last > 60 kN',  'hload_high',  0.1, 10.0,  3.0),
-            ('Momentradius',    'mom_radius',  0.1, 10.0,  1.0),
+            ('Momentradius',    'mom_radius',       0.1, 10.0,  1.0),
+            ('Waterpeil schaal', 'waterpeil_schaal', 0.2,  5.0,  1.0),
+            ('Maaiveld schaal',  'maaiveld_schaal',  0.2,  5.0,  1.0),
         ]:
             setattr(self, attr, ScaleSlider(lbl, lo, hi, default))
             self._rs_sliders.append((attr, default))
@@ -301,7 +303,9 @@ class TabInputView(QWidget):
             ('hload_low',   'Horizontale last  < 30 kN'),
             ('hload_mid',   'Horizontale last  30 – 60 kN'),
             ('hload_high',  'Horizontale last  > 60 kN'),
-            ('mom_radius',  'Momentradius [m]'),
+            ('mom_radius',        'Momentradius [m]'),
+            ('waterpeil_schaal',  'Waterpeil symbool schaal'),
+            ('maaiveld_schaal',   'Maaiveld symbool schaal'),
         ]
         fs_labels = [
             ('fs_grondlagen',  'Grondlagen'),
@@ -476,7 +480,9 @@ class TabInputView(QWidget):
             'hload_low':      rs.hload_low_scale,
             'hload_mid':      rs.hload_mid_scale,
             'hload_high':     rs.hload_high_scale,
-            'mom_radius':     rs.moment_radius_meters,
+            'mom_radius':        rs.moment_radius_meters,
+            'waterpeil_schaal':  rs.waterpeil_schaal,
+            'maaiveld_schaal':   rs.maaiveld_schaal,
             'fs_grondlagen':  rs.fs_grondlagen,
             'fs_knikpunten':  rs.fs_knikpunten,
             'fs_waterpeil':   rs.fs_waterpeil,
