@@ -4,15 +4,26 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from parsers.models import Project, Surface, SoilProfile, Stage
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QDoubleSpinBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox,
     QPushButton, QGroupBox, QGridLayout, QComboBox,
     QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView,
+    QSizePolicy, QScrollArea, QFrame,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
+import matplotlib
+matplotlib.use('QtAgg')
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+from app.settings import RenderSettings, ViewportSettings
+from parsers.models import Project, Surface, Stage
+from renderers.vertical_equilibrium_renderer import (
+    VerticalEquilibriumContext,
+    VerticalEquilibriumRenderer,
+)
 from utils.formatting import fmt_number
 
 _MATERIAALFACTOR_STANDAARD = 0.9
@@ -235,11 +246,10 @@ def extraheer_auto_waarden_ve(
 
     stijghoogte = max((wl.level for wl in project.waterlevels), default=None)
 
-    # Waterpeil in bouwput: tegengestelde zijde van het grondprofiel
-    # (in D-Sheet geldt: right_profile → left_water, left_profile → right_water)
+    # Waterpeil in bouwput: zijde-afhankelijk uit de gekozen fase.
     _wl_map = {wl.name: wl for wl in project.waterlevels}
     _water_naam_bouwput = (
-        (stage.right_water if profiel_zijde == 'links' else stage.left_water)
+        (stage.left_water if profiel_zijde == 'links' else stage.right_water)
         if stage else None
     ) or ''
     _bouwput_obj = _wl_map.get(_water_naam_bouwput)
@@ -304,22 +314,51 @@ class TabVerticaalEvenwicht(QWidget):
         self._project: Project | None = None
         self._auto_waarden: AutoWaardenVE | None = None
         self._laatste_project_naam: str | None = None
+        self._ve_renderer = VerticalEquilibriumRenderer()
         self._build()
 
     # ------------------------------------------------------------------
     # Opbouw
     # ------------------------------------------------------------------
     def _build(self) -> None:
-        layout = QVBoxLayout(self)
+        layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(12)
-        layout.addWidget(self._bouw_instellingen_groep())
-        layout.addWidget(self._bouw_invoer_groep())
-        layout.addWidget(self._bouw_resultaat_groep())
-        layout.addWidget(self._bouw_spanningsopbouw_groep())
-        layout.addStretch()
+
+        linker_paneel = QWidget()
+        linker_layout = QVBoxLayout(linker_paneel)
+        linker_layout.setContentsMargins(0, 0, 0, 0)
+        linker_layout.setSpacing(12)
+        linker_layout.addWidget(self._bouw_instellingen_groep())
+        linker_layout.addWidget(self._bouw_invoer_groep())
+        linker_layout.addWidget(self._bouw_resultaat_groep())
+        linker_layout.addWidget(self._bouw_spanningsopbouw_groep(), stretch=1)
+
+        linker_scroll = QScrollArea()
+        linker_scroll.setWidgetResizable(True)
+        linker_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        linker_scroll.setWidget(linker_paneel)
+
+        layout.addWidget(linker_scroll, stretch=1)
+        layout.addWidget(self._bouw_visualisatie_groep(), stretch=1)
         self._verbind_signalen()
         self._herbereken()
+
+    def _bouw_visualisatie_groep(self) -> QGroupBox:
+        groep = QGroupBox('Visualisatie')
+        lay = QVBoxLayout(groep)
+        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setSpacing(4)
+
+        self._ve_fig = Figure(figsize=(12, 5), dpi=96)
+        self._ve_ax = self._ve_fig.add_subplot(111)
+        self._ve_canvas = FigureCanvas(self._ve_fig)
+        self._ve_canvas.setMinimumHeight(320)
+        self._ve_canvas.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        lay.addWidget(self._ve_canvas)
+        return groep
 
     def _bouw_instellingen_groep(self) -> QGroupBox:
         groep = QGroupBox('Projectinstellingen')
@@ -553,6 +592,7 @@ class TabVerticaalEvenwicht(QWidget):
         if not self._project or not self._project.stages:
             self._auto_waarden = None
             self._vul_evenwicht_combo()
+            self._render_visualisatie()
             return
 
         stage_naam = self._combo_stage.currentText()
@@ -567,6 +607,7 @@ class TabVerticaalEvenwicht(QWidget):
         self._reset_breedte()
         self._reset_talud_links()
         self._reset_talud_rechts()
+        self._render_visualisatie()
 
     def _vul_evenwicht_combo(self) -> None:
         """Vul de evenwichtsniveau-dropdown met genummerde laagnamen uit het grondprofiel."""
@@ -678,6 +719,52 @@ class TabVerticaalEvenwicht(QWidget):
             return self._auto_waarden.grondlagen[idx][2]
         return None
 
+    def _huidige_stage(self) -> Stage | None:
+        """Geef de in dit subtabblad gekozen stage terug."""
+        if not self._project:
+            return None
+        naam = self._combo_stage.currentText()
+        return next((stage for stage in self._project.stages if stage.name == naam), None)
+
+    def _render_visualisatie(self) -> None:
+        """Render de verticaal-evenwichtvisualisatie."""
+        ax = self._ve_ax
+        if not self._project:
+            ax.cla()
+            ax.set_facecolor('white')
+            ax.text(
+                0.5, 0.5, 'Geen project geladen',
+                transform=ax.transAxes, ha='center', va='center',
+                fontsize=12, color='#888888',
+            )
+            ax.axis('off')
+            self._ve_canvas.draw()
+            return
+
+        self._ve_renderer.set_context(self._render_context())
+        self._ve_renderer.render(
+            ax=ax,
+            project=self._project,
+            stage=self._huidige_stage(),
+            settings=RenderSettings(),
+            viewport=ViewportSettings(auto=True),
+        )
+        self._ve_fig.tight_layout()
+        self._ve_canvas.draw()
+
+    def _render_context(self) -> VerticalEquilibriumContext:
+        """Maak de renderer-context uit de actuele UI-waarden."""
+        lagen = self._auto_waarden.grondlagen if self._auto_waarden else []
+        return VerticalEquilibriumContext(
+            profiel_zijde='links' if self._combo_profiel.currentIndex() == 0 else 'rechts',
+            ontgravingsniveau=self._spin_ontgraving.value(),
+            waterpeil_bouwput=self._spin_waterpeil.value(),
+            stijghoogte=self._spin_stijghoogte.value(),
+            watergewicht=self._spin_watergewicht.value(),
+            evenwichtsniveau=self._evenwichtsniveau(),
+            grondlagen=lagen,
+        )
+
     def _herbereken(self) -> None:
         lagen = self._auto_waarden.grondlagen if self._auto_waarden else []
         evenwichtsniveau = self._evenwichtsniveau()
@@ -689,6 +776,7 @@ class TabVerticaalEvenwicht(QWidget):
             self._lbl_uc_talud.setText('-')
             self._wis_spanning_tabel()
             self._toon_status_neutraal()
+            self._render_visualisatie()
             return
 
         ontgravingsniveau = self._spin_ontgraving.value()
@@ -753,6 +841,7 @@ class TabVerticaalEvenwicht(QWidget):
                 self._lbl_uc_talud.setText('-')
 
         self._toon_status(uc_maatgevend, vdst)
+        self._render_visualisatie()
 
     def _wis_spanning_tabel(self) -> None:
         self._tabel_spanning.setRowCount(0)

@@ -25,7 +25,7 @@ def _step_short_label(key: str) -> str:
 
     Parameters
     ----------
-    key: Genormaliseerde sleutelstring, bijv. 'CUR 166 6.1' of 'CUR 166 6.5 x factor'.
+    key: Genormaliseerde sleutelstring, bijv. '6.1' of '6.5 x factor'.
 
     Returns
     -------

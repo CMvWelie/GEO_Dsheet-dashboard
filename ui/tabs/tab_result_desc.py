@@ -3,11 +3,11 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QFrame, QLabel,
-    QGroupBox, QComboBox, QGridLayout, QSizePolicy, QTabWidget,
+    QGroupBox, QGridLayout, QSizePolicy, QTabWidget,
 )
 from PyQt6.QtCore import Qt
 
-from parsers.models import Project, ResultSummary
+from parsers.models import Project
 from reporting.models import ReportSection, ReportTable
 from utils.formatting import fmt_number
 
@@ -38,18 +38,6 @@ class TabResultDesc(QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(8)
 
-        # Fase-keuze
-        ctrl_row = QHBoxLayout()
-        ctrl_row.setSpacing(8)
-        ctrl_row.addWidget(QLabel('Fase:'))
-
-        self._fase_combo = QComboBox()
-        self._fase_combo.setMinimumWidth(200)
-        ctrl_row.addWidget(self._fase_combo)
-        ctrl_row.addStretch()
-
-        root.addLayout(ctrl_row)
-
         # Scrollgebied
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -64,31 +52,17 @@ class TabResultDesc(QWidget):
         scroll.setWidget(self._content)
         root.addWidget(scroll, stretch=1)
 
-        self._fase_combo.currentIndexChanged.connect(self._on_fase_changed)
-
     # ------------------------------------------------------------------
     # Publieke API
     # ------------------------------------------------------------------
 
     def populate_resultaat_tabel(self, project: Project | None) -> None:
-        """Vul de fase-combo en render de resultaattabel voor de eerste fase."""
+        """Sla het project op en render de resultaattabel."""
         self._project = project
-        self._fase_combo.blockSignals(True)
-        self._fase_combo.clear()
-
         if not project or not project.result_summaries:
-            self._fase_combo.blockSignals(False)
             self._clear_tabel()
             return
-
-        for summary in project.result_summaries:
-            label = f'Fase {summary.stage_number}'
-            if summary.stage_number <= len(project.stages):
-                label = project.stages[summary.stage_number - 1].name
-            self._fase_combo.addItem(label)
-
-        self._fase_combo.blockSignals(False)
-        self._render_tabel(0)
+        self._render_tabel()
 
     def populate(self, sections: list[ReportSection]) -> None:
         """Voeg gegenereerde tekstsecties toe (bestaande API, ongewijzigd)."""
@@ -212,27 +186,66 @@ class TabResultDesc(QWidget):
 
         return wrapper
 
-    def _on_fase_changed(self, index: int) -> None:
-        self._render_tabel(index)
-
     def _clear_tabel(self) -> None:
         """Verwijder de resultaattabel-widget als die bestaat."""
         if self._tabel_widget is not None:
             self._tabel_widget.deleteLater()
             self._tabel_widget = None
 
-    def _render_tabel(self, index: int) -> None:
+    def _render_tabel(self) -> None:
         self._clear_tabel()
-        if not self._project or index < 0 or index >= len(self._project.result_summaries):
+        if not self._project:
             return
-        summary = self._project.result_summaries[index]
-        self._tabel_widget = self._maak_tabel(summary)
+        self._tabel_widget = self._maak_tabel()
         self._main_layout.insertWidget(0, self._tabel_widget)
 
-    def _maak_tabel(self, summary: ResultSummary) -> QWidget:
-        """Bouw de resultaattabel conform de spec."""
+    def _maatgevende_waarden(self) -> tuple[float | None, float | None, float | None]:
+        """Bereken Msd, Dsd en Vervorming projectbreed vanuit result_steps.
+
+        Returns
+        -------
+        tuple[float | None, float | None, float | None]
+            (msd, dsd, vervorming): maximale absolute waarden over alle fases.
+            Msd/Dsd: maximum over alle verify stappen 6.1–6.5×factor.
+            Vervorming: maximum over alle fases, uitsluitend uit verify step 6.5.
+        """
+        if not self._project or not self._project.result_steps:
+            return None, None, None
+
+        msd: float | None = None
+        dsd: float | None = None
+
+        for step in self._project.result_steps.values():
+            for rs in step.stages.values():
+                for pt in rs.points:
+                    v = abs(pt.moment)
+                    if msd is None or v > msd:
+                        msd = v
+                    v = abs(pt.shear)
+                    if dsd is None or v > dsd:
+                        dsd = v
+
+        vervorming: float | None = None
+        sls_step = self._project.result_steps.get('6.5')
+        if sls_step:
+            for rs in sls_step.stages.values():
+                for pt in rs.points:
+                    v = abs(pt.disp)
+                    if vervorming is None or v > vervorming:
+                        vervorming = v
+
+        return msd, dsd, vervorming
+
+    def _maak_tabel(self) -> QWidget:
+        """Bouw de resultaattabel met projectbrede maatgevende waarden."""
         project = self._project
         el = project.sheet_piling[0] if project and project.sheet_piling else None
+        summaries = project.result_summaries if project else []
+
+        # Maatgevende samenvatting: hoogste mob_moment_pct over alle fases
+        maatgevend = max(summaries, key=lambda s: s.mob_moment_pct, default=None)
+        max_mob_mom = max((s.mob_moment_pct for s in summaries), default=0.0)
+        max_mob_grond = max((s.mob_grond_pct for s in summaries), default=0.0)
 
         rijen: list[tuple[str, str, str]] = []
 
@@ -245,17 +258,19 @@ class TabResultDesc(QWidget):
         rijen.append(('Niveau damwand o.k.', fmt_number(el.bottom) if el else '-', '[m NAP]'))
         rijen.append(('Damwandlengte', fmt_number(abs((el.top or 0.0) - el.bottom)) if el else '-', '[m]'))
 
-        # Resultaten
+        # Resultaten (projectbreed)
+        msd, dsd, vervorming = self._maatgevende_waarden()
         rijen.append(('Resultaten', '', ''))
-        rijen.append(('Moment Msd', fmt_number(summary.max_moment_knm), '[kNm/m]'))
-        rijen.append(('Dwarskracht Dsd', fmt_number(summary.max_shear_kn), '[kN/m]'))
-        rijen.append(('Gemobiliseerd Moment', fmt_number(summary.mob_moment_pct), '[%]'))
-        rijen.append(('Gemobiliseerd Grond', fmt_number(summary.mob_grond_pct), '[%]'))
-        rijen.append(('Verplaatsing urep BGT', fmt_number(summary.max_disp_mm), '[mm]'))
+        rijen.append(('Moment Msd', fmt_number(msd), '[kNm/m]'))
+        rijen.append(('Dwarskracht Dsd', fmt_number(dsd), '[kN/m]'))
+        rijen.append(('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]'))
+        rijen.append(('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]'))
+        rijen.append(('Verplaatsing urep BGT', fmt_number(vervorming), '[mm]'))
 
-        for naam, kracht, niveau in summary.ondersteuningen[:4]:
-            rijen.append((naam, fmt_number(kracht), '[kN/m]'))
-            rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]'))
+        if maatgevend:
+            for naam, kracht, niveau in maatgevend.ondersteuningen[:4]:
+                rijen.append((naam, fmt_number(kracht), '[kN/m]'))
+                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]'))
 
         frame = QFrame()
         frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')

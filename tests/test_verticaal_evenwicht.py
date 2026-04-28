@@ -291,7 +291,7 @@ def test_extraheer_auto_waarden_ve_rechts_gebruikt_rechts_surface():
 
 
 def test_extraheer_auto_waarden_ve_waterpeil_bouwput_uit_stage():
-    """waterpeil_bouwput komt van stage.left_water / right_water, niet van max(waterlevels)."""
+    """waterpeil_bouwput komt van de gekozen stage en profielzijde."""
     surf = Surface(nr=1, name='Mv', points=[
         {'nr': 1, 'x': -5.0, 'y': 0.0},
         {'nr': 2, 'x': -2.0, 'y': -4.0},
@@ -314,8 +314,8 @@ def test_extraheer_auto_waarden_ve_waterpeil_bouwput_uit_stage():
         ],
         soils=[klei], profiles=[profiel], stages=[stage],
     )
-    # Tegengestelde zijde: links profiel → right_water (-0.5), rechts profiel → left_water (-3.5)
+    # Zelfde zijde: links profiel -> left_water (-3.5), rechts profiel -> right_water (-0.5)
     auto = extraheer_auto_waarden_ve(project, 'Fase 1', 'links')
-    assert abs(auto.waterpeil_bouwput - (-0.5)) < 0.01
+    assert abs(auto.waterpeil_bouwput - (-3.5)) < 0.01
     auto_rechts = extraheer_auto_waarden_ve(project, 'Fase 1', 'rechts')
-    assert abs(auto_rechts.waterpeil_bouwput - (-3.5)) < 0.01
+    assert abs(auto_rechts.waterpeil_bouwput - (-0.5)) < 0.01
