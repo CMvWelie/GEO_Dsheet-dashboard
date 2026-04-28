@@ -135,7 +135,11 @@ class TabResultDesc(QWidget):
     # ------------------------------------------------------------------
 
     def _maak_styled_tabel(self, table) -> QWidget:
-        """Rendert een ReportTable als gestijlde grid-tabel, op inhoudsbreedte."""
+        """Rendert een ReportTable als gestijlde grid-tabel.
+
+        Ondersteunt optioneel een groepkop-rij (rij 0) wanneer
+        table.column_groups gevuld is; kolomkoppen komen dan op rij 1.
+        """
         wrapper = QWidget()
         wrapper.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         buitenste = QHBoxLayout(wrapper)
@@ -148,26 +152,47 @@ class TabResultDesc(QWidget):
         buitenste.addWidget(frame)
         buitenste.addStretch()
 
-        # Één grid voor header + alle datarijen — kolommen lopen door over alle rijen
         grid = QGridLayout(frame)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
 
         n_cols = len(table.columns)
+        heeft_groepen = bool(table.column_groups)
+        kop_rij = 1 if heeft_groepen else 0
+        data_start = kop_rij + 1
 
-        # Kolomhoofden (grid-rij 0)
+        # Groepkoppen (grid-rij 0) — alleen als column_groups gevuld is
+        if heeft_groepen:
+            col_offset = 0
+            for groep_label, colspan in table.column_groups:
+                lbl = QLabel(groep_label)
+                lbl.setAlignment(
+                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                groep_bg = _HDR_BG if not groep_label else '#274f77'
+                border_r = ('border-right: 1px solid #1d4568;'
+                             if col_offset + colspan < n_cols else '')
+                lbl.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: 10px; font-weight: 700; '
+                    f'color: {_HDR_FG}; background: {groep_bg}; '
+                    f'padding: 5px 10px; {border_r}'
+                )
+                grid.addWidget(lbl, 0, col_offset, 1, colspan)
+                col_offset += colspan
+
+        # Kolomkoppen (grid-rij kop_rij)
         for col, kop in enumerate(table.columns):
             lbl = QLabel(kop)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setAlignment(
+                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
             border_r = 'border-right: 1px solid #1d4568;' if col < n_cols - 1 else ''
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
                 f'color: #b8d4ea; background: {_HDR_BG}; '
                 f'padding: 6px 10px; {border_r}'
             )
-            grid.addWidget(lbl, 0, col)
+            grid.addWidget(lbl, kop_rij, col)
 
-        # Datarijen (grid-rij 1+)
+        # Datarijen (grid-rij data_start+)
         for row_i, rij in enumerate(table.rows):
             bg = _ROW_ODD_BG if row_i % 2 == 0 else _ROW_EVN_BG
             is_last = row_i == len(table.rows) - 1
@@ -177,12 +202,13 @@ class TabResultDesc(QWidget):
                               else Qt.AlignmentFlag.AlignRight)
                 cel_lbl = QLabel(cel)
                 cel_lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
-                border_r = f'border-right: 1px solid {_ROW_SEP};' if col < n_cols - 1 else ''
+                border_r = (f'border-right: 1px solid {_ROW_SEP};'
+                             if col < n_cols - 1 else '')
                 cel_lbl.setStyleSheet(
                     f'font-family: {_FONT}; font-size: 12px; color: {_VALUE_CLR}; '
                     f'background: {bg}; padding: 6px 10px; {border_r} {border_b}'
                 )
-                grid.addWidget(cel_lbl, row_i + 1, col)
+                grid.addWidget(cel_lbl, data_start + row_i, col)
 
         return wrapper
 
