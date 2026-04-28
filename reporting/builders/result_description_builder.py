@@ -48,7 +48,7 @@ class ResultDescriptionBuilder:
         fase_naam = stage.name if stage else str(stage_index + 1)
         sections = []
         sections.append(self._anchor_forces(project))
-        sections.append(self._per_phase_summary(project, step_key))
+        sections.append(self._per_phase_summary(project))
         return sections
 
     # ------------------------------------------------------------------
@@ -116,8 +116,7 @@ class ResultDescriptionBuilder:
             ))
         return sec
 
-    def _per_phase_summary(self, project: Project,
-                           step_key: str | None) -> ReportSection:
+    def _per_phase_summary(self, project: Project) -> ReportSection:
         sec = ReportSection(id='per_phase_summary',
                             title='Maximale resultaten per fase')
         if not project.result_steps:
