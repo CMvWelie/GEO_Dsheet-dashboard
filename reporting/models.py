@@ -19,8 +19,10 @@ class ReportTable:
     title: str
     columns: list[str]
     rows: list[list[str]]
+    inline: bool = False
     separator_before_cols: list[int] = field(default_factory=list)
     column_groups: list[tuple[str, int]] = field(default_factory=list)
+    """Optionele groepkoppen boven de kolomkoppen: lijst van (label, colspan)."""
 
 
 @dataclass

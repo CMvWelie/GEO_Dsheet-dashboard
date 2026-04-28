@@ -38,6 +38,9 @@ _CSS = f"""
   p.tekst  {{ font-size: 11px; color: #3d4f5c; margin: 4px 0 10px 0;
               line-height: 1.6; }}
   p.leeg   {{ color: #a0b4c2; font-style: italic; padding: 20px 0; }}
+  .inline-wrap td {{ vertical-align: top; padding-right: 16px; }}
+  .inline-wrap {{ border-collapse: separate; border-spacing: 0; width: auto; margin-bottom: 12px; }}
+  .inline-wrap table {{ width: auto; min-width: 160px; margin-bottom: 0; }}
 """
 
 
@@ -103,7 +106,17 @@ class HtmlPreviewBuilder:
         if sec.fields:
             delen.append(self._velden_html(sec.fields))
 
-        for tabel in sec.tables:
+        # Inline tabellen naast elkaar in flex-container; overige tabellen gestapeld
+        inline = [t for t in sec.tables if t.inline]
+        normaal = [t for t in sec.tables if not t.inline]
+        if inline:
+            cellen = ''.join(
+                f'<td>{self._tabel_html(t)}</td>' for t in inline
+            )
+            delen.append(
+                f'<table class="inline-wrap"><tr>{cellen}</tr></table>'
+            )
+        for tabel in normaal:
             delen.append(self._tabel_html(tabel))
 
         for blok in sec.text_blocks:
@@ -130,17 +143,49 @@ class HtmlPreviewBuilder:
 
     def _tabel_html(self, tabel: ReportTable) -> str:
         """Render een ReportTable als HTML-tabel met header."""
-        header = ''.join(f'<th>{_esc(k)}</th>' for k in tabel.columns)
+        seps = set(tabel.separator_before_cols)
+        sep_style = f'border-left: 2px solid {_SEP};'
+
+        def th(i: int, k: str) -> str:
+            st = f' style="{sep_style}"' if i in seps else ''
+            return f'<th{st}>{_esc(k)}</th>'
+
+        def td(i: int, cel: str) -> str:
+            st = f' style="{sep_style}"' if i in seps else ''
+            return f'<td{st}>{_esc(cel)}</td>'
+
+        if tabel.column_groups:
+            # Eerste headerrij: groepkoppen met colspan (geen rowspan)
+            col_idx = 0
+            groep_cellen: list[str] = []
+            for label, span in tabel.column_groups:
+                st = ''
+                if col_idx in seps:
+                    st = f' style="text-align:center;{sep_style}"'
+                elif label:
+                    st = ' style="text-align:center;"'
+                groep_cellen.append(
+                    f'<th{st} colspan="{span}">{_esc(label)}</th>'
+                )
+                col_idx += span
+            groep_rij = f'<tr>{"".join(groep_cellen)}</tr>'
+            # Tweede headerrij: alle individuele kolomkoppen
+            header = ''.join(th(i, k) for i, k in enumerate(tabel.columns))
+            header_html = f'{groep_rij}<tr>{header}</tr>'
+        else:
+            header = ''.join(th(i, k) for i, k in enumerate(tabel.columns))
+            header_html = f'<tr>{header}</tr>'
+
         rijen = []
-        for i, rij in enumerate(tabel.rows):
-            klasse = 'odd' if i % 2 == 0 else 'even'
-            cellen = ''.join(f'<td>{_esc(cel)}</td>' for cel in rij)
+        for row_i, rij in enumerate(tabel.rows):
+            klasse = 'odd' if row_i % 2 == 0 else 'even'
+            cellen = ''.join(td(i, cel) for i, cel in enumerate(rij))
             rijen.append(f'<tr class="{klasse}">{cellen}</tr>')
         if tabel.title:
             kop = f'<p style="font-size:11px;font-weight:600;color:{_LABEL};margin:8px 0 3px;">{_esc(tabel.title)}</p>'
         else:
             kop = ''
-        return f'{kop}<table><tr>{header}</tr>{"".join(rijen)}</table>'
+        return f'{kop}<table>{header_html}{"".join(rijen)}</table>'
 
 
 def _esc(tekst: object) -> str:
