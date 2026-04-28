@@ -11,12 +11,8 @@ class RenderSettings:
     """Hoogte van uniforme belastingblok: hoeveel meter per 10 kPa."""
     normal_meters_per_10knm: float = 0.5
     """Breedte van normaalkrachtdiagram: hoeveel meter per 10 kN/m."""
-    hload_low_scale: float = 1.0
-    """Steemlengthe (m) voor horizontale lijnlasten < 30 kN/m."""
-    hload_mid_scale: float = 2.0
-    """Stemlengthe (m) voor horizontale lijnlasten 30-60 kN/m."""
-    hload_high_scale: float = 3.0
-    """Steemlengthe (m) voor horizontale lijnlasten > 60 kN/m."""
+    hload_scale: float = 2.0
+    """Stemlengthe (m) voor horizontale lijnlasten."""
     moment_radius_meters: float = 1.0
     """Radius van het momentensymbool in meters."""
 

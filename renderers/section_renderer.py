@@ -891,28 +891,25 @@ class SectionRenderer(BaseRenderer):
         # ── Horizontale lijnlasten ────────────────────────────────────
         for hl in act_hloads:
             value = float(hl.value) or 0.0
-            magnitude = abs(value)
-            stem = (settings.hload_low_scale if magnitude < 30 else
-                    settings.hload_mid_scale if magnitude <= 60 else
-                    settings.hload_high_scale)
+            stem = settings.hload_scale
             to_wall = value >= 0  # positief = naar de wand (van links)
             if to_wall:
                 start_x = wall_x - stem
                 ax.annotate('', xy=(wall_x, hl.level), xytext=(start_x, hl.level),
                              arrowprops=dict(arrowstyle='->', color='#111', lw=2.2),
                              clip_on=True, zorder=6)
-                ax.text(start_x - 0.1, hl.level + y_span * 0.01,
+                ax.text(start_x - 0.1, hl.level,
                         f'{hl.name} ({fmt_number(value)} kN/m)',
-                        ha='right', va='bottom', fontsize=settings.fs_belastingen,
+                        ha='right', va='center', fontsize=settings.fs_belastingen,
                         color='#111', clip_on=True, zorder=7)
             else:
                 start_x = wall_x + stem
                 ax.annotate('', xy=(wall_x, hl.level), xytext=(start_x, hl.level),
                              arrowprops=dict(arrowstyle='->', color='#111', lw=2.2),
                              clip_on=True, zorder=6)
-                ax.text(start_x + 0.1, hl.level + y_span * 0.01,
+                ax.text(start_x + 0.1, hl.level,
                         f'{hl.name} ({fmt_number(value)} kN/m)',
-                        ha='left', va='bottom', fontsize=settings.fs_belastingen,
+                        ha='left', va='center', fontsize=settings.fs_belastingen,
                         color='#111', clip_on=True, zorder=7)
 
         # ── Momenten ─────────────────────────────────────────────────
@@ -922,10 +919,11 @@ class SectionRenderer(BaseRenderer):
             radius = max(settings.moment_radius_meters * 0.5, y_span * 0.04)
             _draw_moment_symbol(ax, wall_x + wall_half_w_data, m_obj.level,
                                  clockwise, '#111', radius)
-            ax.text(wall_x + wall_half_w_data - radius - 0.1, m_obj.level,
+            lx_m = wall_x + wall_half_w_data + radius + 0.1
+            ax.text(lx_m, m_obj.level,
                     f'{m_obj.name} ({fmt_number(value)} kNm/m)',
-                    ha='right', va='center', fontsize=settings.fs_belastingen,
-                    color='#111', rotation=90, clip_on=True, zorder=7)
+                    ha='left', va='center', fontsize=settings.fs_belastingen,
+                    color='#111', clip_on=True, zorder=7)
 
         # ── Normaalkrachten ───────────────────────────────────────────
         if act_nf:
@@ -943,6 +941,8 @@ class SectionRenderer(BaseRenderer):
             }
             w_scale = y_span * settings.normal_meters_per_10knm / 10.0 * 0.15
 
+            mid_y_nf = (ref['top'] + ref['bot']) / 2
+            nf_labels: list[tuple[float, str, str]] = []
             for nf in act_nf:
                 refs = [
                     (ref['top'], float(nf.top) if nf.top is not None else 0.0),
@@ -984,9 +984,14 @@ class SectionRenderer(BaseRenderer):
                 ha_nf = 'right' if avg < 0 else 'left'
                 lx_nf = wall_x + (-(max_abs * w_scale + 0.3)
                                     if avg < 0 else (max_abs * w_scale + 0.3))
-                mid_y_nf = (ref['top'] + ref['bot']) / 2
-                ax.text(lx_nf, mid_y_nf,
-                        f'{nf.name} ({format_normal_force_values(nf)})',
+                nf_labels.append((lx_nf, ha_nf, f'{nf.name} ({format_normal_force_values(nf)})'))
+
+            # Labels gestapeld plaatsen zodat ze niet overlappen
+            line_h = y_span * 0.04
+            n_lbl = len(nf_labels)
+            for idx, (lx_nf, ha_nf, lbl_txt) in enumerate(nf_labels):
+                y_lbl = mid_y_nf + (idx - (n_lbl - 1) / 2) * line_h
+                ax.text(lx_nf, y_lbl, lbl_txt,
                         ha=ha_nf, va='center', fontsize=settings.fs_belastingen,
                         color='#111', clip_on=True, zorder=7)
 

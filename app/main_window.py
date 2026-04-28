@@ -260,8 +260,8 @@ class MainWindow(QMainWindow):
 
         iv = self._tab_input_view
         for sp in [
-            iv.uni_scale, iv.norm_scale, iv.hload_low, iv.hload_mid,
-            iv.hload_high, iv.mom_radius, iv.waterpeil_schaal, iv.maaiveld_schaal,
+            iv.uni_scale, iv.norm_scale, iv.hload_scale,
+            iv.mom_radius, iv.waterpeil_schaal, iv.maaiveld_schaal,
             iv.fs_grondlagen, iv.fs_knikpunten, iv.fs_waterpeil, iv.fs_belastingen,
             iv.fs_constructie, iv.fs_damwand, iv.fs_assen, iv.fs_titel,
         ]:
@@ -478,9 +478,7 @@ class MainWindow(QMainWindow):
         return RenderSettings(
             uniform_meters_per_10kpa=iv.uni_scale.value(),
             normal_meters_per_10knm=iv.norm_scale.value(),
-            hload_low_scale=iv.hload_low.value(),
-            hload_mid_scale=iv.hload_mid.value(),
-            hload_high_scale=iv.hload_high.value(),
+            hload_scale=iv.hload_scale.value(),
             moment_radius_meters=iv.mom_radius.value(),
             waterpeil_schaal=iv.waterpeil_schaal.value(),
             maaiveld_schaal=iv.maaiveld_schaal.value(),
@@ -509,9 +507,7 @@ class MainWindow(QMainWindow):
         pairs = [
             (iv.uni_scale,       rs.uniform_meters_per_10kpa),
             (iv.norm_scale,      rs.normal_meters_per_10knm),
-            (iv.hload_low,       rs.hload_low_scale),
-            (iv.hload_mid,       rs.hload_mid_scale),
-            (iv.hload_high,      rs.hload_high_scale),
+            (iv.hload_scale,     rs.hload_scale),
             (iv.mom_radius,         rs.moment_radius_meters),
             (iv.waterpeil_schaal,   rs.waterpeil_schaal),
             (iv.maaiveld_schaal,    rs.maaiveld_schaal),

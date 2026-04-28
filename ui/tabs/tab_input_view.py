@@ -74,7 +74,7 @@ class TabInputView(QWidget):
     Exposeert attributen die MainWindow hergebruikt:
         stage_tabs, section_fig, section_ax, section_canvas,
         auto_check, xmin_spin, xmax_spin, ymin_spin, ymax_spin,
-        uni_scale, norm_scale, hload_low, hload_mid, hload_high, mom_radius,
+        uni_scale, norm_scale, hload_scale, mom_radius,
         fs_grondlagen, fs_knikpunten, fs_waterpeil, fs_belastingen,
         fs_constructie, fs_damwand, fs_assen, fs_titel
     """
@@ -136,9 +136,7 @@ class TabInputView(QWidget):
         for lbl, attr, lo, hi, default in [
             ('Unif. [m/10kPa]', 'uni_scale',   0.1,  5.0,  0.5),
             ('Norm. [m/10kN]',  'norm_scale',  0.1,  5.0,  0.5),
-            ('H-last < 30 kN',  'hload_low',   0.1, 10.0,  1.0),
-            ('H-last 30–60 kN', 'hload_mid',   0.1, 10.0,  2.0),
-            ('H-last > 60 kN',  'hload_high',  0.1, 10.0,  3.0),
+            ('H-last schaal',   'hload_scale', 0.1, 10.0,  2.0),
             ('Momentradius',    'mom_radius',       0.1, 10.0,  1.0),
             ('Waterpeil schaal', 'waterpeil_schaal', 0.2,  5.0,  1.0),
             ('Maaiveld schaal',  'maaiveld_schaal',  0.2,  5.0,  1.0),
@@ -300,9 +298,7 @@ class TabInputView(QWidget):
         rs_labels = [
             ('uni_scale',   'Uniforme last [m / 10 kPa]'),
             ('norm_scale',  'Normaalkracht [m / 10 kN]'),
-            ('hload_low',   'Horizontale last  < 30 kN'),
-            ('hload_mid',   'Horizontale last  30 – 60 kN'),
-            ('hload_high',  'Horizontale last  > 60 kN'),
+            ('hload_scale', 'Horizontale last schaal [m]'),
             ('mom_radius',        'Momentradius [m]'),
             ('waterpeil_schaal',  'Waterpeil symbool schaal'),
             ('maaiveld_schaal',   'Maaiveld symbool schaal'),
@@ -477,9 +473,7 @@ class TabInputView(QWidget):
         self._saved_defaults = {
             'uni_scale':      rs.uniform_meters_per_10kpa,
             'norm_scale':     rs.normal_meters_per_10knm,
-            'hload_low':      rs.hload_low_scale,
-            'hload_mid':      rs.hload_mid_scale,
-            'hload_high':     rs.hload_high_scale,
+            'hload_scale':    rs.hload_scale,
             'mom_radius':        rs.moment_radius_meters,
             'waterpeil_schaal':  rs.waterpeil_schaal,
             'maaiveld_schaal':   rs.maaiveld_schaal,
