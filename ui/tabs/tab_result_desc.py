@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from parsers.models import Project, ResultSummary
-from reporting.models import ReportSection
+from reporting.models import ReportSection, ReportTable
 from utils.formatting import fmt_number
 
 _HDR_BG     = '#1b3a5c'
@@ -134,7 +134,7 @@ class TabResultDesc(QWidget):
     # Intern
     # ------------------------------------------------------------------
 
-    def _maak_styled_tabel(self, table) -> QWidget:
+    def _maak_styled_tabel(self, table: ReportTable) -> QWidget:
         """Rendert een ReportTable als gestijlde grid-tabel.
 
         Ondersteunt optioneel een groepkop-rij (rij 0) wanneer
