@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from parsers.models import Project
 from reporting.models import ReportSection, ReportField, ReportTable
 from utils.formatting import fmt_number
@@ -16,6 +18,23 @@ _VTYPE_LABELS: dict[int, str] = {
 
 def _vtype_label(vtype: int) -> str:
     return _VTYPE_LABELS.get(vtype, f'V{vtype}')
+
+
+def _step_short_label(key: str) -> str:
+    """Extraheer korte CUR 166-staplabel uit de genormaliseerde sleutel.
+
+    Parameters
+    ----------
+    key: Genormaliseerde sleutelstring, bijv. 'CUR 166 6.1' of 'CUR 166 6.5 x factor'.
+
+    Returns
+    -------
+    str  Kort label, bijv. '6.1' of '6.5 × factor'.
+    """
+    m = re.search(r'(\d+\.\d+(?:\s+x\s+factor)?)', key, re.IGNORECASE)
+    if m:
+        return m.group(1).replace(' x factor', ' × factor')
+    return key
 
 
 class ResultDescriptionBuilder:
@@ -97,29 +116,54 @@ class ResultDescriptionBuilder:
             ))
         return sec
 
-    def _per_phase_summary(self, project: Project, step_key: str | None) -> ReportSection:
-        sec = ReportSection(id='per_phase_summary', title='Samenvatting per fase')
-        if not step_key or step_key not in project.result_steps:
+    def _per_phase_summary(self, project: Project,
+                           step_key: str | None) -> ReportSection:
+        sec = ReportSection(id='per_phase_summary',
+                            title='Maximale resultaten per fase')
+        if not project.result_steps:
             sec.fields.append(ReportField('summary_none', 'Samenvatting',
-                                           'Geen resultaatstap geselecteerd'))
+                                           'Geen resultaten beschikbaar'))
             return sec
 
-        step = project.result_steps[step_key]
-        rows = []
-        for stage_num in sorted(step.stages.keys()):
-            rs = step.stages[stage_num]
-            stage_name = self._stage_naam(project, stage_num)
-            ex_m = self._extremes(rs, 'moment')
-            ex_s = self._extremes(rs, 'shear')
-            ex_d = self._extremes(rs, 'disp')
-            max_m = fmt_number(max(abs(ex_m[0]), abs(ex_m[2]))) if ex_m else '-'
-            max_s = fmt_number(max(abs(ex_s[0]), abs(ex_s[2]))) if ex_s else '-'
-            max_d = fmt_number(max(abs(ex_d[0]), abs(ex_d[2]))) if ex_d else '-'
-            rows.append([stage_name, max_m, max_s, max_d])
-        if rows:
-            sec.tables.append(ReportTable(
-                id='phase_summary', title='Per fase samenvatting',
-                columns=['Fase', 'Max. moment [kNm/m]', 'Max. dwarskracht [kN/m]',
-                         'Max. vervorming [mm]'],
-                rows=rows))
+        # Stappen gesorteerd; alle fases
+        stap_keys = sorted(project.result_steps.keys())
+        alle_stages = list(range(1, len(project.stages) + 1))
+        stap_labels = [_step_short_label(sk) for sk in stap_keys]
+        n = len(stap_labels)
+
+        # Één brede tabel: Fase | stap… (Momenten) | stap… (Dwarskrachten) | stap… (Vervormingen)
+        kolommen = (
+            ['Fase']
+            + list(stap_labels)
+            + list(stap_labels)
+            + list(stap_labels)
+        )
+        sep_cols = [1 + n, 1 + 2 * n]  # begin Dwarskrachten- en Vervormingen-groep
+
+        rows: list[list[str]] = []
+        for stage_num in alle_stages:
+            rij: list[str] = [self._stage_naam(project, stage_num)]
+            for attr in ('moment', 'shear', 'disp'):
+                for sk in stap_keys:
+                    step = project.result_steps[sk]
+                    rs = step.stages.get(stage_num)
+                    ex = self._extremes(rs, attr) if rs else None
+                    rij.append(
+                        fmt_number(max(abs(ex[0]), abs(ex[2]))) if ex else '-'
+                    )
+            rows.append(rij)
+
+        sec.tables.append(ReportTable(
+            id='summary_resultaten',
+            title='',
+            columns=kolommen,
+            rows=rows,
+            separator_before_cols=sep_cols,
+            column_groups=[
+                ('', 1),
+                ('Momenten (kNm)', n),
+                ('Dwarskrachten (kN)', n),
+                ('Vervormingen (mm)', n),
+            ],
+        ))
         return sec
