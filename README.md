@@ -56,7 +56,7 @@ Ontwikkeld door **DKIB Geotechniek**.
 
 - Python **3.10** of hoger
 - PyQt6 of PySide6 (PyQt6 heeft de voorkeur)
-- De overige afhankelijkheden staan in `requirements.txt`
+- Runtime-afhankelijkheden staan in `requirements.txt`; testpakketten in `requirements-dev.txt`
 - `openpyxl` en `python-docx` zijn optioneel — ze worden pas gecontroleerd op het moment van exporteren
 
 ---
@@ -65,7 +65,8 @@ Ontwikkeld door **DKIB Geotechniek**.
 
 ```bash
 cd Dsheet_dashboard
-pip install -r requirements.txt
+pip install -r requirements.txt           # runtime
+pip install -r requirements-dev.txt       # incl. tests
 python run.pyw
 ```
 
@@ -155,7 +156,8 @@ Tekst in beide beschrijvingen kan handmatig worden overschreven via **TextBlock 
 ```
 Dsheet_dashboard/
 ├── run.pyw                            Applicatie-entrypoint
-├── requirements.txt                   Python-afhankelijkheden
+├── requirements.txt                   Runtime-afhankelijkheden
+├── requirements-dev.txt               Dev/test-afhankelijkheden
 ├── app/
 │   ├── main_window.py                 QMainWindow: layout en signal-verbindingen
 │   ├── state.py                       AppState dataclass (single source of truth)

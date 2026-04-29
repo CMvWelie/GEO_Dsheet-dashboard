@@ -10,7 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements.txt           # runtime
+pip install -r requirements-dev.txt       # incl. pytest voor tests
 
 # Run the application
 python run.pyw
