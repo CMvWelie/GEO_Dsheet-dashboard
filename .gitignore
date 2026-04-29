@@ -1,1 +1,18 @@
+# Python build/cache artefacten
+__pycache__/
+*.pyc
+*.pyo
+
+# Pytest
+.pytest_cache/
+pytest-cache-files-*/
+
+# Worktrees
 .worktrees/
+
+# Superpowers brainstorm-werkmateriaal
+.superpowers/brainstorm/
+
+# Editor / OS junk
+*.tmp.*
+*Exemplaar met conflict*
