@@ -38,13 +38,15 @@ The application follows a **data → parse → visualize → interact** pipeline
 
 | Package | Purpose |
 |---|---|
-| `app/` | App layer: state, controller, config, viewport, main window, report controller |
+| `app/` | App layer: state, controller, config, viewport, main window, report controller, theme + theme_apply |
 | `parsers/` | `.shi`/`.shd`/`.shs` parsing → domain dataclasses (`Project`, `Stage`, `SoilLayer`, etc.) |
-| `renderers/` | Matplotlib renderers: cross-section (`SectionRenderer`) and results charts (`render_output_charts`) |
-| `ui/` | PyQt6 widgets and 11 tab modules under `ui/tabs/` |
-| `reporting/` | Report models, `ReportPlan`, validation, and description builders |
-| `exporters/` | `ExcelExporter` (openpyxl) and `WordExporter` (python-docx) |
+| `renderers/` | Matplotlib renderers: cross-section, results charts, vertical equilibrium |
+| `ui/` | PyQt6 widgets, theme dialog, table styles, and 14 tab modules under `ui/tabs/` |
+| `reporting/` | Report models, `ReportPlan`, and builders (input/result description, soil table, damwand chapter, HTML preview) |
+| `exporters/` | `ExcelExporter`, `WordExporter`, and `WordHoofdstukExporter` |
 | `utils/` | Color conversion, geometry helpers, Dutch number formatting, PNG/PDF export |
+| `themes/` | JSON-defined themes (DKIB, SIX Geoconsult) loaded by `app/theme.py` |
+| `templates/` | Word templates for export (`damwand_stijlen.docx`) |
 
 ### Design Rules
 
@@ -56,6 +58,7 @@ The application follows a **data → parse → visualize → interact** pipeline
 - **Text overrides**: `ReportState.overrides` maps `block_id → override_text`; `TextBlock.effective_text` returns override if set, else generated text
 - **Render settings always passed**: `AppController.render_results()` always passes `self._state.render_settings` to `render_output_charts()`
 - **ViewportService dependencies**: `y_range_for_project()`, `x_range_for_project()`, `get_stage_profile()` are module-level exports from `section_renderer.py` used by `ViewportService`
+- **Theme system**: themes are JSON files in `themes/`, loaded via `app.theme.discover_themes()`; `bootstrap_theme()` applies the active theme to the `QApplication` at startup; widgets pull QSS-driven styling — avoid inline stylesheets in `main_window.py`
 
 ---
 
@@ -68,7 +71,7 @@ The application follows a **data → parse → visualize → interact** pipeline
 - **Klassen**: `PascalCase` — `AppState`, `SectionRenderer`, `MainWindow`
 - **Bestanden/modules**: `snake_case` — `config_manager.py`, `shi_parser.py`
 - **Private attributen en methoden**: voorloopstreep `_` — `_state`, `_controller`, `_on_import`, `_normalize_name`
-- **Constanten**: `ALL_CAPS_WITH_UNDERSCORES` op moduleniveau — `CONFIG_DIR`, `_CARD_STYLE`, `_BTN_PRIMARY`
+- **Constanten**: `ALL_CAPS_WITH_UNDERSCORES` op moduleniveau — `CONFIG_DIR`, `THEMES_DIR`, `BASIC_THEME_NAME`
 - **Taal**: Nederlands is leidend — variabelenamen, commentaar, docstrings en UI-teksten zijn in het Nederlands; Engels alleen voor library-imports en typeannotaties
 
 #### Type hints

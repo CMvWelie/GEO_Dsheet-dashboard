@@ -57,7 +57,7 @@ Ontwikkeld door **DKIB Geotechniek**.
 - Python **3.10** of hoger
 - PyQt6 of PySide6 (PyQt6 heeft de voorkeur)
 - Runtime-afhankelijkheden staan in `requirements.txt`; testpakketten in `requirements-dev.txt`
-- `openpyxl` en `python-docx` zijn optioneel — ze worden pas gecontroleerd op het moment van exporteren
+- `openpyxl`, `python-docx` en `numpy` zijn verplicht en worden bij app-start gecontroleerd in `run.pyw`
 
 ---
 
@@ -78,14 +78,15 @@ Bij het opstarten wordt automatisch gecontroleerd of PyQt6 beschikbaar is. Als P
 
 ### Bestanden importeren
 
-1. Open de tab **Import**.
+1. Open de tab **Rapportcontext** — dit is de gecombineerde import- en metadata-tab.
 2. Sleep `.shi`/`.shd`/`.shs` bestanden naar het dropgebied, of klik op **Importeer…** om een bestandsdialoog te openen.
 3. Klik op **Verwerk** om de bestanden te parsen. Bestanden met dezelfde basisnaam (bijv. `project.shi`, `project.shd`, `project.shs`) worden automatisch als één project gegroepeerd in een `FileBundle`.
 4. Geslaagde projecten verschijnen in de lijst **Ingeladen projecten**. Klik op een project om het te selecteren.
 
-### Doorsnede bekijken
+### Doorsnede en grondsoorten
 
-Ga naar de tab **Doorsnede** om een matplotlib-visualisatie te zien van de damwand, grondlagen, waterpeilen, ankers, stempels, veren en belastingen voor de geselecteerde fase.
+- Tab **Doorsnede**: matplotlib-visualisatie van damwand, grondlagen, waterpeilen, ankers, stempels, veren en belastingen voor de geselecteerde fase.
+- Tab **Grondsoortentabel**: tabeloverzicht van alle grondsoorten met selectie- en exportopties.
 
 ### Resultaten bekijken
 
@@ -96,14 +97,21 @@ De tab **Resultaten** toont grafieken van moment, dwarskracht en verplaatsing. S
 - **Invoerbeschrijving**: gestructureerde tekst over de invoerdata van het actieve project en de geselecteerde fase.
 - **Resultaatbeschrijving**: gestructureerde tekst over de berekeningsresultaten.
 
-Tekst in beide beschrijvingen kan handmatig worden overschreven via **TextBlock overrides** (sla op via de rapportagecontext).
+Tekst in beide beschrijvingen kan handmatig worden overschreven via **TextBlock overrides** (opgeslagen in `ReportState.overrides`).
+
+### Aanvullende berekeningen
+
+De tab **Aanvullende berekeningen** bevat subtabs voor extra geotechnische controles: **Hydraulische Grondbreuk** en **Verticaal evenwicht**.
 
 ### Rapportage aanmaken
 
 1. Vul de rapportmetadata in via de tab **Rapportcontext** (projectnaam, opdrachtgever, auteur, datum, revisie).
-2. Selecteer en orden de gewenste secties via de tab **Rapportinhoud**.
-3. Controleer het rapport via de tab **Validatie** (vereist: projectnaam, rapporttitel, auteur, datum).
-4. Exporteer via de tab **Export** naar Excel of Word.
+2. Selecteer en orden de gewenste secties via de tab **Rapportage**, en stel het Word-template-pad in.
+3. Exporteer naar Word (`.docx`) of Excel (`.xlsx`) via de export-knoppen in de Rapportage-tab.
+
+### Instellingen en thema's
+
+Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je render-, viewport- en thema-opties beheren. Thema's zijn JSON-bestanden in de map `themes/` (`dkib.json`, `sixgeoconsult.json`).
 
 ---
 
@@ -161,32 +169,38 @@ Dsheet_dashboard/
 ├── app/
 │   ├── main_window.py                 QMainWindow: layout en signal-verbindingen
 │   ├── state.py                       AppState dataclass (single source of truth)
-│   ├── settings.py                    RenderSettings, ViewportSettings dataclasses
+│   ├── settings.py                    RenderSettings, ViewportSettings, AppSettings
 │   ├── controller.py                  AppController: ingest/parse/render/export orkestratie
 │   ├── report_controller.py           ReportController: rapportagepijplijn
 │   ├── report_state.py                ReportState: actief plan, metadata en overrides
 │   ├── config_manager.py              ConfigManager: lees/schrijf ~/.dsheet_dashboard/config.json
-│   └── viewport_service.py            ViewportService: zoom en auto-bounds berekening
+│   ├── viewport_service.py            ViewportService: zoom en auto-bounds berekening
+│   ├── theme.py                       Theme-dataclass + JSON-loader + QSS-builder
+│   └── theme_apply.py                 bootstrap_theme() en thema-toepassing op QApplication
 ├── parsers/
 │   ├── models.py                      Domain dataclasses (Project, Stage, Soil, etc.)
-│   ├── shi_parser.py                  Hoofdparser (~1058 regels): parse_project → Project
+│   ├── shi_parser.py                  Hoofdparser: parse_project → Project
 │   ├── base_parser.py                 Hulpfuncties: extract_section, find_line_value
 │   └── __init__.py                    Parser plugin registry: register_parser(ext, fn)
 ├── renderers/
 │   ├── __init__.py                    BaseRenderer ABC
 │   ├── section_renderer.py            Doorsnede-visualisatie
 │   ├── output_renderer.py             Moment/kracht/verplaatsingsgrafieken
+│   ├── vertical_equilibrium_renderer.py  Verticaal-evenwicht visualisatie
 │   └── draw_helpers.py                matplotlib tekenprimitieven
 ├── reporting/
 │   ├── models.py                      ReportField, ReportTable, TextBlock, ReportSection, etc.
 │   ├── selection.py                   ReportPlan + build_package()
-│   ├── validation.py                  ReportValidator → lijst van ValidationIssue
 │   └── builders/
 │       ├── input_description_builder.py
-│       └── result_description_builder.py
+│       ├── result_description_builder.py
+│       ├── soil_table_builder.py            Grondsoorten-tabelopbouw
+│       ├── damwand_hoofdstuk_builder.py     Damwand-hoofdstuk samensteller
+│       └── html_preview_builder.py          HTML-preview voor Word-export
 ├── exporters/
 │   ├── excel_exporter.py              ExcelExporter (openpyxl)
-│   └── word_exporter.py               WordExporter (python-docx)
+│   ├── word_exporter.py               WordExporter (python-docx)
+│   └── word_hoofdstuk_exporter.py     Hoofdstuk-gewijze Word-export
 ├── ui/
 │   ├── sidebar.py
 │   ├── controls_panel.py
@@ -195,25 +209,49 @@ Dsheet_dashboard/
 │   ├── file_list_widget.py
 │   ├── scale_slider.py                ScaleSlider widget (API-compatibel met QDoubleSpinBox)
 │   ├── status_widget.py               StatusWidget: gekleurde statusbadge (ok/warn/err/idle)
+│   ├── preview_window.py              WordPreviewWindow: HTML-preview voor rapportage
+│   ├── table_styles.py                Centrale tabelopmaak gedreven door thema
+│   ├── theme_dialog.py                Dialog voor thema-bewerking
 │   └── tabs/
-│       ├── tab_import.py              Bestandsimport en projectselectie
-│       ├── tab_input_view.py          Doorsnede-weergave (matplotlib canvas)
-│       ├── tab_input_desc.py          Invoerbeschrijving als gestructureerde tekst
-│       ├── tab_result_view.py         Resultaatgrafieken (matplotlib canvas)
-│       ├── tab_result_desc.py         Resultaatbeschrijving als gestructureerde tekst
-│       ├── tab_report_context.py      Rapportmetadata (opdrachtgever, auteur, datum, etc.)
-│       ├── tab_report_select.py       Itemselectie en volgorde voor rapport
-│       ├── tab_export.py              Export container (PNG / Excel / Word sub-tabs)
-│       ├── tab_excel_export.py        Excel-export sub-tab
-│       ├── tab_word_export.py         Word-export sub-tab
-│       └── tab_validation.py          Pre-export validatieweergave
+│       ├── tab_report_context.py            Rapportmetadata + bestandsimport (gecombineerd)
+│       ├── tab_input_view.py                Doorsnede-weergave (matplotlib canvas)
+│       ├── tab_input_desc.py                Invoerbeschrijving als gestructureerde tekst
+│       ├── tab_grondsoorten.py              Grondsoortentabel met selectie
+│       ├── tab_result_view.py               Resultaatgrafieken (matplotlib canvas)
+│       ├── tab_result_desc.py               Resultaatbeschrijving als gestructureerde tekst
+│       ├── tab_aanvullende_berekeningen.py  Container voor extra controles
+│       ├── tab_hydraulische_grondbreuk.py   Subtab: hydraulische grondbreuk
+│       ├── tab_verticaal_evenwicht.py       Subtab: verticaal evenwicht
+│       ├── tab_report_select.py             Rapportage-itemselectie + Word/Excel export
+│       ├── tab_instellingen.py              Render-, viewport- en thema-instellingen
+│       ├── tab_debug.py                     Debug-container (subtabs Invoer/Uitvoer)
+│       ├── tab_debug_invoer.py              Debug: ruwe invoerdata-inspectie
+│       └── tab_debug_uitvoer.py             Debug: ruwe uitvoerdata-inspectie
 ├── utils/
 │   ├── color_utils.py                 D-Sheet BGR-integer → RGB kleurconversie
 │   ├── geometry.py                    Oppervlak-interpolatie, clipping
 │   ├── formatting.py                  Nederlandse getalopmaak (komma als decimaalscheidingsteken)
-│   └── export_manager.py             PNG/PDF figuur-export
+│   └── export_manager.py              PNG/PDF figuur-export
+├── themes/
+│   ├── dkib.json                      DKIB-thema (huiskleuren, logo, tabelstijlen)
+│   └── sixgeoconsult.json             SIX Geoconsult-thema
+├── templates/
+│   └── damwand_stijlen.docx           Word-template voor rapportage
 └── tests/
-    └── test_parsers.py                Unit tests met embedded testdata
+    ├── conftest.py                    Gedeelde pytest-fixtures
+    ├── test_parsers.py                Parser-tests met embedded SAMPLE_SHI
+    ├── test_app_settings.py           AppSettings persistentie
+    ├── test_app_settings_theme.py     Thema-instellingen
+    ├── test_theme.py                  Theme dataclass + JSON-loader
+    ├── test_damwand_hoofdstuk_builder.py
+    ├── test_html_preview_builder.py
+    ├── test_soil_table_builder.py
+    ├── test_result_description_builder.py
+    ├── test_word_hoofdstuk_exporter.py
+    ├── test_hydraulische_grondbreuk.py
+    ├── test_verticaal_evenwicht.py
+    ├── test_tab_result_desc.py
+    └── test_debug_tab.py
 ```
 
 ---
@@ -259,10 +297,9 @@ Als het bestand ontbreekt of ongeldig is, worden standaardwaarden gebruikt. Het 
 ### Werkwijze
 
 1. Stel rapportmetadata in (tab **Rapportcontext**): verplicht zijn projectnaam, rapporttitel, auteur en datum.
-2. Kies en orden de rapportage-items (tab **Rapportinhoud**). Gebruik **Auto-vullen** om secties vanuit de builders voor te laden.
-3. Stel per item in of het in Excel, in Word, of in beide terecht moet komen.
-4. Controleer de volledigheid (tab **Validatie**). Fouten zijn rood, waarschuwingen zijn geel.
-5. Exporteer via de tab **Export**.
+2. Kies en orden de rapportage-items (tab **Rapportage**). Gebruik **Auto-vullen** om secties vanuit de builders voor te laden.
+3. Stel per item in of het in Excel, in Word, of in beide terecht moet komen, en geef het Word-templatepad op.
+4. Exporteer naar Word of Excel via de export-knoppen in dezelfde tab.
 
 ### Templates
 
@@ -301,17 +338,25 @@ Zonder template of sidecar worden alle geselecteerde secties als nieuwe werkblad
 
 ## Tests uitvoeren
 
+Alle tests uitvoeren:
+
+```bash
+pytest -v
+```
+
+Een specifieke test-module:
+
 ```bash
 pytest tests/test_parsers.py -v
 ```
 
-Een enkel testgeval uitvoeren:
+Een enkel testgeval:
 
 ```bash
 pytest tests/test_parsers.py::test_parse_soils -v
 ```
 
-De tests gebruiken embedded `SAMPLE_SHI` strings — geen externe testbestanden nodig. De test-suite dekt parsers (`parse_soils`, `parse_soil_profiles`, `parse_sheet_piling`, `parse_anchors`, `parse_struts`, `parse_water_levels`, `parse_surfaces`, `parse_stages`, `parse_project`), kleurconversie (`color_utils`), geometrie (`geometry`) en getalopmaak (`formatting`).
+De suite dekt parsers (embedded `SAMPLE_SHI` strings — geen externe testbestanden nodig), de rapportage-builders (`damwand_hoofdstuk`, `html_preview`, `soil_table`, `result_description`), de Word-hoofdstuk-exporter, app-instellingen en thema's, en de aanvullende-berekeningen-tabs. Gedeelde fixtures staan in `tests/conftest.py`.
 
 ---
 
