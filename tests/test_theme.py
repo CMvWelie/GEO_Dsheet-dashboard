@@ -109,3 +109,44 @@ def test_discover_themes_skipt_kapotte_bestanden(tmp_path: Path) -> None:
 
     assert len(profielen) == 1
     assert profielen[0][0] == "Test"
+
+
+def test_build_stylesheet_bevat_kleuren_en_font(tmp_path: Path) -> None:
+    pad = tmp_path / "test.json"
+    pad.write_text(json.dumps(_voorbeeld_thema_dict()), encoding="utf-8")
+    thema = Theme.load(pad)
+
+    qss = thema.build_stylesheet(font_family="Eina 04")
+
+    # Primaire kleur en knop-objectName
+    assert "#147ACF" in qss
+    assert "QPushButton#btnPrimary" in qss
+
+    # Tekstkleur
+    assert "#44546A" in qss
+
+    # Font-familienaam met dubbele quotes (cruciaal voor namen met spatie)
+    assert '"Eina 04"' in qss
+
+    # GroupBox card-styling
+    assert "QGroupBox" in qss
+
+    # QTabBar selected-tab styling
+    assert "QTabBar::tab:selected" in qss
+
+    # QTabWidget pane top-overlap fix tegen dubbele lijn
+    assert "QTabWidget::pane" in qss
+    assert "top: -1px" in qss
+
+
+def test_build_stylesheet_gebruikt_meegegeven_font(tmp_path: Path) -> None:
+    """Als de werkelijke font-familienaam afwijkt van typography.family,
+    dan gebruikt de stylesheet de meegegeven naam (niet die uit JSON)."""
+    pad = tmp_path / "test.json"
+    pad.write_text(json.dumps(_voorbeeld_thema_dict()), encoding="utf-8")
+    thema = Theme.load(pad)
+
+    qss = thema.build_stylesheet(font_family="Segoe UI")
+
+    assert '"Segoe UI"' in qss
+    assert '"Eina 04"' not in qss

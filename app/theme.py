@@ -63,8 +63,194 @@ class Theme:
     assets: ThemeAssets
 
     def build_stylesheet(self, font_family: str) -> str:
-        """Placeholder — geïmplementeerd in Task 4."""
-        return ''
+        """Genereer een Qt-QSS-string voor dit thema.
+
+        Parameters
+        ----------
+        font_family:
+            De werkelijke font-familienaam zoals Qt deze rapporteert na
+            ``QFontDatabase.addApplicationFont()``. Kan afwijken van
+            ``typography.family`` in het JSON-bestand.
+
+        Returns
+        -------
+        str
+            Een complete QSS-string voor ``QApplication.setStyleSheet()``.
+        """
+        c = self.colors
+        t = self.typography
+        g = self.geometry
+        ff = f'"{font_family}"'
+
+        return f"""
+* {{
+    font-family: {ff}, "{t.fallback}", sans-serif;
+    font-size: {t.size_base}pt;
+    color: {c.text};
+}}
+
+QWidget {{
+    background: {c.background};
+}}
+
+QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox, QPlainTextEdit, QTextEdit {{
+    background: {c.surface};
+    border: 1px solid {c.border};
+    border-radius: {g.radius}px;
+    padding: 3px 6px;
+    color: {c.text};
+}}
+
+QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QSpinBox:focus,
+QPlainTextEdit:focus, QTextEdit:focus {{
+    border: 1px solid {c.primary};
+}}
+
+QGroupBox {{
+    background: {c.surface};
+    border: 1px solid {c.border};
+    border-radius: {g.radius + 2}px;
+    margin-top: 10px;
+    padding: 10px 8px 6px 8px;
+    font-weight: 600;
+    color: {c.primary};
+}}
+
+QGroupBox::title {{
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 4px;
+    color: {c.primary};
+    font-size: {t.size_title}pt;
+}}
+
+QPushButton {{
+    background: {c.surface};
+    color: {c.text};
+    border: 1px solid {c.border};
+    border-radius: {g.radius}px;
+    padding: {g.padding_button};
+    font-size: {t.size_base}pt;
+    font-weight: 500;
+}}
+
+QPushButton:hover {{
+    background: {c.background};
+    border: 1px solid {c.border_strong};
+}}
+
+QPushButton:pressed {{
+    background: {c.border};
+}}
+
+QPushButton:disabled {{
+    color: {c.text_muted};
+    background: {c.background};
+    border: 1px solid {c.border};
+}}
+
+QPushButton#btnPrimary {{
+    background: {c.primary};
+    color: {c.surface};
+    border: 1px solid {c.primary_hover};
+    font-weight: 600;
+}}
+
+QPushButton#btnPrimary:hover {{
+    background: {c.primary_hover};
+}}
+
+QPushButton#btnPrimary:pressed {{
+    background: {c.primary_pressed};
+}}
+
+QPushButton#btnDanger {{
+    background: {c.surface};
+    color: {c.danger};
+    border: 1px solid {c.danger};
+}}
+
+QPushButton#btnDanger:hover {{
+    background: #fdf0ee;
+}}
+
+QPushButton#btnNormal {{
+    background: {c.surface};
+    color: {c.text};
+    border: 1px solid {c.border};
+}}
+
+QPushButton#btnClear {{
+    background: {c.surface};
+    color: {c.text_muted};
+    border: 1px solid {c.border};
+    border-radius: {g.radius}px;
+    font-size: {t.size_small}pt;
+    padding: 2px 4px;
+}}
+
+QPushButton#btnClear:hover {{
+    color: {c.danger};
+    border-color: {c.danger};
+}}
+
+QTabWidget::pane {{
+    border-top: 1px solid {c.border};
+    background: {c.surface};
+    top: -1px;
+}}
+
+QTabBar::tab {{
+    background: {c.background};
+    color: {c.text};
+    padding: 6px 14px;
+    border: 1px solid {c.border};
+    border-bottom: none;
+    border-top-left-radius: {g.radius}px;
+    border-top-right-radius: {g.radius}px;
+    margin-right: 2px;
+}}
+
+QTabBar::tab:selected {{
+    background: {c.surface};
+    color: {c.primary};
+    border-top: 3px solid {c.primary};
+    font-weight: 600;
+}}
+
+QTabBar::tab:!selected:hover {{
+    background: {c.surface};
+}}
+
+QListWidget {{
+    background: {c.surface};
+    border: 1px solid {c.border};
+    border-radius: {g.radius}px;
+}}
+
+QListWidget::item:selected {{
+    background: {c.primary};
+    color: {c.surface};
+}}
+
+QLabel {{
+    background: transparent;
+    color: {c.text};
+}}
+
+QLabel#hintLabel {{
+    color: {c.text_muted};
+    font-size: {t.size_small}pt;
+    font-style: italic;
+}}
+
+QLabel#projectLabel {{
+    font-size: {t.size_small}pt;
+    font-weight: 600;
+    color: {c.text};
+}}
+""".strip()
 
     @classmethod
     def load(cls, path: Path) -> 'Theme':
