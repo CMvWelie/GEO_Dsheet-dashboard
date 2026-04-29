@@ -58,3 +58,5 @@ class AppSettings:
     """Pad naar het Word-sjabloon (.dotx, ook .docx ondersteund); leeg = geen sjabloon."""
     standaard_importmap: str = ''
     """Standaard startmap voor het importeer-dialoogvenster; leeg = systeemstandaard."""
+    active_theme_name: str = 'DKIB'
+    """Naam van het actieve UI-thema; verwijst naar ``themes/<naam>.json``."""
