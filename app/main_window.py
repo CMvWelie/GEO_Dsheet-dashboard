@@ -49,7 +49,8 @@ from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.tabs.tab_debug import TabDebug
 from ui.preview_window import WordPreviewWindow
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
-from app.theme import Theme
+from app.theme import Theme, discover_themes
+from app.theme_apply import THEMES_DIR
 
 
 _CARD_STYLE = (
@@ -131,6 +132,10 @@ class MainWindow(QMainWindow):
         self._tab_instellingen.set_import_map(
             self._state.app_settings.standaard_importmap
         )
+        # Vul thema-dropdown in Instellingen-tab
+        themas = discover_themes(THEMES_DIR)
+        actief = self._state.app_settings.active_theme_name
+        self._tab_instellingen.set_themes(themas, actief)
         self._tab_result_view.set_breedte(
             self._state.render_settings.resultaat_half_breedte_m * 2
         )
@@ -328,6 +333,7 @@ class MainWindow(QMainWindow):
         self._tab_instellingen.import_map_changed.connect(
             self._on_import_map_changed
         )
+        self._tab_instellingen.theme_selected.connect(self._on_theme_selected)
         self._tab_report_select.preview_open_requested.connect(
             self._on_preview_open
         )
@@ -854,6 +860,7 @@ class MainWindow(QMainWindow):
         self._controller.apply_app_settings(AppSettings(
             word_template_path=pad,
             standaard_importmap=huidig.standaard_importmap,
+            active_theme_name=huidig.active_theme_name,
         ))
 
     def _on_resultaat_breedte_changed(self, _: int) -> None:
@@ -867,6 +874,16 @@ class MainWindow(QMainWindow):
         self._controller.apply_app_settings(AppSettings(
             word_template_path=huidig.word_template_path,
             standaard_importmap=pad,
+            active_theme_name=huidig.active_theme_name,
+        ))
+
+    def _on_theme_selected(self, naam: str) -> None:
+        """Sla nieuw gekozen thema op in config; herstart vereist."""
+        huidig = self._state.app_settings
+        self._controller.apply_app_settings(AppSettings(
+            word_template_path=huidig.word_template_path,
+            standaard_importmap=huidig.standaard_importmap,
+            active_theme_name=naam,
         ))
 
     def _on_preview_open(self) -> None:
