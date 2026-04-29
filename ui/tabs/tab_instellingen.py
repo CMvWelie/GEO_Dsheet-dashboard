@@ -1,23 +1,13 @@
-"""Tab Instellingen — persistente app-instellingen en preview-opener."""
+"""Tab Instellingen — persistente app-instellingen, template-keuze en preview-opener."""
 
 from __future__ import annotations
+from pathlib import Path
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QGroupBox, QFileDialog,
+    QPushButton, QGroupBox, QFileDialog, QComboBox,
 )
 from PyQt6.QtCore import pyqtSignal
-
-_BTN_NORMAL = (
-    'QPushButton { background: white; color: #2c3e50; border: 1px solid #aabdca; '
-    'border-radius: 5px; padding: 4px 10px; font-size: 11px; } '
-    'QPushButton:hover { background: #f0f5f9; } '
-    'QPushButton:pressed { background: #e4edf3; }'
-)
-_BTN_CLEAR = (
-    'QPushButton { background: white; color: #888; border: 1px solid #ccc; '
-    'border-radius: 5px; padding: 4px 6px; font-size: 11px; } '
-    'QPushButton:hover { background: #fdf0ee; color: #c0392b; border-color: #c0392b; }'
-)
 
 
 class TabInstellingen(QWidget):
@@ -29,8 +19,13 @@ class TabInstellingen(QWidget):
     import_map_changed = pyqtSignal(str)
     """Afgegeven zodra de standaard importmap wijzigt (ook bij wissen)."""
 
+    theme_selected = pyqtSignal(str)
+    """Afgegeven zodra de gebruiker op 'Toepassen' klikt voor een ander UI-thema."""
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._huidig_thema_naam: str = ''
+        self._beschikbare_themas: list[tuple[str, Path]] = []
         self._build()
 
     def _build(self) -> None:
@@ -38,13 +33,16 @@ class TabInstellingen(QWidget):
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(14)
 
+        # ── Groep: Template (UI-thema) ────────────────────────────────
+        root.addWidget(self._build_template_group())
+
         # ── Groep: Rapportage-instellingen ────────────────────────────
         tmpl_box = QGroupBox('Rapportage-instellingen')
         tmpl_vl = QVBoxLayout(tmpl_box)
         tmpl_vl.setSpacing(6)
 
         lbl = QLabel('Word-template (.dotx)')
-        lbl.setStyleSheet('font-size: 11px; color: #444;')
+        lbl.setObjectName('hintLabel')
 
         tmpl_rij = QHBoxLayout()
         self._template_edit = QLineEdit()
@@ -52,11 +50,11 @@ class TabInstellingen(QWidget):
         self._template_edit.textChanged.connect(self.template_path_changed)
 
         bladeren_btn = QPushButton('Bladeren…')
-        bladeren_btn.setStyleSheet(_BTN_NORMAL)
+        bladeren_btn.setObjectName('btnNormal')
         bladeren_btn.clicked.connect(self._on_bladeren)
 
         wis_btn = QPushButton('✕')
-        wis_btn.setStyleSheet(_BTN_CLEAR)
+        wis_btn.setObjectName('btnClear')
         wis_btn.setFixedWidth(28)
         wis_btn.setToolTip('Verwijder template-pad')
         wis_btn.clicked.connect(self._on_wis_template)
@@ -68,7 +66,7 @@ class TabInstellingen(QWidget):
         hint = QLabel(
             'Optioneel — wordt ook gebruikt bij Word-export als het export-venster leeg is'
         )
-        hint.setStyleSheet('font-size: 10px; color: #888; font-style: italic;')
+        hint.setObjectName('hintLabel')
 
         tmpl_vl.addWidget(lbl)
         tmpl_vl.addLayout(tmpl_rij)
@@ -81,7 +79,7 @@ class TabInstellingen(QWidget):
         imp_vl.setSpacing(6)
 
         imp_lbl = QLabel('Standaard importmap')
-        imp_lbl.setStyleSheet('font-size: 11px; color: #444;')
+        imp_lbl.setObjectName('hintLabel')
 
         imp_rij = QHBoxLayout()
         self._import_map_edit = QLineEdit()
@@ -89,11 +87,11 @@ class TabInstellingen(QWidget):
         self._import_map_edit.textChanged.connect(self.import_map_changed)
 
         imp_bladeren_btn = QPushButton('Bladeren…')
-        imp_bladeren_btn.setStyleSheet(_BTN_NORMAL)
+        imp_bladeren_btn.setObjectName('btnNormal')
         imp_bladeren_btn.clicked.connect(self._on_bladeren_importmap)
 
         imp_wis_btn = QPushButton('✕')
-        imp_wis_btn.setStyleSheet(_BTN_CLEAR)
+        imp_wis_btn.setObjectName('btnClear')
         imp_wis_btn.setFixedWidth(28)
         imp_wis_btn.setToolTip('Verwijder standaard importmap')
         imp_wis_btn.clicked.connect(self._on_wis_importmap)
@@ -103,7 +101,7 @@ class TabInstellingen(QWidget):
         imp_rij.addWidget(imp_wis_btn)
 
         imp_hint = QLabel('Het importeer-dialoogvenster opent voortaan in deze map')
-        imp_hint.setStyleSheet('font-size: 10px; color: #888; font-style: italic;')
+        imp_hint.setObjectName('hintLabel')
 
         imp_vl.addWidget(imp_lbl)
         imp_vl.addLayout(imp_rij)
@@ -111,6 +109,41 @@ class TabInstellingen(QWidget):
         root.addWidget(imp_box)
 
         root.addStretch()
+
+    def _build_template_group(self) -> QGroupBox:
+        """Bouw de Template-groep (UI-thema-keuze).
+
+        Returns
+        -------
+        QGroupBox
+            De gevulde thema-keuzegroepdoos.
+        """
+        box = QGroupBox('Template (UI-thema)')
+        vl = QVBoxLayout(box)
+        vl.setSpacing(6)
+
+        self._actief_label = QLabel('Actief: -')
+        self._actief_label.setObjectName('hintLabel')
+        vl.addWidget(self._actief_label)
+
+        rij = QHBoxLayout()
+        self._theme_combo = QComboBox()
+        self._theme_combo.setMinimumWidth(220)
+        rij.addWidget(self._theme_combo)
+
+        self._theme_apply_btn = QPushButton('Toepassen')
+        self._theme_apply_btn.setObjectName('btnPrimary')
+        self._theme_apply_btn.clicked.connect(self._on_theme_apply)
+        rij.addWidget(self._theme_apply_btn)
+        rij.addStretch()
+        vl.addLayout(rij)
+
+        self._herstart_label = QLabel('Wisseling actief na herstart van de app.')
+        self._herstart_label.setObjectName('hintLabel')
+        self._herstart_label.setVisible(False)
+        vl.addWidget(self._herstart_label)
+
+        return box
 
     # ------------------------------------------------------------------
     # Publieke API
@@ -140,6 +173,33 @@ class TabInstellingen(QWidget):
         self._template_edit.setText(pad)
         self._template_edit.blockSignals(False)
 
+    def set_themes(self, themas: list[tuple[str, Path]], actief_naam: str) -> None:
+        """Vul de thema-dropdown en markeer het huidige actieve thema.
+
+        Parameters
+        ----------
+        themas:
+            Lijst van (naam, pad)-paren zoals teruggegeven door ``discover_themes()``.
+        actief_naam:
+            Naam van het thema dat momenteel actief is (verschijnt in 'Actief: …').
+        """
+        self._beschikbare_themas = themas
+        self._huidig_thema_naam = actief_naam
+        self._actief_label.setText(f'Actief: {actief_naam or "-"}')
+
+        self._theme_combo.blockSignals(True)
+        self._theme_combo.clear()
+        idx_actief = -1
+        for i, (naam, _pad) in enumerate(themas):
+            self._theme_combo.addItem(naam)
+            if naam == actief_naam:
+                idx_actief = i
+        if idx_actief >= 0:
+            self._theme_combo.setCurrentIndex(idx_actief)
+        self._theme_combo.blockSignals(False)
+
+        self._herstart_label.setVisible(False)
+
     # ------------------------------------------------------------------
     # Privé handlers
     # ------------------------------------------------------------------
@@ -164,3 +224,11 @@ class TabInstellingen(QWidget):
 
     def _on_wis_importmap(self) -> None:
         self._import_map_edit.clear()
+
+    def _on_theme_apply(self) -> None:
+        """Gebruiker klikt 'Toepassen' op de thema-dropdown."""
+        gekozen = self._theme_combo.currentText()
+        if not gekozen or gekozen == self._huidig_thema_naam:
+            return
+        self._herstart_label.setVisible(True)
+        self.theme_selected.emit(gekozen)
