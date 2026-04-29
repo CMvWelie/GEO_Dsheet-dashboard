@@ -166,6 +166,10 @@ class MainWindow(QMainWindow):
         self._main_tabs = QTabWidget()
         self._main_tabs.setDocumentMode(False)
 
+        branding = self._build_branding_corner()
+        if branding is not None:
+            self._main_tabs.setCornerWidget(branding, Qt.Corner.TopLeftCorner)
+
         # Project-selector als corner-widget van de tab-balk
         self._main_tabs.setCornerWidget(
             self._build_project_corner(), Qt.Corner.TopRightCorner
@@ -218,6 +222,31 @@ class MainWindow(QMainWindow):
 
         root_layout.addWidget(self._main_tabs, stretch=1)
 
+    def _build_branding_corner(self) -> QWidget | None:
+        """Logo-cornerwidget linksboven in de tabbalk.
+
+        Returns
+        -------
+        QWidget | None
+            Een QLabel met het thema-app-logo, of ``None`` als er geen logo is
+            of als het bestand niet geladen kan worden.
+        """
+        if self._theme is None or not self._theme.assets.app_logo:
+            return None
+
+        from PyQt6.QtGui import QPixmap
+        pix = QPixmap(self._theme.assets.app_logo)
+        if pix.isNull():
+            return None
+
+        pix = pix.scaledToHeight(
+            28, Qt.TransformationMode.SmoothTransformation
+        )
+        label = QLabel()
+        label.setPixmap(pix)
+        label.setContentsMargins(8, 2, 8, 2)
+        return label
+
     def _build_project_corner(self) -> QWidget:
         """Project-selector + export-knop als corner-widget in de tab-balk."""
         corner = QWidget()
@@ -225,13 +254,13 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(4, 2, 8, 2)
         layout.setSpacing(6)
         lbl = QLabel('Project:')
-        lbl.setStyleSheet('font-size: 11px; font-weight: 600; color: #2c3e50;')
+        lbl.setObjectName('projectLabel')
         layout.addWidget(lbl)
         self._project_combo = QComboBox()
         self._project_combo.setMinimumWidth(160)
         layout.addWidget(self._project_combo)
         self._btn_export_rapport = QPushButton('Exporteer rapport (Word)')
-        self._btn_export_rapport.setStyleSheet(_BTN_PRIMARY)
+        self._btn_export_rapport.setObjectName('btnPrimary')
         self._btn_export_rapport.setEnabled(False)
         layout.addWidget(self._btn_export_rapport)
         return corner
