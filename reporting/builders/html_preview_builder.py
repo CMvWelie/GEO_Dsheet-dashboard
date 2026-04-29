@@ -5,15 +5,15 @@ from __future__ import annotations
 from reporting.models import ReportPackage, ReportSection, ReportField, ReportTable
 
 # ── Kleurconstanten (consistent met app-stijl) ───────────────────────────────
-_HDR_BG   = '#1b3a5c'
+_HDR_BG   = '#147ACF'
 _HDR_FG   = '#ffffff'
-_SUB_BG   = '#274f77'
-_SUB_FG   = '#d0e8f5'
-_ODD_BG   = '#f3f8fc'
-_EVEN_BG  = '#ffffff'
-_SEP      = '#dce8f0'
-_LABEL    = '#2c3f52'
-_VALUE    = '#0f1e2b'
+_SUB_BG   = '#147ACF'
+_SUB_FG   = '#ffffff'
+_ODD_BG   = '#ffffff'
+_EVEN_BG  = '#f2f2f2'
+_SEP      = '#000000'
+_LABEL    = '#000000'
+_VALUE    = '#000000'
 _FONT     = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
 
 _CSS = f"""
@@ -25,21 +25,24 @@ _CSS = f"""
   h2   {{ font-size: 12px; font-weight: 700; color: {_SUB_BG};
           margin: 18px 0 6px 0; padding: 5px 10px;
           background: #eaf2f8; border-left: 3px solid {_SUB_BG}; }}
-  table {{ width: 100%; border-collapse: collapse; margin-bottom: 12px; }}
+  table {{ width: 100%; border-collapse: collapse; margin-bottom: 12px;
+           border: 1px solid {_SEP}; }}
   th    {{ background: {_HDR_BG}; color: {_HDR_FG}; font-size: 11px;
-           font-weight: 600; padding: 5px 10px; text-align: left; }}
-  td    {{ padding: 5px 10px; border-bottom: 1px solid {_SEP};
+           font-weight: 600; padding: 5px 10px; text-align: left;
+           border: 1px solid {_SEP}; }}
+  td    {{ padding: 5px 10px; border: 1px solid {_SEP};
            font-size: 11px; }}
   tr.odd  td {{ background: {_ODD_BG}; }}
   tr.even td {{ background: {_EVEN_BG}; }}
   td.label {{ color: {_LABEL}; font-weight: 500; width: 45%; }}
   td.value {{ text-align: right; }}
-  td.unit  {{ color: #5a7a8a; font-size: 10px; width: 20%; }}
+  td.unit  {{ color: {_VALUE}; font-size: 10px; width: 20%; }}
   p.tekst  {{ font-size: 11px; color: #3d4f5c; margin: 4px 0 10px 0;
               line-height: 1.6; }}
   p.leeg   {{ color: #a0b4c2; font-style: italic; padding: 20px 0; }}
   .inline-wrap td {{ vertical-align: top; padding-right: 16px; }}
-  .inline-wrap {{ border-collapse: separate; border-spacing: 0; width: auto; margin-bottom: 12px; }}
+  .inline-wrap {{ border-collapse: separate; border-spacing: 0; width: auto;
+                  margin-bottom: 12px; border: none; }}
   .inline-wrap table {{ width: auto; min-width: 160px; margin-bottom: 0; }}
 """
 

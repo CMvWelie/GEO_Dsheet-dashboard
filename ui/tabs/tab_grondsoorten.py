@@ -8,21 +8,25 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from parsers.models import Project, SoilProfile
+from ui.table_styles import (
+    TABLE_BORDER, TABLE_FONT, TABLE_HEADER_BG, TABLE_HEADER_FG,
+    TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG, TABLE_LABEL_COLOR,
+    TABLE_ROW_EVEN_BG, TABLE_ROW_ODD_BG, TABLE_ROW_SEP, TABLE_VALUE_COLOR,
+)
 from utils.formatting import fmt_number
 
 # ── Kleurconstanten (zelfde palet als tab_input_desc) ───────────────────────
-_HDR_BG     = '#1b3a5c'
-_HDR_FG     = '#ffffff'
-_SUBHDR_BG  = '#274f77'
-_SUBHDR_FG  = '#b8d4ea'
-_BORDER     = '#c4d4e0'
-_ROW_SEP    = '#dce8f0'
-_ROW_ODD_BG = '#f3f8fc'
-_ROW_EVN_BG = '#ffffff'
-_LABEL_CLR  = '#2c3f52'
-_VALUE_CLR  = '#0f1e2b'
-_SCROLL_BG  = '#e8eef3'
-_FONT       = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
+_HDR_BG     = TABLE_HEADER_BG
+_HDR_FG     = TABLE_HEADER_FG
+_SUBHDR_BG  = TABLE_HEADER_SUB_BG
+_SUBHDR_FG  = TABLE_HEADER_SUB_FG
+_BORDER     = TABLE_BORDER
+_ROW_SEP    = TABLE_ROW_SEP
+_ROW_ODD_BG = TABLE_ROW_ODD_BG
+_ROW_EVN_BG = TABLE_ROW_EVEN_BG
+_LABEL_CLR  = TABLE_LABEL_COLOR
+_VALUE_CLR  = TABLE_VALUE_COLOR
+_FONT       = TABLE_FONT
 
 _KOLOMMEN: list[tuple[str, str]] = [
     ('BK laag\n[m NAP]',   'bk'),
@@ -252,7 +256,7 @@ class TabGrondsoorten(QWidget):
         for col, (tekst, _) in enumerate(_KOLOMMEN):
             lbl = QLabel(tekst)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-            border_r = f'border-right: 1px solid #1d4568;' if col < len(_KOLOMMEN) - 1 else ''
+            border_r = f'border-right: 1px solid {_BORDER};' if col < len(_KOLOMMEN) - 1 else ''
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
                 f'color: {_SUBHDR_FG}; background: {_SUBHDR_BG}; '

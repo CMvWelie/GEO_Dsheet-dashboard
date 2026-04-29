@@ -26,12 +26,32 @@
     "spacing": 8,
     "padding_button": "7px 14px"
   },
+  "table": {
+    "header_bg": "#147ACF",
+    "header_fg": "#FFFFFF",
+    "subheader_bg": "#147ACF",
+    "subheader_fg": "#FFFFFF",
+    "border": "#000000",
+    "row_odd_bg": "#FFFFFF",
+    "row_even_bg": "#F2F2F2",
+    "label_color": "#000000",
+    "value_color": "#000000",
+    "extra_color": "#000000"
+  },
+  "headings": {
+    "h1_size": 14,
+    "h1_weight": 700,
+    "h1_color": "#147ACF",
+    "h2_size": 12,
+    "h2_weight": 600,
+    "h2_color": "#44546A"
+  },
   "assets": {
     "font_files": [
       "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/Eina04-Regular.ttf",
       "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/Eina04-SemiBold.ttf",
       "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/Eina04-Bold.ttf"
     ],
-    "app_logo": "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/DKIB_logo.png"
+    "app_logo": "C:/Users/Thijs/Dropbox/DKIB_geotechniek/00 Algemeen/DKIB_logo.png"
   }
 }

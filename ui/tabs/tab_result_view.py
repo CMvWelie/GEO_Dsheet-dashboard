@@ -12,36 +12,6 @@ matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-_TAB_STYLE = (
-    'QTabBar::tab {'
-    '  background: #e8eef3; color: #5a6e7a;'
-    '  border: 1px solid #aabdca; border-bottom: none;'
-    '  border-radius: 4px 4px 0 0;'
-    '  padding: 5px 14px; margin-right: 2px;'
-    '  font-size: 11px;'
-    '}'
-    'QTabBar::tab:selected {'
-    '  background: #245b7a; color: white;'
-    '  font-weight: bold; border-color: #1a4560;'
-    '}'
-    'QTabBar::tab:hover:!selected { background: #d0dfe9; }'
-)
-
-_STEP_TAB_STYLE = (
-    'QTabBar::tab {'
-    '  background: #eef3e8; color: #5a6e7a;'
-    '  border: 1px solid #aabdca; border-bottom: none;'
-    '  border-radius: 4px 4px 0 0;'
-    '  padding: 4px 12px; margin-right: 2px;'
-    '  font-size: 11px;'
-    '}'
-    'QTabBar::tab:selected {'
-    '  background: #3d6b2a; color: white;'
-    '  font-weight: bold; border-color: #2a4a1d;'
-    '}'
-    'QTabBar::tab:hover:!selected { background: #d0e9c8; }'
-)
-
 
 def _scheidingslijn() -> QFrame:
     line = QFrame()
@@ -83,13 +53,11 @@ class TabResultView(QWidget):
         fase_layout.setContentsMargins(0, 0, 0, 0)
         fase_layout.setSpacing(8)
         lbl_fase = QLabel('Uitvoerfase:')
-        lbl_fase.setStyleSheet('font-size: 11px; color: #2c3f52; padding: 0 4px;')
         lbl_fase.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         fase_layout.addWidget(lbl_fase)
         self.output_stage_tabs = QTabBar()
         self.output_stage_tabs.setExpanding(False)
         self.output_stage_tabs.setUsesScrollButtons(False)
-        self.output_stage_tabs.setStyleSheet(_TAB_STYLE)
         self.output_stage_tabs.addTab('Geen fase')
         fase_layout.addWidget(self.output_stage_tabs)
         fase_layout.addStretch()
@@ -103,13 +71,11 @@ class TabResultView(QWidget):
         stap_layout.setContentsMargins(0, 2, 0, 0)
         stap_layout.setSpacing(8)
         lbl_stap = QLabel('Verificatiestap:')
-        lbl_stap.setStyleSheet('font-size: 11px; color: #2c3f52; padding: 0 4px;')
         lbl_stap.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         stap_layout.addWidget(lbl_stap)
         self.result_step_tabs = QTabBar()
         self.result_step_tabs.setExpanding(False)
         self.result_step_tabs.setUsesScrollButtons(False)
-        self.result_step_tabs.setStyleSheet(_STEP_TAB_STYLE)
         stap_layout.addWidget(self.result_step_tabs)
         stap_layout.addStretch()
         root.addWidget(stap_rij)

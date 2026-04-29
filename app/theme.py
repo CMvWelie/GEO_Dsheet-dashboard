@@ -10,6 +10,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+BASIC_THEME_NAME = 'Basic'
+
 
 @dataclass
 class ThemeColors:
@@ -54,6 +56,32 @@ class ThemeAssets:
 
 
 @dataclass
+class ThemeTableStyle:
+    """Tabelkleuren en -typografie voor applicatietabellen."""
+    header_bg: str = ''
+    header_fg: str = '#FFFFFF'
+    subheader_bg: str = ''
+    subheader_fg: str = '#FFFFFF'
+    border: str = '#000000'
+    row_odd_bg: str = '#FFFFFF'
+    row_even_bg: str = '#F2F2F2'
+    label_color: str = '#000000'
+    value_color: str = '#000000'
+    extra_color: str = '#000000'
+
+
+@dataclass
+class ThemeHeadingStyle:
+    """Kopstijlen voor app-secties en kaartkoppen."""
+    h1_size: int = 14
+    h1_weight: int = 700
+    h1_color: str = ''
+    h2_size: int = 12
+    h2_weight: int = 600
+    h2_color: str = ''
+
+
+@dataclass
 class Theme:
     """Volledige thema-definitie."""
     name: str
@@ -61,6 +89,8 @@ class Theme:
     typography: ThemeTypography
     geometry: ThemeGeometry
     assets: ThemeAssets
+    table: ThemeTableStyle = field(default_factory=ThemeTableStyle)
+    headings: ThemeHeadingStyle = field(default_factory=ThemeHeadingStyle)
 
     def build_stylesheet(self, font_family: str) -> str:
         """Genereer een Qt-QSS-string voor dit thema.
@@ -195,6 +225,56 @@ QPushButton#btnClear:hover {{
     border-color: {c.danger};
 }}
 
+QPushButton#btnToggle {{
+    background: {c.surface};
+    color: {c.text};
+    border: 1px solid {c.border};
+    border-radius: {g.radius}px;
+    font-size: {t.size_small}pt;
+    font-weight: 600;
+    padding: 2px 6px;
+}}
+
+QPushButton#btnToggle:hover {{
+    background: {c.background};
+    border-color: {c.border_strong};
+}}
+
+QPushButton#btnToggle:checked {{
+    background: {c.primary};
+    color: {c.surface};
+    border-color: {c.primary_hover};
+}}
+
+QPushButton#btnTool {{
+    background: {c.background};
+    color: {c.text};
+    border: 1px solid {c.border};
+    border-radius: {g.radius}px;
+    font-size: {t.size_small}pt;
+    font-weight: 600;
+    padding: 6px;
+    text-align: center;
+}}
+
+QPushButton#btnTool:hover {{
+    background: {c.surface};
+    border-color: {c.border_strong};
+}}
+
+QPushButton#btnWarning {{
+    background: {c.surface};
+    color: {c.warning};
+    border: 1px solid {c.warning};
+    border-radius: {g.radius}px;
+    font-size: {t.size_small}pt;
+    padding: 5px 10px;
+}}
+
+QPushButton#btnWarning:hover {{
+    background: {c.background};
+}}
+
 QTabWidget::pane {{
     border-top: 1px solid {c.border};
     background: {c.surface};
@@ -245,12 +325,26 @@ QLabel#hintLabel {{
     font-style: italic;
 }}
 
-QLabel#projectLabel {{
-    font-size: {t.size_small}pt;
-    font-weight: 600;
-    color: {c.text};
-}}
-""".strip()
+        QLabel#projectLabel {{
+            font-size: {t.size_small}pt;
+            font-weight: 600;
+            color: {c.text};
+        }}
+
+        QLabel#heading1 {{
+            font-size: {self.headings.h1_size}pt;
+            font-weight: {self.headings.h1_weight};
+            color: {self.headings.h1_color or c.primary};
+            background: transparent;
+        }}
+
+        QLabel#heading2 {{
+            font-size: {self.headings.h2_size}pt;
+            font-weight: {self.headings.h2_weight};
+            color: {self.headings.h2_color or c.text};
+            background: transparent;
+        }}
+        """.strip()
 
     @classmethod
     def load(cls, path: Path) -> 'Theme':
@@ -290,6 +384,30 @@ QLabel#projectLabel {{
             font_files=list(assets_data.get('font_files', [])),
             app_logo=assets_data.get('app_logo', ''),
         )
+        table_data = data.get('table') or {}
+        headings_data = data.get('headings') or {}
+
+        primary = colors.primary
+        table = ThemeTableStyle(
+            header_bg=table_data.get('header_bg', primary),
+            header_fg=table_data.get('header_fg', '#FFFFFF'),
+            subheader_bg=table_data.get('subheader_bg', table_data.get('header_bg', primary)),
+            subheader_fg=table_data.get('subheader_fg', table_data.get('header_fg', '#FFFFFF')),
+            border=table_data.get('border', '#000000'),
+            row_odd_bg=table_data.get('row_odd_bg', colors.surface),
+            row_even_bg=table_data.get('row_even_bg', '#F2F2F2'),
+            label_color=table_data.get('label_color', '#000000'),
+            value_color=table_data.get('value_color', '#000000'),
+            extra_color=table_data.get('extra_color', '#000000'),
+        )
+        headings = ThemeHeadingStyle(
+            h1_size=int(headings_data.get('h1_size', 14)),
+            h1_weight=int(headings_data.get('h1_weight', 700)),
+            h1_color=headings_data.get('h1_color', colors.primary),
+            h2_size=int(headings_data.get('h2_size', 12)),
+            h2_weight=int(headings_data.get('h2_weight', 600)),
+            h2_color=headings_data.get('h2_color', colors.text),
+        )
 
         return cls(
             name=str(data.get('name', path.stem)),
@@ -297,6 +415,8 @@ QLabel#projectLabel {{
             typography=typography,
             geometry=geometry,
             assets=assets,
+            table=table,
+            headings=headings,
         )
 
 
@@ -315,7 +435,7 @@ def discover_themes(themes_dir: Path) -> list[tuple[str, Path]]:
         Bestanden die niet als geldig thema kunnen worden geladen worden overgeslagen.
     """
     if not themes_dir.exists():
-        return []
+        return [(BASIC_THEME_NAME, Path())]
 
     gevonden: list[tuple[str, Path]] = []
     for pad in sorted(themes_dir.glob('*.json')):
@@ -325,5 +445,63 @@ def discover_themes(themes_dir: Path) -> list[tuple[str, Path]]:
             continue
         gevonden.append((thema.name, pad))
 
+    if not any(naam == BASIC_THEME_NAME for naam, _pad in gevonden):
+        gevonden.append((BASIC_THEME_NAME, Path()))
+
     gevonden.sort(key=lambda paar: paar[0])
     return gevonden
+
+
+def create_basic_theme() -> Theme:
+    """Maak een ingebouwde fallbackstijl zonder afhankelijkheid van JSON-bestanden."""
+    colors = ThemeColors(
+        primary='#C8C8C8',
+        primary_hover='#B4B4B4',
+        primary_pressed='#A0A0A0',
+        text='#111827',
+        text_muted='#6B7280',
+        border='#C8C8C8',
+        border_strong='#A0A0A0',
+        surface='#FFFFFF',
+        background='#F4F4F4',
+        ok='#309942',
+        warning='#FF5C00',
+        danger='#C0392B',
+    )
+    typography = ThemeTypography(
+        family='Segoe UI',
+        fallback='Arial',
+        size_base=11,
+        size_title=12,
+        size_small=10,
+    )
+    geometry = ThemeGeometry(radius=4, spacing=8, padding_button='7px 14px')
+    table = ThemeTableStyle(
+        header_bg='#C8C8C8',
+        header_fg='#111827',
+        subheader_bg='#C8C8C8',
+        subheader_fg='#111827',
+        border='#C8C8C8',
+        row_odd_bg='#FFFFFF',
+        row_even_bg='#F4F4F4',
+        label_color='#111827',
+        value_color='#111827',
+        extra_color='#374151',
+    )
+    headings = ThemeHeadingStyle(
+        h1_size=14,
+        h1_weight=700,
+        h1_color='#111827',
+        h2_size=12,
+        h2_weight=600,
+        h2_color='#111827',
+    )
+    return Theme(
+        name=BASIC_THEME_NAME,
+        colors=colors,
+        typography=typography,
+        geometry=geometry,
+        assets=ThemeAssets(),
+        table=table,
+        headings=headings,
+    )

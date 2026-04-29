@@ -3,26 +3,12 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QPushButton, QGroupBox,
+    QPushButton, QGroupBox, QLineEdit, QFileDialog,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from reporting.models import ReportItem
 from reporting.selection import ReportPlan
-
-
-_BTN_NORMAL = (
-    'QPushButton { background: white; color: #2c3e50; border: 1px solid #aabdca; '
-    'border-radius: 5px; padding: 4px 10px; font-size: 11px; } '
-    'QPushButton:hover { background: #f0f5f9; } '
-    'QPushButton:pressed { background: #e4edf3; }'
-)
-_BTN_PRIMARY = (
-    'QPushButton { background: #245b7a; color: white; border: 1px solid #1a4560; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 600; } '
-    'QPushButton:hover { background: #1a4560; } '
-    'QPushButton:pressed { background: #122f42; }'
-)
 
 
 class TabReportSelect(QWidget):
@@ -31,6 +17,8 @@ class TabReportSelect(QWidget):
     selection_changed = pyqtSignal()
     preview_open_requested = pyqtSignal()
     """Afgegeven als de gebruiker op 'Preview openen' klikt."""
+    export_word_requested = pyqtSignal(str)
+    template_path_changed = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -58,20 +46,58 @@ class TabReportSelect(QWidget):
         self._up_btn = QPushButton('↑ Omhoog')
         self._down_btn = QPushButton('↓ Omlaag')
         for b in [self._up_btn, self._down_btn]:
-            b.setStyleSheet(_BTN_NORMAL)
+            b.setObjectName('btnNormal')
             btn_row.addWidget(b)
         btn_row.addStretch()
         vl.addLayout(btn_row)
 
         root.addWidget(box, stretch=1)
 
+        word_box = QGroupBox('Word-rapportage')
+        word_vl = QVBoxLayout(word_box)
+
+        tmpl_lbl = QLabel('Word-template (.dotx)')
+        tmpl_lbl.setObjectName('hintLabel')
+        word_vl.addWidget(tmpl_lbl)
+
+        tmpl_row = QHBoxLayout()
+        self._template_edit = QLineEdit()
+        self._template_edit.setPlaceholderText('Pad naar .dotx template... (optioneel)')
+        self._template_edit.textChanged.connect(self.template_path_changed)
+        tmpl_browse = QPushButton('Bladeren...')
+        tmpl_browse.setObjectName('btnNormal')
+        tmpl_browse.clicked.connect(self._browse_template)
+        tmpl_clear = QPushButton('X')
+        tmpl_clear.setObjectName('btnClear')
+        tmpl_clear.setFixedWidth(28)
+        tmpl_clear.setToolTip('Verwijder template-pad')
+        tmpl_clear.clicked.connect(self._template_edit.clear)
+        tmpl_row.addWidget(self._template_edit)
+        tmpl_row.addWidget(tmpl_browse)
+        tmpl_row.addWidget(tmpl_clear)
+        word_vl.addLayout(tmpl_row)
+
+        export_row = QHBoxLayout()
+        export_btn = QPushButton('Exporteer naar Word')
+        export_btn.setObjectName('btnPrimary')
+        export_btn.clicked.connect(self._on_export_word)
+        export_row.addWidget(export_btn)
+        export_row.addStretch()
+        word_vl.addLayout(export_row)
+
+        self._word_status = QLabel('')
+        self._word_status.setWordWrap(True)
+        word_vl.addWidget(self._word_status)
+
+        root.addWidget(word_box)
+
         # ── Preview-venster ────────────────────────────────────────────
         prev_rij = QHBoxLayout()
         open_btn = QPushButton('↗ Preview openen')
-        open_btn.setStyleSheet(_BTN_PRIMARY)
+        open_btn.setObjectName('btnPrimary')
         open_btn.clicked.connect(self.preview_open_requested)
         prev_hint = QLabel('Opent een zwevend Word-preview venster naast de applicatie')
-        prev_hint.setStyleSheet('font-size: 10px; color: #666;')
+        prev_hint.setObjectName('hintLabel')
         prev_rij.addWidget(open_btn)
         prev_rij.addWidget(prev_hint)
         prev_rij.addStretch()
@@ -87,6 +113,16 @@ class TabReportSelect(QWidget):
     def set_plan(self, plan: ReportPlan) -> None:
         self._plan = plan
         self._refresh()
+
+    def set_template_path(self, pad: str) -> None:
+        self._template_edit.blockSignals(True)
+        self._template_edit.setText(pad)
+        self._template_edit.blockSignals(False)
+
+    def set_word_status(self, text: str, ok: bool = True) -> None:
+        color = '#2f7d32' if ok else '#b42318'
+        self._word_status.setStyleSheet(f'color:{color};font-size:11px;')
+        self._word_status.setText(text)
 
     def _refresh(self) -> None:
         self._list.blockSignals(True)
@@ -134,3 +170,16 @@ class TabReportSelect(QWidget):
             self._list.setCurrentRow(row + 1)
             self.selection_changed.emit()
 
+    def _browse_template(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, 'Selecteer Word-template', '', 'Word-sjabloon (*.dotx);;Word (*.docx)'
+        )
+        if path:
+            self._template_edit.setText(path)
+
+    def _on_export_word(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Sla Word-rapport op', 'rapport.docx', 'Word (*.docx)'
+        )
+        if path:
+            self.export_word_requested.emit(path)

@@ -30,23 +30,6 @@ class FigureCanvas(_FigureCanvasBase):
         super().wheelEvent(event)
 
 
-_BTN_AUTO = (
-    'QPushButton { background: white; color: #2c3e50; border: 1px solid #aabdca; '
-    'border-radius: 4px; font-size: 10px; font-weight: 600; } '
-    'QPushButton:hover { background: #f0f5f9; } '
-    'QPushButton:checked { background: #2980b9; color: white; border-color: #1a5f8a; } '
-    'QPushButton:checked:hover { background: #3490c8; }'
-)
-
-_BTN_STRIP = (
-    'QPushButton { background: #f0f5f9; color: #2c3e50; border: 1px solid #aabdca; '
-    'border-radius: 5px; padding: 6px 6px; font-size: 10px; font-weight: 600; '
-    'text-align: center; } '
-    'QPushButton:hover { background: #ddeaf3; border-color: #5a8fa8; } '
-    'QPushButton:pressed { background: #c8dde9; }'
-)
-
-
 def _hsep() -> QFrame:
     """Horizontale scheidingslijn."""
     line = QFrame()
@@ -61,7 +44,6 @@ def _section_header(title: str, auto_btn: QPushButton) -> QHBoxLayout:
     row = QHBoxLayout()
     row.setContentsMargins(0, 4, 0, 2)
     lbl = QLabel(f'<b>{title}</b>')
-    lbl.setStyleSheet('font-size: 12px; color: #1a3a4a;')
     row.addWidget(lbl)
     row.addStretch()
     row.addWidget(auto_btn)
@@ -81,6 +63,7 @@ class TabInputView(QWidget):
 
     save_defaults_requested = pyqtSignal()
     reset_to_factory_requested = pyqtSignal()
+    export_png_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -103,7 +86,7 @@ class TabInputView(QWidget):
         self.auto_check.setCheckable(True)
         self.auto_check.setChecked(True)
         self.auto_check.setFixedSize(48, 20)
-        self.auto_check.setStyleSheet(_BTN_AUTO)
+        self.auto_check.setObjectName('btnToggle')
 
         _VP_SPIN_STYLE = (
             'QDoubleSpinBox { font-size: 11px; color: #245b7a; '
@@ -130,7 +113,7 @@ class TabInputView(QWidget):
         self.rs_auto_btn.setCheckable(True)
         self.rs_auto_btn.setChecked(True)
         self.rs_auto_btn.setFixedSize(48, 20)
-        self.rs_auto_btn.setStyleSheet(_BTN_AUTO)
+        self.rs_auto_btn.setObjectName('btnToggle')
 
         self._rs_sliders: list[tuple[str, float]] = []
         for lbl, attr, lo, hi, default in [
@@ -149,7 +132,7 @@ class TabInputView(QWidget):
         self.fs_auto_btn.setCheckable(True)
         self.fs_auto_btn.setChecked(True)
         self.fs_auto_btn.setFixedSize(48, 20)
-        self.fs_auto_btn.setStyleSheet(_BTN_AUTO)
+        self.fs_auto_btn.setObjectName('btnToggle')
 
         self._fs_sliders: list[tuple[str, float]] = []
         for lbl, attr, lo, hi, default in [
@@ -183,20 +166,6 @@ class TabInputView(QWidget):
         self.stage_tabs.setDocumentMode(True)
         self.stage_tabs.setTabsClosable(False)
         self.stage_tabs.setMovable(False)
-        self.stage_tabs.setStyleSheet(
-            'QTabBar::tab {'
-            '  background: #e8eef3; color: #5a6e7a;'
-            '  border: 1px solid #aabdca; border-bottom: none;'
-            '  border-radius: 4px 4px 0 0;'
-            '  padding: 5px 14px; margin-right: 2px;'
-            '  font-size: 11px;'
-            '}'
-            'QTabBar::tab:selected {'
-            '  background: #245b7a; color: white;'
-            '  font-weight: bold; border-color: #1a4560;'
-            '}'
-            'QTabBar::tab:hover:!selected { background: #d0dfe9; }'
-        )
 
         self.section_fig = Figure(figsize=(14, 11), dpi=96)
         self.section_ax = self.section_fig.add_subplot(111)
@@ -238,11 +207,23 @@ class TabInputView(QWidget):
 
         # Tandwielknop bovenaan
         self.btn_settings = QPushButton('⚙ Instellingen')
-        self.btn_settings.setStyleSheet(_BTN_STRIP)
+        self.btn_settings.setObjectName('btnTool')
         self.btn_settings.setFixedHeight(44)
         self.btn_settings.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_settings.clicked.connect(self._show_settings_popup)
         btn_strip_layout.addWidget(self.btn_settings)
+
+        self.btn_export_png = QPushButton('PNG export')
+        self.btn_export_png.setObjectName('btnPrimary')
+        self.btn_export_png.setFixedHeight(44)
+        self.btn_export_png.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.btn_export_png.clicked.connect(self.export_png_requested)
+        btn_strip_layout.addWidget(self.btn_export_png)
+
+        self._png_status = QLabel('')
+        self._png_status.setWordWrap(True)
+        self._png_status.setObjectName('hintLabel')
+        btn_strip_layout.addWidget(self._png_status)
 
         # Scheidingslijn
         sep = QFrame()
@@ -260,7 +241,7 @@ class TabInputView(QWidget):
             ('Diagnose',         'btn_info_debug'),
         ]:
             btn = QPushButton(label)
-            btn.setStyleSheet(_BTN_STRIP)
+            btn.setObjectName('btnTool')
             btn.setFixedHeight(44)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             setattr(self, attr, btn)
@@ -332,7 +313,6 @@ class TabInputView(QWidget):
             (1, 2, 'Y maximum', 'ymax_spin'),
         ]:
             lbl = QLabel(label)
-            lbl.setStyleSheet('font-size: 11px; color: #2c3e50;')
             vp_grid.addWidget(lbl, row, col)
             vp_grid.addWidget(getattr(self, attr), row, col + 1)
         vbox.addLayout(vp_grid)
@@ -363,7 +343,6 @@ class TabInputView(QWidget):
                 slider.layout().setContentsMargins(4, 1, 4, 1)
 
                 lbl = QLabel(full_name)
-                lbl.setStyleSheet('font-size: 11px; color: #2c3e50;')
                 lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 grid.addWidget(lbl, row, 0)
                 grid.addWidget(slider, row, 1)
@@ -382,19 +361,11 @@ class TabInputView(QWidget):
         btn_layout.setSpacing(8)
 
         btn_factory = QPushButton('Reset naar fabrieksinstellingen')
-        btn_factory.setStyleSheet(
-            'QPushButton { background: #fff3cd; color: #7a5c00; border: 1px solid #f0c040; '
-            'border-radius: 4px; padding: 5px 10px; font-size: 11px; } '
-            'QPushButton:hover { background: #ffe8a0; }'
-        )
+        btn_factory.setObjectName('btnWarning')
         btn_factory.clicked.connect(self._on_factory_reset_clicked)
 
         btn_save = QPushButton('Opslaan als standaard')
-        btn_save.setStyleSheet(
-            'QPushButton { background: #2980b9; color: white; border: 1px solid #1a5f8a; '
-            'border-radius: 4px; padding: 5px 10px; font-size: 11px; font-weight: 600; } '
-            'QPushButton:hover { background: #3490c8; }'
-        )
+        btn_save.setObjectName('btnPrimary')
         btn_save.clicked.connect(self.save_defaults_requested.emit)
 
         btn_layout.addWidget(btn_factory)
@@ -486,3 +457,8 @@ class TabInputView(QWidget):
             'fs_assen':       rs.fs_assen,
             'fs_titel':       rs.fs_titel,
         }
+
+    def set_png_status(self, text: str, ok: bool = True) -> None:
+        color = '#2f7d32' if ok else '#b42318'
+        self._png_status.setStyleSheet(f'color:{color};font-size:11px;')
+        self._png_status.setText(text)

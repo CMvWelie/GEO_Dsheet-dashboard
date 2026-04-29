@@ -9,19 +9,26 @@ from PyQt6.QtCore import Qt
 
 from parsers.models import Project
 from reporting.models import ReportSection, ReportTable
+from ui.table_styles import (
+    TABLE_BORDER, TABLE_EXTRA_COLOR, TABLE_FONT, TABLE_HEADER_BG,
+    TABLE_HEADER_FG, TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG,
+    TABLE_LABEL_COLOR, TABLE_ROW_EVEN_BG, TABLE_ROW_ODD_BG, TABLE_ROW_SEP,
+    TABLE_VALUE_COLOR,
+)
 from utils.formatting import fmt_number
 
-_HDR_BG     = '#1b3a5c'
-_HDR_FG     = '#ffffff'
-_BORDER     = '#c4d4e0'
-_ROW_SEP    = '#dce8f0'
-_ROW_ODD_BG = '#f3f8fc'
-_ROW_EVN_BG = '#ffffff'
-_LABEL_CLR  = '#2c3f52'
-_VALUE_CLR  = '#0f1e2b'
-_EXTRA_CLR  = '#2171ae'
-_SCROLL_BG  = '#e8eef3'
-_FONT       = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
+_HDR_BG     = TABLE_HEADER_BG
+_HDR_FG     = TABLE_HEADER_FG
+_SUBHDR_BG  = TABLE_HEADER_SUB_BG
+_SUBHDR_FG  = TABLE_HEADER_SUB_FG
+_BORDER     = TABLE_BORDER
+_ROW_SEP    = TABLE_ROW_SEP
+_ROW_ODD_BG = TABLE_ROW_ODD_BG
+_ROW_EVN_BG = TABLE_ROW_EVEN_BG
+_LABEL_CLR  = TABLE_LABEL_COLOR
+_VALUE_CLR  = TABLE_VALUE_COLOR
+_EXTRA_CLR  = TABLE_EXTRA_COLOR
+_FONT       = TABLE_FONT
 
 
 class TabResultDesc(QWidget):
@@ -66,11 +73,13 @@ class TabResultDesc(QWidget):
 
     def populate(self, sections: list[ReportSection]) -> None:
         """Voeg gegenereerde tekstsecties toe (bestaande API, ongewijzigd)."""
-        # Verwijder alleen de tekstsecties (GroupBox-widgets), niet de resultaattabel
+        # Verwijder alleen de dynamische tekstsecties, niet de specificatietabel.
         verwijder = []
         for i in range(self._main_layout.count()):
             widget = self._main_layout.itemAt(i).widget()
-            if isinstance(widget, QGroupBox):
+            if isinstance(widget, QGroupBox) or (
+                widget is not None and widget.property('resultDescDynamic')
+            ):
                 verwijder.append(widget)
         for w in verwijder:
             w.deleteLater()
@@ -79,12 +88,12 @@ class TabResultDesc(QWidget):
             return
 
         for sec in sections:
-            box = QGroupBox(sec.title)
+            box = QGroupBox('')
             box.setStyleSheet(
                 'QGroupBox { background: white; border: 1px solid #cfd6dd; '
-                'border-radius: 8px; margin-top: 4px; padding: 4px; font-weight: bold; } '
-                'QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }'
+                'border-radius: 8px; margin-top: 4px; padding: 4px; }'
             )
+            box.setProperty('resultDescDynamic', True)
             vl = QVBoxLayout(box)
             vl.setContentsMargins(0, 4, 0, 0)
             vl.setSpacing(6)
@@ -102,11 +111,55 @@ class TabResultDesc(QWidget):
             else:
                 for table in sec.tables:
                     vl.addWidget(self._maak_styled_tabel(table))
+
+            toelichting = self._maak_tabel_toelichting(sec.id) if sec.tables else None
+            titel = self._maak_sectie_titel_label(sec.title) if sec.tables else None
+            if titel is not None:
+                titel.setProperty('resultDescDynamic', True)
+                self._main_layout.insertWidget(self._main_layout.count() - 1, titel)
+            if toelichting is not None:
+                toelichting.setProperty('resultDescDynamic', True)
+                self._main_layout.insertWidget(self._main_layout.count() - 1, toelichting)
             self._main_layout.insertWidget(self._main_layout.count() - 1, box)
 
     # ------------------------------------------------------------------
     # Intern
     # ------------------------------------------------------------------
+
+    def _maak_sectie_titel_label(self, tekst: str) -> QLabel:
+        lbl = QLabel(tekst)
+        lbl.setStyleSheet(
+            f'font-family: {_FONT}; font-size: 18px; font-weight: 700; '
+            f'color: {_LABEL_CLR}; background: transparent; padding: 0px 4px 4px 4px;'
+        )
+        return lbl
+
+    def _maak_toelichting_label(self, tekst: str) -> QLabel:
+        """Maak een toelichting in dezelfde stijl als de grondsoortentabel."""
+        lbl = QLabel(tekst)
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(
+            f'font-family: {_FONT}; font-size: 12px; color: {_LABEL_CLR}; '
+            f'background: transparent; padding: 0px 4px 12px 4px;'
+        )
+        return lbl
+
+    def _maak_tabel_toelichting(self, section_id: str) -> QLabel | None:
+        teksten = {
+            'anchor_forces': (
+                'In deze tabel zijn per fase de berekende anker- en stempelkrachten '
+                'weergegeven voor de aanwezige CUR 166-toetsstappen. Ontbrekende '
+                'waarden betekenen dat voor die fase en toetsstap geen resultaat is '
+                'gerapporteerd.'
+            ),
+            'per_phase_summary': (
+                'In deze tabel staan per fase de maximale absolute waarden voor '
+                'momenten, dwarskrachten en vervormingen. De kolommen zijn gegroepeerd '
+                'per resultaatsoort en uitgesplitst naar de beschikbare toetsstappen.'
+            ),
+        }
+        tekst = teksten.get(section_id)
+        return self._maak_toelichting_label(tekst) if tekst else None
 
     def _maak_styled_tabel(self, table: ReportTable) -> QWidget:
         """Rendert een ReportTable als gestijlde grid-tabel.
@@ -142,8 +195,8 @@ class TabResultDesc(QWidget):
                 lbl = QLabel(groep_label)
                 lbl.setAlignment(
                     Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-                groep_bg = _HDR_BG if not groep_label else '#274f77'
-                border_r = ('border-right: 1px solid #1d4568;'
+                groep_bg = _HDR_BG if not groep_label else _SUBHDR_BG
+                border_r = (f'border-right: 1px solid {_BORDER};'
                              if col_offset + colspan < n_cols else '')
                 lbl.setStyleSheet(
                     f'font-family: {_FONT}; font-size: 10px; font-weight: 700; '
@@ -158,10 +211,10 @@ class TabResultDesc(QWidget):
             lbl = QLabel(kop)
             lbl.setAlignment(
                 Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-            border_r = 'border-right: 1px solid #1d4568;' if col < n_cols - 1 else ''
+            border_r = f'border-right: 1px solid {_BORDER};' if col < n_cols - 1 else ''
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
-                f'color: #b8d4ea; background: {_HDR_BG}; '
+                f'color: {_SUBHDR_FG}; background: {_HDR_BG}; '
                 f'padding: 6px 10px; {border_r}'
             )
             grid.addWidget(lbl, kop_rij, col)
@@ -272,6 +325,19 @@ class TabResultDesc(QWidget):
                 rijen.append((naam, fmt_number(kracht), '[kN/m]'))
                 rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]'))
 
+        wrapper = QWidget()
+        wrapper.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        wrapper_lay = QVBoxLayout(wrapper)
+        wrapper_lay.setContentsMargins(0, 0, 0, 0)
+        wrapper_lay.setSpacing(0)
+
+        wrapper_lay.addWidget(self._maak_sectie_titel_label('Specificaties'))
+        wrapper_lay.addWidget(self._maak_toelichting_label(
+            'In deze tabel zijn de belangrijkste damwandgegevens en maatgevende '
+            'projectresultaten samengevat. De resultaatwaarden betreffen de maxima '
+            'over de beschikbare fases en toetsstappen.'
+        ))
+
         frame = QFrame()
         frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')
         frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -279,13 +345,6 @@ class TabResultDesc(QWidget):
         lay = QVBoxLayout(frame)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
-
-        titel = QLabel('Specificaties')
-        titel.setStyleSheet(
-            f'font-family: {_FONT}; font-size: 14px; font-weight: 700; '
-            f'color: {_HDR_FG}; background: {_HDR_BG}; padding: 10px 16px;'
-        )
-        lay.addWidget(titel)
 
         grid_w = QWidget()
         grid = QGridLayout(grid_w)
@@ -329,4 +388,5 @@ class TabResultDesc(QWidget):
                 grid.addWidget(ext, i, 2)
 
         lay.addWidget(grid_w)
-        return frame
+        wrapper_lay.addWidget(frame)
+        return wrapper

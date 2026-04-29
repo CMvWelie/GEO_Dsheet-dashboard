@@ -181,6 +181,7 @@ class TabHydraulischeGrondbreuk(QWidget):
 
     def _maak_reset_knop(self) -> QPushButton:
         btn = QPushButton('↺')
+        btn.setObjectName('btnClear')
         btn.setFixedWidth(30)
         btn.setToolTip('Terugzetten naar projectwaarde')
         return btn

@@ -17,6 +17,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
 from parsers.models import Project, Stage, SoilProfile
+from ui.table_styles import REPORT_QTABLE_STYLE
 from utils.color_utils import rgb_string_to_tuple
 
 _CARD_STYLE = (
@@ -150,6 +151,8 @@ class InfoPanel(QWidget):
         self._layers_table.verticalHeader().setVisible(False)
         self._layers_table.setAlternatingRowColors(True)
         self._layers_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self._layers_table.setShowGrid(True)
+        self._layers_table.setStyleSheet(REPORT_QTABLE_STYLE)
         layers_vl.addWidget(self._layers_table)
         scroll_layers = QScrollArea()
         scroll_layers.setWidgetResizable(True)

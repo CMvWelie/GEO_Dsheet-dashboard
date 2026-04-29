@@ -1,13 +1,13 @@
 {
   "name": "SixGeoConsult",
   "colors": {
-    "primary": "#7a4f9f",
-    "primary_hover": "#5e3d7c",
-    "primary_pressed": "#472d5d",
-    "text": "#2c3e50",
-    "text_muted": "#7a8794",
-    "border": "#D8DFE6",
-    "border_strong": "#aabdca",
+    "primary": "#405F6C",
+    "primary_hover": "#2F4650",
+    "primary_pressed": "#22333A",
+    "text": "#405F6C",
+    "text_muted": "#6F858E",
+    "border": "#DADADA",
+    "border_strong": "#B2B2B2",
     "surface": "#FFFFFF",
     "background": "#FAFBFC",
     "ok": "#309942",
@@ -15,7 +15,7 @@
     "danger": "#c0392b"
   },
   "typography": {
-    "family": "Calibri",
+    "family": "Gadugi",
     "fallback": "Segoe UI",
     "size_base": 11,
     "size_title": 12,
@@ -26,8 +26,28 @@
     "spacing": 8,
     "padding_button": "7px 14px"
   },
+  "table": {
+    "header_bg": "#405F6C",
+    "header_fg": "#FFFFFF",
+    "subheader_bg": "#405F6C",
+    "subheader_fg": "#FFFFFF",
+    "border": "#405F6C",
+    "row_odd_bg": "#FFFFFF",
+    "row_even_bg": "#DADADA",
+    "label_color": "#000000",
+    "value_color": "#000000",
+    "extra_color": "#000000"
+  },
+  "headings": {
+    "h1_size": 14,
+    "h1_weight": 700,
+    "h1_color": "#405F6C",
+    "h2_size": 12,
+    "h2_weight": 600,
+    "h2_color": "#405F6C"
+  },
   "assets": {
     "font_files": [],
-    "app_logo": "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/SIXGeoConsult_logo.jpg"
+    "app_logo": "C:/Users/Thijs/Dropbox/DKIB_geotechniek/00 Algemeen/SIXGeoConsult_logo.jpg"
   }
 }

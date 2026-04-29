@@ -5,22 +5,28 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QGroupBox, QFileDialog, QComboBox,
+    QPushButton, QGroupBox, QFileDialog, QComboBox, QDialog, QMessageBox,
 )
 from PyQt6.QtCore import pyqtSignal
+
+from app.theme_apply import THEMES_DIR
+from ui.theme_dialog import ThemeTemplateDialog
 
 
 class TabInstellingen(QWidget):
     """Tabblad met persistente applicatie-instellingen (Tab Instellingen)."""
-
-    template_path_changed = pyqtSignal(str)
-    """Afgegeven zodra het Word-template-pad wijzigt (ook bij wissen)."""
 
     import_map_changed = pyqtSignal(str)
     """Afgegeven zodra de standaard importmap wijzigt (ook bij wissen)."""
 
     theme_selected = pyqtSignal(str)
     """Afgegeven zodra de gebruiker op 'Toepassen' klikt voor een ander UI-thema."""
+
+    theme_created = pyqtSignal(str)
+    """Afgegeven zodra een eigen templatebestand is aangemaakt."""
+
+    theme_delete_requested = pyqtSignal(str)
+    """Afgegeven zodra de gebruiker een custom template wil verwijderen."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -35,43 +41,6 @@ class TabInstellingen(QWidget):
 
         # ── Groep: Template (UI-thema) ────────────────────────────────
         root.addWidget(self._build_template_group())
-
-        # ── Groep: Rapportage-instellingen ────────────────────────────
-        tmpl_box = QGroupBox('Rapportage-instellingen')
-        tmpl_vl = QVBoxLayout(tmpl_box)
-        tmpl_vl.setSpacing(6)
-
-        lbl = QLabel('Word-template (.dotx)')
-        lbl.setObjectName('hintLabel')
-
-        tmpl_rij = QHBoxLayout()
-        self._template_edit = QLineEdit()
-        self._template_edit.setPlaceholderText('Pad naar .dotx template… (optioneel)')
-        self._template_edit.textChanged.connect(self.template_path_changed)
-
-        bladeren_btn = QPushButton('Bladeren…')
-        bladeren_btn.setObjectName('btnNormal')
-        bladeren_btn.clicked.connect(self._on_bladeren)
-
-        wis_btn = QPushButton('✕')
-        wis_btn.setObjectName('btnClear')
-        wis_btn.setFixedWidth(28)
-        wis_btn.setToolTip('Verwijder template-pad')
-        wis_btn.clicked.connect(self._on_wis_template)
-
-        tmpl_rij.addWidget(self._template_edit)
-        tmpl_rij.addWidget(bladeren_btn)
-        tmpl_rij.addWidget(wis_btn)
-
-        hint = QLabel(
-            'Optioneel — wordt ook gebruikt bij Word-export als het export-venster leeg is'
-        )
-        hint.setObjectName('hintLabel')
-
-        tmpl_vl.addWidget(lbl)
-        tmpl_vl.addLayout(tmpl_rij)
-        tmpl_vl.addWidget(hint)
-        root.addWidget(tmpl_box)
 
         # ── Groep: Import-instellingen ────────────────────────────────
         imp_box = QGroupBox('Import-instellingen')
@@ -129,16 +98,27 @@ class TabInstellingen(QWidget):
         rij = QHBoxLayout()
         self._theme_combo = QComboBox()
         self._theme_combo.setMinimumWidth(220)
+        self._theme_combo.currentTextChanged.connect(lambda _text: self._update_delete_enabled())
         rij.addWidget(self._theme_combo)
 
         self._theme_apply_btn = QPushButton('Toepassen')
         self._theme_apply_btn.setObjectName('btnPrimary')
         self._theme_apply_btn.clicked.connect(self._on_theme_apply)
         rij.addWidget(self._theme_apply_btn)
+
+        self._theme_new_btn = QPushButton('Eigen template...')
+        self._theme_new_btn.setObjectName('btnNormal')
+        self._theme_new_btn.clicked.connect(self._on_theme_new)
+        rij.addWidget(self._theme_new_btn)
+
+        self._theme_delete_btn = QPushButton('Verwijderen')
+        self._theme_delete_btn.setObjectName('btnDanger')
+        self._theme_delete_btn.clicked.connect(self._on_theme_delete)
+        rij.addWidget(self._theme_delete_btn)
         rij.addStretch()
         vl.addLayout(rij)
 
-        self._herstart_label = QLabel('Wisseling actief na herstart van de app.')
+        self._herstart_label = QLabel('Template wordt direct toegepast.')
         self._herstart_label.setObjectName('hintLabel')
         self._herstart_label.setVisible(False)
         vl.addWidget(self._herstart_label)
@@ -160,18 +140,6 @@ class TabInstellingen(QWidget):
         self._import_map_edit.blockSignals(True)
         self._import_map_edit.setText(pad)
         self._import_map_edit.blockSignals(False)
-
-    def set_template_path(self, pad: str) -> None:
-        """Toon een opgeslagen template-pad zonder een signal af te geven.
-
-        Parameters
-        ----------
-        pad:
-            Te tonen bestandspad (leeg = veld wissen).
-        """
-        self._template_edit.blockSignals(True)
-        self._template_edit.setText(pad)
-        self._template_edit.blockSignals(False)
 
     def set_themes(self, themas: list[tuple[str, Path]], actief_naam: str) -> None:
         """Vul de thema-dropdown en markeer het huidige actieve thema.
@@ -196,23 +164,16 @@ class TabInstellingen(QWidget):
                 idx_actief = i
         if idx_actief >= 0:
             self._theme_combo.setCurrentIndex(idx_actief)
+        elif self._theme_combo.count() > 0:
+            self._theme_combo.setCurrentIndex(0)
         self._theme_combo.blockSignals(False)
+        self._update_delete_enabled()
 
         self._herstart_label.setVisible(False)
 
     # ------------------------------------------------------------------
     # Privé handlers
     # ------------------------------------------------------------------
-
-    def _on_bladeren(self) -> None:
-        pad, _ = QFileDialog.getOpenFileName(
-            self, 'Selecteer Word-template', '', 'Word-sjabloon (*.dotx);;Word (*.docx)'
-        )
-        if pad:
-            self._template_edit.setText(pad)
-
-    def _on_wis_template(self) -> None:
-        self._template_edit.clear()
 
     def _on_bladeren_importmap(self) -> None:
         map_pad = QFileDialog.getExistingDirectory(
@@ -228,7 +189,36 @@ class TabInstellingen(QWidget):
     def _on_theme_apply(self) -> None:
         """Gebruiker klikt 'Toepassen' op de thema-dropdown."""
         gekozen = self._theme_combo.currentText()
-        if not gekozen or gekozen == self._huidig_thema_naam:
+        if not gekozen:
             return
         self._herstart_label.setVisible(True)
         self.theme_selected.emit(gekozen)
+
+    def _on_theme_new(self) -> None:
+        """Open dialoog om een eigen template te maken."""
+        dlg = ThemeTemplateDialog(THEMES_DIR, self)
+        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.created_theme_name:
+            self.theme_created.emit(dlg.created_theme_name)
+
+    def _on_theme_delete(self) -> None:
+        """Vraag bevestiging en geef delete-request door aan het hoofdvenster."""
+        gekozen = self._theme_combo.currentText()
+        if not gekozen or not self._is_custom_theme(gekozen):
+            return
+        antwoord = QMessageBox.question(
+            self,
+            'Template verwijderen',
+            f'Custom template "{gekozen}" verwijderen?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if antwoord == QMessageBox.StandardButton.Yes:
+            self.theme_delete_requested.emit(gekozen)
+
+    def _update_delete_enabled(self) -> None:
+        gekozen = self._theme_combo.currentText()
+        self._theme_delete_btn.setEnabled(self._is_custom_theme(gekozen))
+
+    @staticmethod
+    def _is_custom_theme(naam: str) -> bool:
+        return naam.lower() not in {'dkib', 'sixgeoconsult', 'basic'}

@@ -10,19 +10,25 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap, QColor
 
 from reporting.builders.input_description_builder import FaseCard, DamwandCard
+from ui.table_styles import (
+    TABLE_BORDER, TABLE_EXTRA_COLOR, TABLE_FONT, TABLE_HEADER_BG,
+    TABLE_HEADER_FG, TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG,
+    TABLE_LABEL_COLOR, TABLE_ROW_EVEN_BG, TABLE_ROW_ODD_BG, TABLE_ROW_SEP,
+    TABLE_VALUE_COLOR,
+)
 
 # ── Kleurconstanten ──────────────────────────────────────────────────────────
-_HDR_BG        = '#1b3a5c'   # marine-blauw header
-_HDR_FG        = '#ffffff'
-_SUBHDR_BG     = '#274f77'   # iets lichter marine voor kolomhoofden
-_SUBHDR_FG     = '#b8d4ea'
-_BORDER        = '#c4d4e0'
-_ROW_SEP       = '#dce8f0'
-_ROW_ODD_BG    = '#f3f8fc'
-_ROW_EVEN_BG   = '#ffffff'
-_LABEL_CLR     = '#2c3f52'
-_VALUE_CLR     = '#0f1e2b'
-_EXTRA_CLR     = '#2171ae'
+_HDR_BG        = TABLE_HEADER_BG
+_HDR_FG        = TABLE_HEADER_FG
+_SUBHDR_BG     = TABLE_HEADER_SUB_BG
+_SUBHDR_FG     = TABLE_HEADER_SUB_FG
+_BORDER        = TABLE_BORDER
+_ROW_SEP       = TABLE_ROW_SEP
+_ROW_ODD_BG    = TABLE_ROW_ODD_BG
+_ROW_EVEN_BG   = TABLE_ROW_EVEN_BG
+_LABEL_CLR     = TABLE_LABEL_COLOR
+_VALUE_CLR     = TABLE_VALUE_COLOR
+_EXTRA_CLR     = TABLE_EXTRA_COLOR
 _CARD_BG       = '#ffffff'
 _SCROLL_BG     = '#e8eef3'
 _IMG_BORDER    = '#d0dde8'
@@ -30,7 +36,7 @@ _IMG_BG        = '#f8fbfd'
 _IMG_W         = 500         # breedte afbeeldingskolom in pixels
 
 # ── Typografie ────────────────────────────────────────────────────────────────
-_FONT          = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
+_FONT          = TABLE_FONT
 
 
 class TabInputDesc(QWidget):
@@ -313,11 +319,11 @@ class TabInputDesc(QWidget):
         for i, (tekst, uitlijning) in enumerate(col_defs):
             lbl = QLabel(tekst)
             lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
-            border_r = f'border-right: 1px solid #1d4568;' if i < 2 else ''
+            border_r = f'border-right: 1px solid {_BORDER};' if i < 2 else ''
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
                 f'color: {_SUBHDR_FG}; background: {_SUBHDR_BG}; '
-                f'padding: 5px 12px; text-transform: uppercase; letter-spacing: 0.5px; '
+                f'padding: 5px 12px; text-transform: uppercase; letter-spacing: 0; '
                 f'{border_r}'
             )
             data_grid.addWidget(lbl, 0, i)
@@ -328,7 +334,7 @@ class TabInputDesc(QWidget):
         spacer = QLabel()
         spacer.setFixedWidth(_IMG_W)
         spacer.setStyleSheet(
-            f'background: {_SUBHDR_BG}; border-left: 1px solid #1d4568;'
+            f'background: {_SUBHDR_BG}; border-left: 1px solid {_BORDER};'
         )
         layout.addWidget(spacer)
 

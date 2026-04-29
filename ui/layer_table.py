@@ -8,6 +8,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt
 
 from parsers.models import Project, Stage, SoilProfile
+from ui.table_styles import REPORT_QTABLE_STYLE
 from utils.color_utils import rgb_string_to_tuple
 
 
@@ -28,6 +29,8 @@ class LayerTableWidget(QWidget):
         self._table.setAlternatingRowColors(True)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.verticalHeader().setVisible(False)
+        self._table.setShowGrid(True)
+        self._table.setStyleSheet(REPORT_QTABLE_STYLE)
         layout.addWidget(self._table)
 
     def update_table(

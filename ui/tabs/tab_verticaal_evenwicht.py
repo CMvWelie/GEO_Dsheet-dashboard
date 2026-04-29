@@ -24,6 +24,7 @@ from renderers.vertical_equilibrium_renderer import (
     VerticalEquilibriumContext,
     VerticalEquilibriumRenderer,
 )
+from ui.table_styles import REPORT_QTABLE_STYLE
 from utils.formatting import fmt_number
 
 _MATERIAALFACTOR_STANDAARD = 0.9
@@ -510,6 +511,8 @@ class TabVerticaalEvenwicht(QWidget):
         self._tabel_spanning.verticalHeader().setVisible(False)
         self._tabel_spanning.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._tabel_spanning.setAlternatingRowColors(True)
+        self._tabel_spanning.setShowGrid(True)
+        self._tabel_spanning.setStyleSheet(REPORT_QTABLE_STYLE)
         header = self._tabel_spanning.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for col in range(1, len(kolommen)):
@@ -528,6 +531,7 @@ class TabVerticaalEvenwicht(QWidget):
 
     def _maak_reset_knop(self) -> QPushButton:
         btn = QPushButton('\u21ba')
+        btn.setObjectName('btnClear')
         btn.setFixedWidth(30)
         btn.setToolTip('Terugzetten naar projectwaarde')
         return btn

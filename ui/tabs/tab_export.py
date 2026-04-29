@@ -12,14 +12,6 @@ from ui.tabs.tab_excel_export import TabExcelExport
 from ui.tabs.tab_word_export import TabWordExport
 
 
-_BTN_PRIMARY = (
-    'QPushButton { background: #245b7a; color: white; border: 1px solid #1a4560; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 600; } '
-    'QPushButton:hover { background: #1a4560; } '
-    'QPushButton:pressed { background: #122f42; }'
-)
-
-
 class _TabPng(QWidget):
     """Eenvoudig PNG-exportpaneel."""
 
@@ -37,11 +29,11 @@ class _TabPng(QWidget):
             'U kiest de opslaglocatie in het volgende venster.'
         )
         info.setWordWrap(True)
-        info.setStyleSheet('color:#5f6b76;font-size:11px;')
+        info.setObjectName('hintLabel')
         bvl.addWidget(info)
 
         btn = QPushButton('Exporteer als PNG…')
-        btn.setStyleSheet(_BTN_PRIMARY)
+        btn.setObjectName('btnPrimary')
         btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         btn.clicked.connect(self.export_requested)
         bvl.addWidget(btn)

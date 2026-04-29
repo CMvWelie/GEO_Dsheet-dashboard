@@ -4,11 +4,13 @@ Layout: compacte topbalk + hoofd-tabwidget met 10 tabs.
 """
 
 from __future__ import annotations
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QGroupBox, QPushButton, QComboBox,
     QCheckBox, QDoubleSpinBox, QScrollArea, QListWidget, QListWidgetItem,
     QFileDialog, QMessageBox, QSizePolicy, QFrame, QAbstractItemView, QTabWidget,
+    QTableWidget,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
@@ -42,46 +44,15 @@ from ui.tabs.tab_input_desc import TabInputDesc
 from ui.tabs.tab_result_view import TabResultView
 from ui.tabs.tab_result_desc import TabResultDesc
 from ui.tabs.tab_report_select import TabReportSelect
-from ui.tabs.tab_export import TabExport
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
 from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.tabs.tab_debug import TabDebug
 from ui.preview_window import WordPreviewWindow
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
-from app.theme import Theme, discover_themes
-from app.theme_apply import THEMES_DIR
-
-
-_CARD_STYLE = (
-    'QGroupBox { background: white; border: 1px solid #cfd6dd; border-radius: 8px; '
-    'margin-top: 4px; padding: 4px; font-weight: bold; } '
-    'QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }'
-)
-_BTN_PRIMARY = (
-    'QPushButton { background: #245b7a; color: white; border: 1px solid #1a4560; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 600; } '
-    'QPushButton:hover { background: #1a4560; } '
-    'QPushButton:pressed { background: #122f42; border-top: 2px solid #0d2233; }'
-)
-_BTN_NORMAL = (
-    'QPushButton { background: white; color: #2c3e50; border: 1px solid #aabdca; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 500; } '
-    'QPushButton:hover { background: #f0f5f9; border-color: #7a9eb0; } '
-    'QPushButton:pressed { background: #e4edf3; }'
-)
-_BTN_DANGER = (
-    'QPushButton { background: white; color: #c0392b; border: 1px solid #e08070; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 500; } '
-    'QPushButton:hover { background: #fdf0ee; border-color: #c0392b; } '
-    'QPushButton:pressed { background: #fde0dc; }'
-)
-
-
-def _card(title: str) -> QGroupBox:
-    box = QGroupBox(title)
-    box.setStyleSheet(_CARD_STYLE)
-    return box
+from app.theme import BASIC_THEME_NAME, Theme, discover_themes
+from app.theme_apply import THEMES_DIR, bootstrap_theme
+import ui.table_styles as table_styles
 
 
 def _spin(lo: float = -9999, hi: float = 9999, val: float = 0, step: float = 0.5,
@@ -126,7 +97,7 @@ class MainWindow(QMainWindow):
         self._html_builder = HtmlPreviewBuilder()
         self._build_ui()
         self._connect_signals()
-        self._tab_instellingen.set_template_path(
+        self._tab_report_select.set_template_path(
             self._state.app_settings.word_template_path
         )
         self._tab_instellingen.set_import_map(
@@ -134,7 +105,7 @@ class MainWindow(QMainWindow):
         )
         # Vul thema-dropdown in Instellingen-tab
         themas = discover_themes(THEMES_DIR)
-        actief = self._state.app_settings.active_theme_name
+        actief = self._theme.name if self._theme is not None else self._state.app_settings.active_theme_name
         self._tab_instellingen.set_themes(themas, actief)
         self._tab_result_view.set_breedte(
             self._state.render_settings.resultaat_half_breedte_m * 2
@@ -209,21 +180,18 @@ class MainWindow(QMainWindow):
         self._tab_result_desc = TabResultDesc()
         self._main_tabs.addTab(self._tab_result_desc, 'Resultaatbeschrijving')
 
-        # Tab 4A: Rapportageselectie
-        self._tab_report_select = TabReportSelect()
-        self._main_tabs.addTab(self._tab_report_select, 'Selectie')
-
-        # Tab 4B: Export (PNG / Excel / Word)
-        self._tab_export = TabExport()
-        self._main_tabs.addTab(self._tab_export, 'Export')
-
-        # Tab 5: Aanvullende berekeningen
+        # Tab 4A: Aanvullende berekeningen
         self._tab_aanvullende_berekeningen = TabAanvullendeBerekeningen()
         self._main_tabs.addTab(self._tab_aanvullende_berekeningen, 'Aanvullende berekeningen')
 
-        # Tab 6: Instellingen
+        # Tab 4B: Rapportage
+        self._tab_report_select = TabReportSelect()
+        self._main_tabs.addTab(self._tab_report_select, 'Rapportage')
+
+        # Instellingen: verborgen tab, geopend via knop rechtsboven
         self._tab_instellingen = TabInstellingen()
-        self._main_tabs.addTab(self._tab_instellingen, 'Instellingen')
+        self._settings_tab_index = self._main_tabs.addTab(self._tab_instellingen, 'Instellingen')
+        self._main_tabs.tabBar().setTabVisible(self._settings_tab_index, False)
 
         root_layout.addWidget(self._main_tabs, stretch=1)
 
@@ -239,8 +207,12 @@ class MainWindow(QMainWindow):
         if self._theme is None or not self._theme.assets.app_logo:
             return None
 
+        logo_path = self._resolve_logo_path(self._theme.assets.app_logo)
+        if logo_path is None:
+            return None
+
         from PyQt6.QtGui import QPixmap
-        pix = QPixmap(self._theme.assets.app_logo)
+        pix = QPixmap(str(logo_path))
         if pix.isNull():
             return None
 
@@ -252,8 +224,31 @@ class MainWindow(QMainWindow):
         label.setContentsMargins(8, 2, 8, 2)
         return label
 
+    def _resolve_logo_path(self, logo_path: str) -> Path | None:
+        """Los logo-paden uit themebestanden op over verschillende gebruikerspaden."""
+        pad = Path(logo_path)
+        if pad.exists():
+            return pad
+
+        parts = pad.parts
+        try:
+            idx = parts.index('Dropbox')
+        except ValueError:
+            return None
+
+        dropbox_root = next(
+            (parent for parent in Path(__file__).resolve().parents if parent.name == 'Dropbox'),
+            None,
+        )
+        if dropbox_root is None:
+            return None
+        kandidaat = dropbox_root.joinpath(*parts[idx + 1:])
+        if kandidaat.exists():
+            return kandidaat
+        return None
+
     def _build_project_corner(self) -> QWidget:
-        """Project-selector + export-knop als corner-widget in de tab-balk."""
+        """Project-selector + instellingenknop als corner-widget in de tab-balk."""
         corner = QWidget()
         layout = QHBoxLayout(corner)
         layout.setContentsMargins(4, 2, 8, 2)
@@ -264,10 +259,9 @@ class MainWindow(QMainWindow):
         self._project_combo = QComboBox()
         self._project_combo.setMinimumWidth(160)
         layout.addWidget(self._project_combo)
-        self._btn_export_rapport = QPushButton('Exporteer rapport (Word)')
-        self._btn_export_rapport.setObjectName('btnPrimary')
-        self._btn_export_rapport.setEnabled(False)
-        layout.addWidget(self._btn_export_rapport)
+        self._btn_instellingen = QPushButton('Instellingen')
+        self._btn_instellingen.setObjectName('btnNormal')
+        layout.addWidget(self._btn_instellingen)
         return corner
 
     # ------------------------------------------------------------------
@@ -278,8 +272,8 @@ class MainWindow(QMainWindow):
         self._tab_report_context.reset_btn.clicked.connect(self._on_reset)
         self._tab_report_context.project_selected.connect(self._on_list_project_selected)
         self._tab_report_context.remove_requested.connect(self._on_remove_project)
-        self._tab_export.export_png_requested.connect(self._on_export_png)
-        self._btn_export_rapport.clicked.connect(self._on_export_hoofdstuk)
+        self._tab_input_view.export_png_requested.connect(self._on_export_png)
+        self._btn_instellingen.clicked.connect(self._on_settings_requested)
 
         self._project_combo.currentIndexChanged.connect(self._on_project_changed)
         self._tab_input_view.stage_tabs.currentChanged.connect(self._on_stage_changed)
@@ -316,24 +310,22 @@ class MainWindow(QMainWindow):
 
         # Rapportage-tabs
         self._main_tabs.currentChanged.connect(self._on_main_tab_changed)
-        self._tab_export.export_excel_requested.connect(self._on_export_excel)
-        self._tab_export.excel_template_changed.connect(
-            self._report_controller.set_template_excel)
-        self._tab_export.export_word_requested.connect(self._on_export_word)
-        self._tab_export.word_template_changed.connect(
+        self._tab_report_select.export_word_requested.connect(self._on_export_word)
+        self._tab_report_select.template_path_changed.connect(
+            self._on_template_path_changed)
+        self._tab_report_select.template_path_changed.connect(
             self._report_controller.set_template_word)
         self._tab_report_context.metadata_changed.connect(self._on_metadata_changed)
         self._tab_input_desc.override_changed.connect(self._on_override_changed)
         self._tab_report_select.set_plan(self._report_state.plan)
         # Laad huidige metadata in Tab 0
         self._tab_report_context.set_metadata(self._report_state.metadata)
-        self._tab_instellingen.template_path_changed.connect(
-            self._on_template_path_changed
-        )
         self._tab_instellingen.import_map_changed.connect(
             self._on_import_map_changed
         )
         self._tab_instellingen.theme_selected.connect(self._on_theme_selected)
+        self._tab_instellingen.theme_created.connect(self._on_theme_created)
+        self._tab_instellingen.theme_delete_requested.connect(self._on_theme_delete_requested)
         self._tab_report_select.preview_open_requested.connect(
             self._on_preview_open
         )
@@ -501,9 +493,9 @@ class MainWindow(QMainWindow):
             err = self._controller.export_png(self._tab_input_view.section_fig, path)
             if err:
                 QMessageBox.critical(self, 'Export-fout', err)
-                self._tab_export.set_png_status(f'Fout: {err}', ok=False)
+                self._tab_input_view.set_png_status(f'Fout: {err}', ok=False)
             else:
-                self._tab_export.set_png_status(f'Opgeslagen als {path}', ok=True)
+                self._tab_input_view.set_png_status(f'Opgeslagen als {path}', ok=True)
 
     # ------------------------------------------------------------------
     # Lees UI-waarden
@@ -679,7 +671,6 @@ class MainWindow(QMainWindow):
     # Rendering
     # ------------------------------------------------------------------
     def _update_all(self) -> None:
-        self._btn_export_rapport.setEnabled(bool(self._state.projects))
         self._update_render_views()
         self._refresh_active_report_tab()
         self._update_preview()
@@ -797,19 +788,16 @@ class MainWindow(QMainWindow):
     def _on_override_changed(self, block_id: str, text: str) -> None:
         self._report_controller.set_text_override(block_id, text)
 
-    def _on_export_excel(self, output_path: str) -> None:
-        err = self._report_controller.export_excel(output_path)
-        if err:
-            self._tab_export.excel_tab.set_status(f'Fout: {err}', ok=False)
-        else:
-            self._tab_export.excel_tab.set_status(f'Geëxporteerd naar {output_path}', ok=True)
-
     def _on_export_word(self, output_path: str) -> None:
         err = self._report_controller.export_word(output_path)
         if err:
-            self._tab_export.word_tab.set_status(f'Fout: {err}', ok=False)
+            self._tab_report_select.set_word_status(f'Fout: {err}', ok=False)
         else:
-            self._tab_export.word_tab.set_status(f'Geëxporteerd naar {output_path}', ok=True)
+            self._tab_report_select.set_word_status(f'Geëxporteerd naar {output_path}', ok=True)
+
+    def _on_settings_requested(self) -> None:
+        """Toon de verborgen Instellingen-pagina."""
+        self._main_tabs.setCurrentWidget(self._tab_instellingen)
 
     def _on_export_hoofdstuk(self) -> None:
         """Exporteer het actieve project als Word-rapport."""
@@ -878,13 +866,84 @@ class MainWindow(QMainWindow):
         ))
 
     def _on_theme_selected(self, naam: str) -> None:
-        """Sla nieuw gekozen thema op in config; herstart vereist."""
+        """Sla nieuw gekozen thema op en pas het direct toe."""
+        self._apply_theme(naam)
+        actief = self._active_theme_name()
         huidig = self._state.app_settings
         self._controller.apply_app_settings(AppSettings(
             word_template_path=huidig.word_template_path,
             standaard_importmap=huidig.standaard_importmap,
-            active_theme_name=naam,
+            active_theme_name=actief,
         ))
+
+    def _on_theme_created(self, naam: str) -> None:
+        """Laad de theme-dropdown opnieuw en pas het nieuwe template toe."""
+        self._tab_instellingen.set_themes(discover_themes(THEMES_DIR), naam)
+        self._on_theme_selected(naam)
+
+    def _on_theme_delete_requested(self, naam: str) -> None:
+        """Verwijder een custom themebestand en kies daarna een beschikbare fallback."""
+        if naam.lower() in {'dkib', 'sixgeoconsult', BASIC_THEME_NAME.lower()}:
+            QMessageBox.warning(self, 'Template verwijderen', 'Deze standaardstijl kan niet worden verwijderd.')
+            return
+
+        pad = self._theme_path_for_name(naam)
+        if pad is None or not pad.exists():
+            QMessageBox.warning(self, 'Template verwijderen', f'Template "{naam}" is niet gevonden.')
+            self._tab_instellingen.set_themes(discover_themes(THEMES_DIR), self._active_theme_name())
+            return
+
+        try:
+            pad.unlink()
+        except OSError as exc:
+            QMessageBox.warning(self, 'Template verwijderen', f'Verwijderen mislukt:\n{exc}')
+            return
+
+        nieuw_actief = self._choose_theme_after_delete(naam)
+        self._on_theme_selected(nieuw_actief)
+
+    def _apply_theme(self, naam: str) -> None:
+        """Pas een UI-template toe op bestaande widgets en herbouw tabelviews."""
+        thema = bootstrap_theme(naam)
+        if thema is None:
+            QMessageBox.warning(self, 'Template', f'Template "{naam}" kon niet geladen worden.')
+            return
+
+        self._theme = thema
+        self._refresh_branding_corner()
+        for tabel in self.findChildren(QTableWidget):
+            if tabel.property('debugTable'):
+                tabel.setStyleSheet(table_styles.debug_qtable_style())
+            else:
+                tabel.setStyleSheet(table_styles.report_qtable_style())
+
+        self._tab_instellingen.set_themes(discover_themes(THEMES_DIR), thema.name)
+        self._update_all()
+
+    def _refresh_branding_corner(self) -> None:
+        """Werk het logo in de tabbalk bij na een templatewissel."""
+        self._main_tabs.setCornerWidget(None, Qt.Corner.TopLeftCorner)
+        branding = self._build_branding_corner()
+        if branding is not None:
+            self._main_tabs.setCornerWidget(branding, Qt.Corner.TopLeftCorner)
+
+    def _active_theme_name(self) -> str:
+        return self._theme.name if self._theme is not None else BASIC_THEME_NAME
+
+    def _theme_path_for_name(self, naam: str):
+        for theme_name, pad in discover_themes(THEMES_DIR):
+            if theme_name == naam and pad:
+                return pad
+        return None
+
+    def _choose_theme_after_delete(self, deleted_name: str) -> str:
+        if self._active_theme_name() != deleted_name:
+            return self._active_theme_name()
+        available_names = [name for name, _path in discover_themes(THEMES_DIR)]
+        for preferred in ('DKIB', 'SixGeoConsult', BASIC_THEME_NAME):
+            if preferred in available_names:
+                return preferred
+        return available_names[0] if available_names else BASIC_THEME_NAME
 
     def _on_preview_open(self) -> None:
         """Open het preview-venster en render direct."""

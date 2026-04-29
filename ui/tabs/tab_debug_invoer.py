@@ -11,6 +11,7 @@ from parsers.models import (
     Project, Anchor, Strut, SpringSupport, RigidSupport,
     UniformLoad, SurchargeLoad, HorizontalLineLoad, Moment, NormalForce, Stage,
 )
+from ui.table_styles import BASIC_DEBUG_QTABLE_STYLE
 
 # ── Stijlconstanten ──────────────────────────────────────────────────────────
 _FONT      = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
@@ -69,7 +70,9 @@ def _maak_tabel(headers: list[str], rijen: list[list[str]]) -> QTableWidget:
     tabel.verticalHeader().setVisible(False)
     tabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     tabel.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    tabel.setStyleSheet(f'font-family: {_FONT}; font-size: 11px;')
+    tabel.setShowGrid(True)
+    tabel.setProperty('debugTable', True)
+    tabel.setStyleSheet(BASIC_DEBUG_QTABLE_STYLE)
     for r, rij in enumerate(rijen):
         for c, cel in enumerate(rij):
             tabel.setItem(r, c, QTableWidgetItem('' if cel is None else str(cel)))

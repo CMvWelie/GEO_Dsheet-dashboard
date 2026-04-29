@@ -8,20 +8,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal
 
 
-_BTN_PRIMARY = (
-    'QPushButton { background: #245b7a; color: white; border: 1px solid #1a4560; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 600; } '
-    'QPushButton:hover { background: #1a4560; } '
-    'QPushButton:pressed { background: #122f42; }'
-)
-_BTN_NORMAL = (
-    'QPushButton { background: white; color: #2c3e50; border: 1px solid #aabdca; '
-    'border-radius: 5px; padding: 4px 10px; font-size: 11px; } '
-    'QPushButton:hover { background: #f0f5f9; } '
-    'QPushButton:pressed { background: #e4edf3; }'
-)
-
-
 class TabExcelExport(QWidget):
     """Excel-exporttab (Tab 4B)."""
 
@@ -43,7 +29,7 @@ class TabExcelExport(QWidget):
         self._template_edit.setPlaceholderText('Pad naar .xltx sjabloon…')
         self._template_edit.textChanged.connect(self.template_changed)
         tmpl_browse = QPushButton('Bladeren…')
-        tmpl_browse.setStyleSheet(_BTN_NORMAL)
+        tmpl_browse.setObjectName('btnNormal')
         tmpl_browse.clicked.connect(self._browse_template)
         tmpl_row.addWidget(self._template_edit)
         tmpl_row.addWidget(tmpl_browse)
@@ -56,7 +42,7 @@ class TabExcelExport(QWidget):
         self._output_edit = QLineEdit()
         self._output_edit.setPlaceholderText('Pad naar uitvoer .xlsx…')
         out_browse = QPushButton('Bladeren…')
-        out_browse.setStyleSheet(_BTN_NORMAL)
+        out_browse.setObjectName('btnNormal')
         out_browse.clicked.connect(self._browse_output)
         out_row.addWidget(self._output_edit)
         out_row.addWidget(out_browse)
@@ -64,7 +50,7 @@ class TabExcelExport(QWidget):
         root.addWidget(out_box)
 
         self._export_btn = QPushButton('Exporteer naar Excel')
-        self._export_btn.setStyleSheet(_BTN_PRIMARY)
+        self._export_btn.setObjectName('btnPrimary')
         self._export_btn.clicked.connect(self._on_export)
         root.addWidget(self._export_btn)
 

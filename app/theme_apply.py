@@ -13,7 +13,8 @@ from pathlib import Path
 from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import QApplication
 
-from app.theme import Theme
+from app.theme import BASIC_THEME_NAME, Theme, create_basic_theme
+from ui.table_styles import configure_from_theme
 
 THEMES_DIR = Path(__file__).resolve().parent.parent / 'themes'
 DEFAULT_THEME = 'DKIB'
@@ -42,7 +43,8 @@ def bootstrap_theme(actief_thema_naam: str) -> Theme | None:
         return None
 
     werkelijke_familie = _registreer_fonts(thema.assets.font_files,
-                                           fallback=thema.typography.fallback)
+                                           fallback=thema.typography.family)
+    configure_from_theme(thema)
 
     qss = thema.build_stylesheet(font_family=werkelijke_familie)
     app = QApplication.instance()
@@ -53,7 +55,10 @@ def bootstrap_theme(actief_thema_naam: str) -> Theme | None:
 
 
 def _laad_thema_met_fallback(naam: str) -> Theme | None:
-    """Probeer het gewenste thema te laden; val terug op DKIB; daarna op niets."""
+    """Probeer het gewenste thema te laden; val terug op DKIB; daarna op Basic."""
+    if naam.lower() == BASIC_THEME_NAME.lower():
+        return create_basic_theme()
+
     kandidaten = [naam]
     if naam.lower() != DEFAULT_THEME.lower():
         kandidaten.append(DEFAULT_THEME)
@@ -67,17 +72,22 @@ def _laad_thema_met_fallback(naam: str) -> Theme | None:
         except (ValueError, OSError) as exc:
             print(f'Waarschuwing: thema {kandidaat!r} kon niet geladen worden: {exc}',
                   file=sys.stderr)
-    return None
+    return create_basic_theme()
 
 
 def _vind_thema_bestand(naam: str) -> Path | None:
-    """Zoek ``<themes_dir>/<naam>.json`` (case-insensitief)."""
+    """Zoek een themebestand op bestandsnaam of interne theme-naam."""
     if not THEMES_DIR.exists():
         return None
     doel = naam.lower()
     for pad in THEMES_DIR.glob('*.json'):
         if pad.stem.lower() == doel:
             return pad
+        try:
+            if Theme.load(pad).name.lower() == doel:
+                return pad
+        except (ValueError, OSError):
+            continue
     return None
 
 
