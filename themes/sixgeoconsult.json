@@ -1,0 +1,33 @@
+{
+  "name": "SixGeoConsult",
+  "colors": {
+    "primary": "#7a4f9f",
+    "primary_hover": "#5e3d7c",
+    "primary_pressed": "#472d5d",
+    "text": "#2c3e50",
+    "text_muted": "#7a8794",
+    "border": "#D8DFE6",
+    "border_strong": "#aabdca",
+    "surface": "#FFFFFF",
+    "background": "#FAFBFC",
+    "ok": "#309942",
+    "warning": "#FF5C00",
+    "danger": "#c0392b"
+  },
+  "typography": {
+    "family": "Calibri",
+    "fallback": "Segoe UI",
+    "size_base": 11,
+    "size_title": 12,
+    "size_small": 10
+  },
+  "geometry": {
+    "radius": 4,
+    "spacing": 8,
+    "padding_button": "7px 14px"
+  },
+  "assets": {
+    "font_files": [],
+    "app_logo": "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/SIXGeoConsult_logo.jpg"
+  }
+}

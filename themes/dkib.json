@@ -1,0 +1,37 @@
+{
+  "name": "DKIB",
+  "colors": {
+    "primary": "#147ACF",
+    "primary_hover": "#0d63ad",
+    "primary_pressed": "#0a4f8a",
+    "text": "#44546A",
+    "text_muted": "#7a8794",
+    "border": "#D8DFE6",
+    "border_strong": "#aabdca",
+    "surface": "#FFFFFF",
+    "background": "#FAFBFC",
+    "ok": "#309942",
+    "warning": "#FF5C00",
+    "danger": "#c0392b"
+  },
+  "typography": {
+    "family": "Eina 04",
+    "fallback": "Segoe UI",
+    "size_base": 11,
+    "size_title": 12,
+    "size_small": 10
+  },
+  "geometry": {
+    "radius": 4,
+    "spacing": 8,
+    "padding_button": "7px 14px"
+  },
+  "assets": {
+    "font_files": [
+      "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/Eina04-Regular.ttf",
+      "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/Eina04-SemiBold.ttf",
+      "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/Eina04-Bold.ttf"
+    ],
+    "app_logo": "C:/Users/t.vanwelie/Dropbox/DKIB_geotechniek/00 Algemeen/DKIB_logo.png"
+  }
+}
