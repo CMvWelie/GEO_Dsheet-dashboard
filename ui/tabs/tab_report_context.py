@@ -16,19 +16,6 @@ from ui.status_widget import StatusWidget
 
 _LOGO_DISPLAY_HEIGHT = 80  # px
 
-_BTN_PRIMARY = (
-    'QPushButton { background: #245b7a; color: white; border: 1px solid #1a4560; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 600; } '
-    'QPushButton:hover { background: #1a4560; } '
-    'QPushButton:pressed { background: #122f42; border-top: 2px solid #0d2233; }'
-)
-_BTN_DANGER = (
-    'QPushButton { background: white; color: #c0392b; border: 1px solid #e08070; '
-    'border-radius: 5px; padding: 6px 14px; font-size: 12px; font-weight: 500; } '
-    'QPushButton:hover { background: #fdf0ee; border-color: #c0392b; } '
-    'QPushButton:pressed { background: #fde0dc; }'
-)
-
 
 class TabReportContext(QWidget):
     """Gecombineerde tab voor rapportmetadata en bestandsimport (Tab 0)."""
@@ -90,8 +77,10 @@ class TabReportContext(QWidget):
 
         btn_row = QHBoxLayout()
         self._btn_browse = QPushButton('Bladeren…')
+        self._btn_browse.setObjectName('btnNormal')
         self._btn_browse.clicked.connect(self._browse_logo)
         self._btn_clear = QPushButton('Wissen')
+        self._btn_clear.setObjectName('btnNormal')
         self._btn_clear.clicked.connect(self._clear_logo)
         btn_row.addWidget(self._btn_browse)
         btn_row.addWidget(self._btn_clear)
@@ -112,17 +101,17 @@ class TabReportContext(QWidget):
         import_layout.setSpacing(6)
 
         self.import_btn = QPushButton('Importeer…')
-        self.import_btn.setStyleSheet(_BTN_PRIMARY)
+        self.import_btn.setObjectName('btnPrimary')
         self.import_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         import_layout.addWidget(self.import_btn)
 
         self.reset_btn = QPushButton('Reset')
-        self.reset_btn.setStyleSheet(_BTN_DANGER)
+        self.reset_btn.setObjectName('btnDanger')
         self.reset_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         import_layout.addWidget(self.reset_btn)
 
         self.remove_btn = QPushButton('Verwijder project')
-        self.remove_btn.setStyleSheet(_BTN_DANGER)
+        self.remove_btn.setObjectName('btnDanger')
         self.remove_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.remove_btn.setEnabled(False)
         self.remove_btn.clicked.connect(self._on_remove_clicked)
