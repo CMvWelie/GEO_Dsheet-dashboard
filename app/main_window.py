@@ -49,7 +49,7 @@ from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.tabs.tab_debug import TabDebug
 from ui.preview_window import WordPreviewWindow
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
-
+from app.theme import Theme
 
 
 _CARD_STYLE = (
@@ -98,12 +98,22 @@ def _spin(lo: float = -9999, hi: float = 9999, val: float = 0, step: float = 0.5
 class MainWindow(QMainWindow):
     """Hoofdvenster conform de HTML-layout."""
 
-    def __init__(self):
+    def __init__(self, thema: Theme | None = None) -> None:
+        """Initialiseer het hoofdvenster.
+
+        Parameters
+        ----------
+        thema:
+            Het actieve ``Theme``-object voor branding-elementen (zoals app-logo).
+            Mag ``None`` zijn — branding-elementen worden dan weggelaten.
+        """
         super().__init__()
         self.setWindowTitle('D-Sheet Dashboard')
         self.resize(1600, 950)
         self.setMinimumSize(900, 600)
         self.setAcceptDrops(True)
+
+        self._theme = thema
 
         self._state = AppState()
         self._controller = AppController(self._state)

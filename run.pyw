@@ -39,7 +39,9 @@ except ImportError:
         print('Installeer met: pip install PyQt6')
         sys.exit(1)
 
+from app.config_manager import ConfigManager
 from app.main_window import MainWindow
+from app.theme_apply import bootstrap_theme
 
 
 def main() -> None:
@@ -48,7 +50,11 @@ def main() -> None:
     app.setApplicationName('D-Sheet Dashboard')
     app.setOrganizationName('DKIB Geotechniek')
 
-    window = MainWindow()
+    # Lees actief-thema-naam uit config (default 'DKIB' bij ontbreken)
+    _, _, app_settings = ConfigManager().load()
+    thema = bootstrap_theme(app_settings.active_theme_name)
+
+    window = MainWindow(thema=thema)
     window.show()
     sys.exit(app.exec())
 
