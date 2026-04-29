@@ -112,3 +112,32 @@ class Theme:
             geometry=geometry,
             assets=assets,
         )
+
+
+def discover_themes(themes_dir: Path) -> list[tuple[str, Path]]:
+    """Vind alle geldige thema-JSON-bestanden in een directory.
+
+    Parameters
+    ----------
+    themes_dir:
+        Map om te scannen op ``*.json``-themabestanden.
+
+    Returns
+    -------
+    list[tuple[str, Path]]
+        Lijst van (naam, pad)-paren, gesorteerd op naam.
+        Bestanden die niet als geldig thema kunnen worden geladen worden overgeslagen.
+    """
+    if not themes_dir.exists():
+        return []
+
+    gevonden: list[tuple[str, Path]] = []
+    for pad in sorted(themes_dir.glob('*.json')):
+        try:
+            thema = Theme.load(pad)
+        except (ValueError, OSError, json.JSONDecodeError):
+            continue
+        gevonden.append((thema.name, pad))
+
+    gevonden.sort(key=lambda paar: paar[0])
+    return gevonden

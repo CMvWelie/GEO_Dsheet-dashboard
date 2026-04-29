@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from app.theme import Theme
+from app.theme import Theme, discover_themes
 
 
 def _voorbeeld_thema_dict() -> dict:
@@ -80,3 +80,32 @@ def test_load_missing_optional_assets_ok(tmp_path: Path) -> None:
 
     assert thema.assets.font_files == []
     assert thema.assets.app_logo == ""
+
+
+def test_discover_themes_finds_json_files(tmp_path: Path) -> None:
+    (tmp_path / "alpha.json").write_text(
+        json.dumps(_voorbeeld_thema_dict()), encoding="utf-8"
+    )
+    (tmp_path / "bravo.json").write_text(
+        json.dumps({**_voorbeeld_thema_dict(), "name": "Bravo"}),
+        encoding="utf-8",
+    )
+    (tmp_path / "ignoreer.txt").write_text("nope", encoding="utf-8")
+
+    profielen = discover_themes(tmp_path)
+
+    assert len(profielen) == 2
+    namen = sorted(p[0] for p in profielen)
+    assert namen == ["Bravo", "Test"]
+
+
+def test_discover_themes_skipt_kapotte_bestanden(tmp_path: Path) -> None:
+    (tmp_path / "ok.json").write_text(
+        json.dumps(_voorbeeld_thema_dict()), encoding="utf-8"
+    )
+    (tmp_path / "kapot.json").write_text("{niet geldig json", encoding="utf-8")
+
+    profielen = discover_themes(tmp_path)
+
+    assert len(profielen) == 1
+    assert profielen[0][0] == "Test"
