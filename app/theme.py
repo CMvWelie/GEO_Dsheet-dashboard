@@ -6,11 +6,36 @@ Wordt geladen vanuit JSON-bestand en kan een Qt-stylesheet-string genereren.
 
 from __future__ import annotations
 
+import base64
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 BASIC_THEME_NAME = 'Basic'
+
+
+def _svg_pijl_url(punten: str, vulkleur: str, breedte: int = 8, hoogte: int = 5) -> str:
+    """Genereer een base64-gecodeerde SVG data-URI voor een driehoekige pijl."""
+    svg = (
+        f"<svg xmlns='http://www.w3.org/2000/svg' width='{breedte}' height='{hoogte}'"
+        f" viewBox='0 0 {breedte} {hoogte}'>"
+        f"<polygon points='{punten}' fill='{vulkleur}'/>"
+        f"</svg>"
+    )
+    b64 = base64.b64encode(svg.encode()).decode()
+    return f"url(data:image/svg+xml;base64,{b64})"
+
+
+def _svg_vinkje_url() -> str:
+    """Genereer een base64-gecodeerde SVG data-URI voor een wit vinkje."""
+    svg = (
+        "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='9' viewBox='0 0 12 9'>"
+        "<polyline points='1,4 4,8 11,1' stroke='white' stroke-width='2' fill='none'"
+        " stroke-linecap='round' stroke-linejoin='round'/>"
+        "</svg>"
+    )
+    b64 = base64.b64encode(svg.encode()).decode()
+    return f"url(data:image/svg+xml;base64,{b64})"
 
 
 @dataclass
@@ -111,6 +136,12 @@ class Theme:
         t = self.typography
         g = self.geometry
         ff = f'"{font_family}"'
+
+        pijl_omlaag = _svg_pijl_url('0,0 8,0 4,5', c.text)
+        pijl_omhoog = _svg_pijl_url('0,5 8,5 4,0', c.text)
+        pijl_omlaag_wit = _svg_pijl_url('0,0 8,0 4,5', '#ffffff')
+        pijl_omhoog_wit = _svg_pijl_url('0,5 8,5 4,0', '#ffffff')
+        vinkje = _svg_vinkje_url()
 
         return f"""
 * {{
@@ -422,7 +453,7 @@ QComboBox::drop-down:hover {{
 }}
 
 QComboBox::down-arrow {{
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,0 8,0 4,5' fill='%23{c.text[1:]}'/></svg>");
+    image: {pijl_omlaag};
     width: 8px;
     height: 5px;
 }}
@@ -454,23 +485,23 @@ QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
 }}
 
 QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,5 8,5 4,0' fill='%23{c.text[1:]}'/></svg>");
+    image: {pijl_omhoog};
     width: 8px;
     height: 5px;
 }}
 
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,0 8,0 4,5' fill='%23{c.text[1:]}'/></svg>");
+    image: {pijl_omlaag};
     width: 8px;
     height: 5px;
 }}
 
 QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover {{
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,5 8,5 4,0' fill='white'/></svg>");
+    image: {pijl_omhoog_wit};
 }}
 
 QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover {{
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,0 8,0 4,5' fill='white'/></svg>");
+    image: {pijl_omlaag_wit};
 }}
 
 QTabBar QToolButton {{
@@ -500,7 +531,7 @@ QCheckBox::indicator:hover {{
 QCheckBox::indicator:checked {{
     background: {c.primary};
     border: 1px solid {c.primary_hover};
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='9' viewBox='0 0 12 9'><polyline points='1,4 4,8 11,1' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    image: {vinkje};
 }}
 
 QCheckBox::indicator:checked:hover {{
