@@ -31,7 +31,7 @@ def _maak_project(profielen: list[SoilProfile] | None = None) -> Project:
     )
 
 
-def _maak_profiel(naam: str) -> SoilProfile:
+def _maak_profiel(naam: str, materiaal: str = 'Zand') -> SoilProfile:
     return SoilProfile(
         name=naam,
         normalized_name=naam.lower(),
@@ -39,7 +39,7 @@ def _maak_profiel(naam: str) -> SoilProfile:
         x=None,
         y=None,
         layers=[
-            SoilLayer(nr=1, level=0.0, wosp_top=0.0, wosp_bottom=0.0, material='Zand'),
+            SoilLayer(nr=1, level=0.0, wosp_top=0.0, wosp_bottom=0.0, material=materiaal),
         ],
     )
 
@@ -89,3 +89,32 @@ def test_populate_zonder_project_toont_lege_state(qapp) -> None:
     assert len(widgets) == 1
     assert isinstance(widgets[0], QLabel)
     assert widgets[0].text() == 'Geen profieldata beschikbaar. Laad een project.'
+
+
+def test_gelijke_rij_in_tweede_tabel_wordt_samengevoegd(qapp) -> None:
+    tab = TabGrondsoorten()
+    project = _maak_project([
+        _maak_profiel('Links'),
+        _maak_profiel('Rechts'),
+    ])
+
+    tab.populate(project)
+
+    tweede_tabel = _content_widgets(tab)[4]
+    teksten = [label.text() for label in tweede_tabel.findChildren(QLabel)]
+    assert 'gelijk aan 1* \u2014 Links' in teksten
+
+
+def test_gewijzigde_rij_in_tweede_tabel_blijft_uitgeschreven(qapp) -> None:
+    tab = TabGrondsoorten()
+    project = _maak_project([
+        _maak_profiel('Links'),
+        _maak_profiel('Rechts', materiaal='Klei'),
+    ])
+
+    tab.populate(project)
+
+    tweede_tabel = _content_widgets(tab)[4]
+    teksten = [label.text() for label in tweede_tabel.findChildren(QLabel)]
+    assert 'gelijk aan 1* \u2014 Links' not in teksten
+    assert 'Klei' in teksten

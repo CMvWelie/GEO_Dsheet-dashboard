@@ -22,8 +22,10 @@ import zipfile
 from pathlib import Path
 
 from docx import Document
+from docx.shared import Cm
 
 from reporting.models import ReportPackage, ReportSection
+from reporting.figure_renderer import render_figuur
 
 _DOTX_CONTENT_TYPE = (
     'application/vnd.openxmlformats-officedocument'
@@ -39,7 +41,7 @@ class WordExporter:
     """Schrijft een ReportPackage naar een .docx-bestand met python-docx."""
 
     def export(self, package: ReportPackage, template_path: str | None,
-               output_path: str) -> str | None:
+               output_path: str, project=None) -> str | None:
         """Exporteer naar Word.
 
         Returns:
@@ -54,7 +56,7 @@ class WordExporter:
                 doc = Document()
 
             if mapping:
-                self._write_with_mapping(doc, package, mapping)
+                self._write_with_mapping(doc, package, mapping, project)
             else:
                 self._write_metadata(doc, package)
                 selected_ids = {
@@ -71,7 +73,7 @@ class WordExporter:
                 for sec in all_sections:
                     if selected_ids and sec.id not in selected_ids:
                         continue
-                    self._write_section(doc, sec)
+                    self._write_section(doc, sec, project)
 
             doc.save(output_path)
             return None
@@ -137,7 +139,9 @@ class WordExporter:
     # Schrijven met sidecar-mapping
     # ------------------------------------------------------------------
 
-    def _write_with_mapping(self, doc, package: ReportPackage, mapping: dict) -> None:
+    def _write_with_mapping(
+        self, doc, package: ReportPackage, mapping: dict, project=None
+    ) -> None:
         """Vul template-bladwijzers in en voeg secties toe na genoemde koppen."""
         # Metadata via bladwijzers
         meta_map = mapping.get('metadata', {})
@@ -156,9 +160,9 @@ class WordExporter:
         for sec in all_sections:
             heading_text = sec_map.get(sec.id)
             if heading_text:
-                self._insert_after_heading(doc, heading_text, sec)
+                self._insert_after_heading(doc, heading_text, sec, project)
             else:
-                self._write_section(doc, sec)
+                self._write_section(doc, sec, project)
 
     def _fill_bookmark(self, doc, bookmark_name: str, value: str) -> None:
         """Vervang tekst van een bladwijzer in het document."""
@@ -176,7 +180,7 @@ class WordExporter:
                     return
 
     def _insert_after_heading(self, doc, heading_text: str,
-                               section: ReportSection) -> None:
+                               section: ReportSection, project=None) -> None:
         """Voeg sectie-content toe na de paragraaf met de gegeven koptekst."""
         from docx.oxml import OxmlElement
         target = None
@@ -190,7 +194,7 @@ class WordExporter:
             return
         # Bouw sectie-XML op en voeg in na de kop
         temp_doc = doc.__class__()
-        self._write_section(temp_doc, section)
+        self._write_section(temp_doc, section, project)
         parent = target.getparent()
         idx = list(parent).index(target) + 1
         for elem in list(temp_doc.element.body)[:-1]:  # skip sectPr
@@ -223,7 +227,7 @@ class WordExporter:
             row.cells[0].text = label
             row.cells[1].text = value or ''
 
-    def _write_section(self, doc, section: ReportSection) -> None:
+    def _write_section(self, doc, section: ReportSection, project=None) -> None:
         doc.add_heading(section.title, level=2)
 
         for f in section.fields:
@@ -245,3 +249,53 @@ class WordExporter:
 
         for tb in section.text_blocks:
             doc.add_paragraph(tb.effective_text)
+
+        for groep in section.image_groups:
+            self._write_image_group(doc, groep, project)
+
+        for img_req in section.images:
+            self._write_image(doc, img_req, project)
+
+    def _write_image(self, doc, img_req, project) -> None:
+        """Render een figuurverzoek en voeg het toe aan het Word-document."""
+        if project is None:
+            doc.add_paragraph(f'[Figuur: {img_req.caption}]')
+            return
+        png_bytes = render_figuur(img_req, project)
+        if png_bytes:
+            doc.add_picture(io.BytesIO(png_bytes), width=Cm(16))
+            if img_req.caption:
+                doc.add_paragraph(img_req.caption, style='Caption')
+        else:
+            doc.add_paragraph(f'[Figuur niet beschikbaar: {img_req.caption}]')
+
+    def _write_image_group(self, doc, groep, project) -> None:
+        """Schrijf een figuurgroep als Word-tabel met kop, figuur en bron."""
+        if not groep.headers:
+            return
+        if groep.title:
+            doc.add_paragraph(groep.title, style='Intense Quote')
+
+        tbl = doc.add_table(rows=3, cols=len(groep.headers))
+        for col, header in enumerate(groep.headers):
+            tbl.rows[0].cells[col].text = header
+
+        for col, img_req in enumerate(groep.images):
+            cell = tbl.rows[1].cells[col]
+            if img_req is None:
+                cell.text = '-'
+                continue
+            if project is None:
+                cell.text = f'[Figuur: {img_req.caption or img_req.figure_key}]'
+                continue
+            png_bytes = render_figuur(img_req, project)
+            if not png_bytes:
+                cell.text = '[Figuur niet beschikbaar]'
+                continue
+            paragraph = cell.paragraphs[0]
+            run = paragraph.add_run()
+            run.add_picture(io.BytesIO(png_bytes), width=Cm(5.2))
+
+        for col, footer in enumerate(groep.footers):
+            if col < len(tbl.rows[2].cells):
+                tbl.rows[2].cells[col].text = footer

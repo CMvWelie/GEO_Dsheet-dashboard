@@ -122,6 +122,9 @@ class MainWindow(QMainWindow):
         self._tab_report_select.set_template_path(
             self._state.app_settings.word_template_path
         )
+        self._report_controller.set_template_word(
+            self._state.app_settings.word_template_path
+        )
         self._tab_instellingen.set_import_map(
             self._state.app_settings.standaard_importmap
         )
@@ -830,6 +833,10 @@ class MainWindow(QMainWindow):
     def _on_export_hoofdstuk(self) -> None:
         """Exporteer het actieve project als Word-rapport."""
         from reporting.builders.damwand_hoofdstuk_builder import DamwandHoofdstukBuilder
+        from reporting.builders.result_description_builder import (
+            is_bgt_step_key,
+            is_ugt_step_key,
+        )
         from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
         from reporting.models import ReportMetadata
 
@@ -839,12 +846,18 @@ class MainWindow(QMainWindow):
             return
 
         stap_sleutels = list(project.result_steps.keys())
-        governing_step_key = stap_sleutels[0] if stap_sleutels else None
-        disp_step_key = next((k for k in stap_sleutels if '6.5' in k), None)
+        governing_step_key = next((k for k in stap_sleutels if is_ugt_step_key(k)), None)
+        disp_step_key = next((k for k in stap_sleutels if is_bgt_step_key(k)), None)
+        if governing_step_key is None and stap_sleutels:
+            QMessageBox.warning(
+                self, 'Exporteer rapport',
+                'Geen UGT-resultaatstap gevonden. '
+                'Moment- en dwarskrachtgrafiek wordt weggelaten.',
+            )
         if disp_step_key is None and stap_sleutels:
             QMessageBox.warning(
                 self, 'Exporteer rapport',
-                'Geen resultaatstap met "6.5" gevonden. '
+                'Geen BGT-resultaatstap 6.5 gevonden. '
                 'Vervormingsgrafiek wordt weggelaten.',
             )
 
@@ -984,7 +997,7 @@ class MainWindow(QMainWindow):
         if not self._preview_window.isVisible():
             return
         package = self._report_controller.build_package()
-        html = self._html_builder.build(package)
+        html = self._html_builder.build(package, self._state.get_active_project())
         self._preview_window.set_html(html, len(package.selected_items))
 
     def _on_word_pdf_preview_open(self) -> None:

@@ -259,7 +259,10 @@ class AppController:
             buf.seek(0)
             return buf.read()
         except Exception:
-            _log.exception("render_stage_png mislukt voor project '%s'", project.name)
+            _log.exception(
+                "render_stage_png mislukt voor project '%s'",
+                project.project_name or project.base_name,
+            )
             return None
 
     def render_results(self, fig: Figure) -> str | None:

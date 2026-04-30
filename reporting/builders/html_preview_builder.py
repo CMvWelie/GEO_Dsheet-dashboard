@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+
 from reporting.models import ReportPackage, ReportSection, ReportField, ReportTable
+from reporting.figure_renderer import render_figuur
 
 # ── Kleurconstanten (consistent met app-stijl) ───────────────────────────────
 _HDR_BG   = '#147ACF'
@@ -39,7 +42,12 @@ _CSS = f"""
   td.unit  {{ color: {_VALUE}; font-size: 10px; width: 20%; }}
   p.tekst  {{ font-size: 11px; color: #3d4f5c; margin: 4px 0 10px 0;
               line-height: 1.6; }}
+  p.caption {{ font-size: 10px; color: #666666; margin: 2px 0 10px 0; }}
   p.leeg   {{ color: #a0b4c2; font-style: italic; padding: 20px 0; }}
+  img.figuur {{ max-width: 100%; margin: 8px 0 2px 0; }}
+  img.figuur-cel {{ width: 100%; max-width: 100%; margin: 4px 0; }}
+  table.figuurgroep td {{ vertical-align: top; text-align: center; }}
+  table.figuurgroep .bron {{ font-size: 10px; color: #555555; }}
   .inline-wrap td {{ vertical-align: top; padding-right: 16px; }}
   .inline-wrap {{ border-collapse: separate; border-spacing: 0; width: auto;
                   margin-bottom: 12px; border: none; }}
@@ -50,13 +58,15 @@ _CSS = f"""
 class HtmlPreviewBuilder:
     """Zet een ReportPackage om naar een HTML-string voor QTextBrowser."""
 
-    def build(self, package: ReportPackage) -> str:
+    def build(self, package: ReportPackage, project=None) -> str:
         """Genereer HTML-string voor de geselecteerde secties.
 
         Parameters
         ----------
         package:
             Rapportpakket met invoer-, resultaat- en extra-secties en de selectielijst.
+        project:
+            Actief project voor het renderen van figuren; ``None`` laat figuren weg.
 
         Returns
         -------
@@ -80,7 +90,7 @@ class HtmlPreviewBuilder:
                 continue
             sec = alle_secties.get(item.source_ref)
             if sec is not None:
-                secties.append(self._sectie_html(sec))
+                secties.append(self._sectie_html(sec, project))
 
         body = (
             '\n'.join(secties)
@@ -102,7 +112,7 @@ class HtmlPreviewBuilder:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _sectie_html(self, sec: ReportSection) -> str:
+    def _sectie_html(self, sec: ReportSection, project=None) -> str:
         """Render één ReportSection als HTML-fragment."""
         delen: list[str] = [f'<h2>{_esc(sec.title)}</h2>']
 
@@ -127,7 +137,67 @@ class HtmlPreviewBuilder:
             if tekst:
                 delen.append(f'<p class="tekst">{_esc(tekst)}</p>')
 
+        for groep in sec.image_groups:
+            groep_html = self._figuurgroep_html(groep, project)
+            if groep_html:
+                delen.append(groep_html)
+
+        for img_req in sec.images:
+            figuur_html = self._figuur_html(img_req, project)
+            if figuur_html:
+                delen.append(figuur_html)
+
         return '\n'.join(delen)
+
+    def _figuur_html(self, img_req, project=None) -> str:
+        """Render een figuur als base64 data-URI voor de HTML-preview."""
+        if project is None:
+            return ''
+        png = render_figuur(img_req, project)
+        if not png:
+            return ''
+        b64 = base64.b64encode(png).decode('ascii')
+        caption = (
+            f'<p class="caption">{_esc(img_req.caption)}</p>'
+            if img_req.caption else ''
+        )
+        return f'<img class="figuur" src="data:image/png;base64,{b64}">{caption}'
+
+    def _figuurgroep_html(self, groep, project=None) -> str:
+        """Render een groep figuren als 3-rijen tabel."""
+        if not groep.headers:
+            return ''
+
+        header = ''.join(f'<th>{_esc(kop)}</th>' for kop in groep.headers)
+        figuur_cellen: list[str] = []
+        for img_req in groep.images:
+            if img_req is None or project is None:
+                figuur_cellen.append('<td>-</td>')
+                continue
+            png = render_figuur(img_req, project)
+            if not png:
+                figuur_cellen.append('<td>-</td>')
+                continue
+            b64 = base64.b64encode(png).decode('ascii')
+            figuur_cellen.append(
+                f'<td><img class="figuur-cel" '
+                f'src="data:image/png;base64,{b64}"></td>'
+            )
+        footer = ''.join(
+            f'<td class="bron">{_esc(tekst)}</td>' for tekst in groep.footers
+        )
+        titel = (
+            f'<p style="font-size:11px;font-weight:600;color:{_LABEL};'
+            f'margin:8px 0 3px;">{_esc(groep.title)}</p>'
+            if groep.title else ''
+        )
+        return (
+            f'{titel}<table class="figuurgroep">'
+            f'<tr>{header}</tr>'
+            f'<tr>{"".join(figuur_cellen)}</tr>'
+            f'<tr>{footer}</tr>'
+            f'</table>'
+        )
 
     def _velden_html(self, velden: list[ReportField]) -> str:
         """Render veld-rijen als HTML-tabel."""

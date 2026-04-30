@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
+from reporting.builders import html_preview_builder
 from reporting.models import (
+    ReportImageGroup,
     ReportPackage, ReportMetadata, ReportSection,
-    ReportField, ReportTable, ReportItem, TextBlock,
+    ReportField, ReportImageRequest, ReportTable, ReportItem, TextBlock,
 )
 
 
@@ -117,3 +119,70 @@ def test_grondsoorten_sectie_opgenomen_bij_kind_grondsoorten() -> None:
     html = HtmlPreviewBuilder().build(pkg)
     assert 'Grondsoortentabel' in html
     assert 'Zand' in html
+
+
+def test_image_request_wordt_data_uri_met_caption(monkeypatch) -> None:
+    """Figuurverzoeken worden als base64-afbeelding in HTML opgenomen."""
+    monkeypatch.setattr(html_preview_builder, 'render_figuur', lambda _img, _project: b'png')
+    sec = ReportSection(
+        id='fase_1',
+        title='Fase 1',
+        images=[
+            ReportImageRequest(
+                id='fig_1',
+                caption='Doorsnede fase 1',
+                figure_key='section',
+                stage_index=0,
+                step_key=None,
+            )
+        ],
+    )
+    item = ReportItem(
+        id='damwand_fase_1',
+        kind='invoer',
+        caption='Fase 1',
+        source_ref='fase_1',
+    )
+    pkg = ReportPackage(input_sections=[sec], selected_items=[item])
+    html = HtmlPreviewBuilder().build(pkg, project=object())
+    assert 'data:image/png;base64,cG5n' in html
+    assert 'Doorsnede fase 1' in html
+
+
+def test_image_group_wordt_als_3x3_tabel_gerenderd(monkeypatch) -> None:
+    """Een figuurgroep rendert headers, figuurcellen en bronregels in HTML."""
+    monkeypatch.setattr(html_preview_builder, 'render_figuur', lambda _img, _project: b'png')
+    img = ReportImageRequest(
+        id='m',
+        caption='',
+        figure_key='moment_curve',
+        stage_index=0,
+        step_key='CUR 166 6.4',
+    )
+    sec = ReportSection(
+        id='extremen_overzicht',
+        title='Maatgevende resultaten',
+        image_groups=[
+            ReportImageGroup(
+                id='extremen_3x3',
+                title='',
+                headers=['Msd = 210 kNm/m', 'Dsd = 95 kN/m', 'Urep BGT = 12 mm'],
+                images=[img, img, img],
+                footers=['Fase 1 - Start', 'Fase 2 - Eind', 'Fase 2 - Eind'],
+            )
+        ],
+    )
+    item = ReportItem(
+        id='result_extremen_overzicht',
+        kind='resultaat',
+        caption='Maatgevende resultaten',
+        source_ref='extremen_overzicht',
+    )
+    pkg = ReportPackage(result_sections=[sec], selected_items=[item])
+
+    html = HtmlPreviewBuilder().build(pkg, project=object())
+
+    assert 'class="figuurgroep"' in html
+    assert 'Msd = 210 kNm/m' in html
+    assert html.count('data:image/png;base64,cG5n') == 3
+    assert 'Fase 1 - Start' in html

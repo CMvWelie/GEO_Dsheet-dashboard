@@ -35,6 +35,15 @@ class ReportImageRequest:
 
 
 @dataclass
+class ReportImageGroup:
+    id: str
+    title: str
+    headers: list[str]
+    images: list[ReportImageRequest | None]
+    footers: list[str]
+
+
+@dataclass
 class TextBlock:
     id: str
     section: str
@@ -54,6 +63,7 @@ class ReportSection:
     fields: list[ReportField] = field(default_factory=list)
     tables: list[ReportTable] = field(default_factory=list)
     images: list[ReportImageRequest] = field(default_factory=list)
+    image_groups: list[ReportImageGroup] = field(default_factory=list)
     text_blocks: list[TextBlock] = field(default_factory=list)
 
 

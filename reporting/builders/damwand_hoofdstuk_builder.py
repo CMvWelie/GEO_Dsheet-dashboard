@@ -14,6 +14,23 @@ from utils.formatting import fmt_number
 class DamwandHoofdstukBuilder:
     """Bouwt alle vijf secties van het damwand-rapportagehoofdstuk."""
 
+    def build_input_sections(self, project: Project) -> list[ReportSection]:
+        """Bouw invoersecties voor de algemene rapportselectie.
+
+        Parameters
+        ----------
+        project:
+            Actief project met damwandgegevens en constructiefases.
+
+        Returns
+        -------
+        list[ReportSection]
+            Damwandgegevens als eerste sectie, gevolgd door een sectie per fase.
+        """
+        secties: list[ReportSection] = [self._bouw_damwand_sectie(project)]
+        secties.extend(self._bouw_fase_secties(project))
+        return secties
+
     # ------------------------------------------------------------------
     # Sectie 2: Damwandgegevens
     # ------------------------------------------------------------------
@@ -167,16 +184,16 @@ class DamwandHoofdstukBuilder:
         governing_step_key: str | None,
         disp_step_key: str | None,
     ) -> list[ReportSection]:
-        """Bouw twee grafiek-secties: moment/dwarskracht (ULS) en vervorming (6.5).
+        """Bouw twee grafiek-secties: moment/dwarskracht (UGT) en vervorming (BGT 6.5).
 
         Parameters
         ----------
         project:
             Actief project.
         governing_step_key:
-            Sleutel van de maatgevende resultaatstap (ULS).
+            Sleutel van een UGT-resultaatstap.
         disp_step_key:
-            Sleutel van de vervormingsstap (bevat '6.5').
+            Sleutel van de BGT-vervormingsstap 6.5.
 
         Returns
         -------
@@ -196,7 +213,7 @@ class DamwandHoofdstukBuilder:
         sec_disp = ReportSection(id='grafieken_vervorming', title='Vervormingen')
         sec_disp.images.append(ReportImageRequest(
             id='grafiek_displacement',
-            caption='Vervormingen — stap 6.5',
+            caption='Vervormingen — BGT stap 6.5',
             figure_key='displacement',
             stage_index=gov_idx,
             step_key=disp_step_key,
@@ -220,9 +237,9 @@ class DamwandHoofdstukBuilder:
         project:
             Actief project.
         governing_step_key:
-            Sleutel van de maatgevende resultaatstap (ULS) voor moment/dwarskracht.
+            Sleutel van een UGT-resultaatstap voor moment/dwarskracht.
         disp_step_key:
-            Sleutel van de resultaatstap voor vervorming (bevat '6.5').
+            Sleutel van de BGT-resultaatstap voor vervorming.
 
         Returns
         -------

@@ -12,6 +12,7 @@ pytest-cache-files-*/
 
 # Superpowers brainstorm-werkmateriaal
 .superpowers/brainstorm/
+docs/
 
 # Editor / OS junk
 *.tmp.*

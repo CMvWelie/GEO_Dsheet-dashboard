@@ -92,11 +92,17 @@ class TabGrondsoorten(QWidget):
         self._content_layout.insertWidget(self._content_layout.count() - 1, intro)
 
         soil_map = {s.name: s for s in project.soils}
+        referentie_titel = ''
+        referentie_rijen: list[list[str]] = []
         for nummer, profiel in enumerate(project.profiles, start=1):
+            profiel_titel = f'{nummer}* — {profiel.name}'
             kop = self._maak_profiel_kop(nummer, profiel.name)
             self._content_layout.insertWidget(self._content_layout.count() - 1, kop)
-            tabel = self._maak_tabel(profiel, soil_map)
+            tabel = self._maak_tabel(profiel, soil_map, referentie_rijen, referentie_titel)
             self._content_layout.insertWidget(self._content_layout.count() - 1, tabel)
+            if nummer == 1:
+                referentie_titel = profiel_titel
+                referentie_rijen = self._maak_rij_waarden(profiel, soil_map)
 
     def _render_leeg(self) -> None:
         """Toon een lege-state bericht wanneer er geen profieldata is."""
@@ -143,7 +149,13 @@ class TabGrondsoorten(QWidget):
         )
         return lbl
 
-    def _maak_tabel(self, profiel: SoilProfile, soil_map: dict) -> QWidget:
+    def _maak_tabel(
+        self,
+        profiel: SoilProfile,
+        soil_map: dict,
+        referentie_rijen: list[list[str]] | None = None,
+        referentie_titel: str = '',
+    ) -> QWidget:
         """Maak een volledig gestijlde tabelframe voor één profiel.
 
         Parameters
@@ -172,20 +184,44 @@ class TabGrondsoorten(QWidget):
         layout.addWidget(self._maak_kolomhoofden())
 
         # Datarijen
+        rijen = self._maak_rij_waarden(profiel, soil_map)
+        n_lagen = len(profiel.layers)
+        for i, rij_vals in enumerate(rijen):
+            bg = _ROW_ODD_BG if i % 2 == 0 else _ROW_EVN_BG
+            is_last = i == n_lagen - 1
+
+            if (
+                referentie_titel
+                and referentie_rijen
+                and i < len(referentie_rijen)
+                and rij_vals == referentie_rijen[i]
+            ):
+                layout.addWidget(
+                    self._maak_samengevoegde_rij(
+                        f'gelijk aan {referentie_titel}',
+                        bg,
+                        is_last,
+                    )
+                )
+                continue
+
+            layout.addWidget(self._maak_rij(rij_vals, bg, is_last))
+
+        return frame
+
+    def _maak_rij_waarden(self, profiel: SoilProfile, soil_map: dict) -> list[list[str]]:
+        """Maak de zichtbare celwaarden per laag voor een profiel."""
+        rijen = []
         n_lagen = len(profiel.layers)
         for i, laag in enumerate(profiel.layers):
             bk = laag.level
-            # OK = bovenkant van de volgende laag, of 'Max' voor de laatste
             if i + 1 < n_lagen:
                 ok_val: str = fmt_number(profiel.layers[i + 1].level)
             else:
                 ok_val = 'Max'
 
             soil = soil_map.get(laag.material)
-            bg = _ROW_ODD_BG if i % 2 == 0 else _ROW_EVN_BG
-            is_last = i == n_lagen - 1
-
-            rij_vals = [
+            rijen.append([
                 fmt_number(bk),
                 ok_val,
                 laag.material,
@@ -197,10 +233,8 @@ class TabGrondsoorten(QWidget):
                 str(int(soil.kh1)) if soil and soil.kh1 else '-',
                 str(int(soil.kh2)) if soil and soil.kh2 else '-',
                 str(int(soil.kh3)) if soil and soil.kh3 else '-',
-            ]
-            layout.addWidget(self._maak_rij(rij_vals, bg, is_last))
-
-        return frame
+            ])
+        return rijen
 
     def _maak_kolomhoofden(self) -> QWidget:
         """Maak de headerrij met kolomlabels.
@@ -267,4 +301,21 @@ class TabGrondsoorten(QWidget):
             )
             grid.addWidget(lbl, 0, col)
 
+        return rij
+
+    def _maak_samengevoegde_rij(self, tekst: str, bg: str, is_last: bool) -> QWidget:
+        """Maak een datarij die alle kolommen overspant."""
+        rij = QWidget()
+        layout = QVBoxLayout(rij)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
+
+        lbl = QLabel(tekst)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+        lbl.setStyleSheet(
+            f'font-family: {_FONT}; font-size: 12px; color: {_LABEL_CLR}; '
+            f'background: {bg}; padding: 6px 8px; {border_b}'
+        )
+        layout.addWidget(lbl)
         return rij

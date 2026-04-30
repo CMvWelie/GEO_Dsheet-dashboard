@@ -104,6 +104,16 @@ def test_fase_secties_leeg_project() -> None:
     assert secties == []
 
 
+def test_build_input_sections_start_met_damwand_en_fases() -> None:
+    project = _basis_project(
+        sheet_piling=[_wall()],
+        stages=[_maak_stage('Fase 1'), _maak_stage('Fase 2')],
+    )
+    secties = DamwandHoofdstukBuilder().build_input_sections(project)
+    ids = [s.id for s in secties]
+    assert ids == ['damwand_gegevens', 'fase_1_invoer', 'fase_2_invoer']
+
+
 def _maak_summary(stage_nr: int, moment: float = 100.0) -> ResultSummary:
     return ResultSummary(
         stage_number=stage_nr,

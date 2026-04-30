@@ -6,6 +6,7 @@ from docx import Document
 from docx.shared import Cm
 
 from reporting.models import ReportSection, ReportMetadata
+from reporting.figure_renderer import render_figuur
 
 
 class WordHoofdstukExporter:
@@ -120,74 +121,4 @@ class WordHoofdstukExporter:
         - 'moment_shear' : moment + dwarskracht via OutputRenderer
         - 'displacement' : vervorming via OutputRenderer
         """
-        import io
-        import matplotlib
-        matplotlib.use('Agg')
-        from matplotlib.figure import Figure
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        from app.settings import RenderSettings, ViewportSettings
-        from renderers.section_renderer import (
-            SectionRenderer, y_range_for_project, x_range_for_project,
-        )
-
-        key = img_req.figure_key
-        stage_index = img_req.stage_index or 0
-        stage = (project.stages[stage_index]
-                 if project.stages and 0 <= stage_index < len(project.stages)
-                 else None)
-        render_settings = RenderSettings()
-        viewport_settings = ViewportSettings()
-
-        try:
-            if key == 'section':
-                fig = Figure(figsize=(16 / 2.54, 12 / 2.54))
-                FigureCanvasAgg(fig)
-                ax = fig.add_subplot(111)
-                y_min, y_max = y_range_for_project(project)
-                x_min, x_max = x_range_for_project(project)
-                viewport_settings.y_min = y_min - 1.0
-                viewport_settings.y_max = y_max + 0.5
-                viewport_settings.x_min = x_min
-                viewport_settings.x_max = x_max
-                SectionRenderer().render(ax, project, stage, render_settings, viewport_settings)
-                fig.tight_layout()
-
-            elif key in ('moment_shear', 'displacement'):
-                from renderers.output_renderer import draw_result_chart
-                y_min, y_max = y_range_for_project(project)
-                step_key = img_req.step_key
-                stage_number = stage_index + 1
-
-                if key == 'moment_shear':
-                    fig = Figure(figsize=(16 / 2.54, 10 / 2.54))
-                    FigureCanvasAgg(fig)
-                    axes = fig.subplots(1, 2, sharey=True)
-                    charts = [('Momenten', 'kNm', 'moment'), ('Dwarskrachten', 'kN', 'shear')]
-                    result_stage = (
-                        project.result_steps[step_key].stages.get(stage_number)
-                        if step_key and step_key in project.result_steps else None
-                    )
-                    for ax, (title, unit, series) in zip(axes, charts):
-                        draw_result_chart(ax, title, unit, series, result_stage,
-                                          project, stage, y_min, y_max, render_settings)
-                else:
-                    fig = Figure(figsize=(8 / 2.54, 10 / 2.54))
-                    FigureCanvasAgg(fig)
-                    ax = fig.add_subplot(111)
-                    result_stage = (
-                        project.result_steps[step_key].stages.get(stage_number)
-                        if step_key and step_key in project.result_steps else None
-                    )
-                    draw_result_chart(ax, 'Vervormingen', 'mm', 'disp', result_stage,
-                                      project, stage, y_min, y_max, render_settings)
-                fig.tight_layout()
-            else:
-                return None
-
-            buf = io.BytesIO()
-            fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-            buf.seek(0)
-            return buf.read()
-
-        except Exception:
-            return None
+        return render_figuur(img_req, project)

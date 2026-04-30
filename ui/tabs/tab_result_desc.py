@@ -6,9 +6,15 @@ from PyQt6.QtWidgets import (
     QGroupBox, QGridLayout, QSizePolicy, QTabWidget,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
 
 from parsers.models import Project
-from reporting.models import ReportSection, ReportTable
+from reporting.builders.result_description_builder import (
+    is_bgt_step_key,
+    is_ugt_step_key,
+)
+from reporting.figure_renderer import render_figuur
+from reporting.models import ReportImageGroup, ReportSection, ReportTable
 from ui.table_styles import (
     TABLE_BORDER, TABLE_EXTRA_COLOR, TABLE_FONT, TABLE_HEADER_BG,
     TABLE_HEADER_FG, TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG,
@@ -112,15 +118,24 @@ class TabResultDesc(QWidget):
                 for table in sec.tables:
                     vl.addWidget(self._maak_styled_tabel(table))
 
+            for groep in sec.image_groups:
+                vl.addWidget(self._maak_figuurgroep_widget(groep))
+
             toelichting = self._maak_tabel_toelichting(sec.id) if sec.tables else None
-            titel = self._maak_sectie_titel_label(sec.title) if sec.tables else None
+            if sec.image_groups and toelichting is None:
+                toelichting = self._maak_tabel_toelichting(sec.id)
+            titel = (
+                self._maak_sectie_titel_label(sec.title)
+                if sec.tables or sec.image_groups else None
+            )
             if titel is not None:
                 titel.setProperty('resultDescDynamic', True)
                 self._main_layout.insertWidget(self._main_layout.count() - 1, titel)
             if toelichting is not None:
                 toelichting.setProperty('resultDescDynamic', True)
                 self._main_layout.insertWidget(self._main_layout.count() - 1, toelichting)
-            self._main_layout.insertWidget(self._main_layout.count() - 1, box)
+            if sec.fields or sec.tables or sec.text_blocks or sec.image_groups:
+                self._main_layout.insertWidget(self._main_layout.count() - 1, box)
 
     # ------------------------------------------------------------------
     # Intern
@@ -157,9 +172,85 @@ class TabResultDesc(QWidget):
                 'momenten, dwarskrachten en vervormingen. De kolommen zijn gegroepeerd '
                 'per resultaatsoort en uitgesplitst naar de beschikbare toetsstappen.'
             ),
+            'extremen_overzicht': (
+                'Deze figuurtabel toont de maatgevende UGT-waarden voor Msd en Dsd '
+                '(CUR 166 6.1 t/m 6.4 plus 6.5 x factor) en de maatgevende BGT-'
+                'verplaatsing Urep uit CUR 166 6.5.'
+            ),
         }
         tekst = teksten.get(section_id)
         return self._maak_toelichting_label(tekst) if tekst else None
+
+    def _maak_figuurgroep_widget(self, groep: ReportImageGroup) -> QWidget:
+        """Rendert een ReportImageGroup als 3x3 figuurtabel in de UI."""
+        wrapper = QWidget()
+        wrapper.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        buitenste = QHBoxLayout(wrapper)
+        buitenste.setContentsMargins(0, 0, 0, 0)
+        buitenste.setSpacing(0)
+
+        frame = QFrame()
+        frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        buitenste.addWidget(frame)
+
+        grid = QGridLayout(frame)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+
+        n_cols = len(groep.headers)
+        for col in range(n_cols):
+            grid.setColumnStretch(col, 1)
+
+        for col, header in enumerate(groep.headers):
+            lbl = QLabel(header)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setWordWrap(True)
+            border_r = f'border-right: 1px solid {_BORDER};' if col < n_cols - 1 else ''
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 11px; font-weight: 700; '
+                f'color: {_HDR_FG}; background: {_HDR_BG}; '
+                f'padding: 7px 10px; {border_r}'
+            )
+            grid.addWidget(lbl, 0, col)
+
+        for col, img_req in enumerate(groep.images):
+            img_lbl = QLabel('-')
+            img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            img_lbl.setMinimumSize(240, 300)
+            border_r = f'border-right: 1px solid {_ROW_SEP};' if col < n_cols - 1 else ''
+            img_lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 12px; color: {_EXTRA_CLR}; '
+                f'background: white; padding: 8px; '
+                f'border-bottom: 1px solid {_ROW_SEP}; {border_r}'
+            )
+            if img_req is not None and self._project is not None:
+                png = render_figuur(img_req, self._project)
+                if png:
+                    pixmap = QPixmap()
+                    if pixmap.loadFromData(png):
+                        img_lbl.setText('')
+                        img_lbl.setPixmap(
+                            pixmap.scaled(
+                                300, 360,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation,
+                            )
+                        )
+            grid.addWidget(img_lbl, 1, col)
+
+        for col, footer in enumerate(groep.footers):
+            lbl = QLabel(footer)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setWordWrap(True)
+            border_r = f'border-right: 1px solid {_ROW_SEP};' if col < n_cols - 1 else ''
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 11px; color: {_VALUE_CLR}; '
+                f'background: {_ROW_ODD_BG}; padding: 7px 10px; {border_r}'
+            )
+            grid.addWidget(lbl, 2, col)
+
+        return wrapper
 
     def _maak_styled_tabel(self, table: ReportTable) -> QWidget:
         """Rendert een ReportTable als gestijlde grid-tabel.
@@ -259,8 +350,8 @@ class TabResultDesc(QWidget):
         -------
         tuple[float | None, float | None, float | None]
             (msd, dsd, vervorming): maximale absolute waarden over alle fases.
-            Msd/Dsd: maximum over alle verify stappen 6.1–6.5×factor.
-            Vervorming: maximum over alle fases, uitsluitend uit verify step 6.5.
+            Msd/Dsd: maximum over UGT-stappen 6.1 t/m 6.4 plus 6.5 x factor.
+            Vervorming: maximum over alle fases, uitsluitend uit BGT-stap 6.5.
         """
         if not self._project or not self._project.result_steps:
             return None, None, None
@@ -268,7 +359,9 @@ class TabResultDesc(QWidget):
         msd: float | None = None
         dsd: float | None = None
 
-        for step in self._project.result_steps.values():
+        for stap_key, step in self._project.result_steps.items():
+            if not is_ugt_step_key(stap_key):
+                continue
             for rs in step.stages.values():
                 for pt in rs.points:
                     v = abs(pt.moment)
@@ -279,9 +372,10 @@ class TabResultDesc(QWidget):
                         dsd = v
 
         vervorming: float | None = None
-        sls_step = self._project.result_steps.get('6.5')
-        if sls_step:
-            for rs in sls_step.stages.values():
+        for stap_key, step in self._project.result_steps.items():
+            if not is_bgt_step_key(stap_key):
+                continue
+            for rs in step.stages.values():
                 for pt in rs.points:
                     v = abs(pt.disp)
                     if vervorming is None or v > vervorming:

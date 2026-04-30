@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from app.state import AppState
 from app.report_state import ReportState
-from reporting.models import ReportSection, ReportPackage
+from reporting.models import ReportItem, ReportSection, ReportPackage
 from reporting.selection import ReportPlan
+from reporting.builders.damwand_hoofdstuk_builder import DamwandHoofdstukBuilder
 from reporting.builders.input_description_builder import InputDescriptionBuilder, DamwandCard
 from reporting.builders.result_description_builder import ResultDescriptionBuilder
 from reporting.builders.soil_table_builder import SoilTableBuilder
@@ -22,6 +23,7 @@ class ReportController:
     def __init__(self, app_state: AppState, report_state: ReportState) -> None:
         self._app = app_state
         self._report = report_state
+        self._damwand_builder = DamwandHoofdstukBuilder()
         self._input_builder = InputDescriptionBuilder()
         self._result_builder = ResultDescriptionBuilder()
         self._soil_builder = SoilTableBuilder()
@@ -53,6 +55,19 @@ class ReportController:
         if not project or not stage:
             return []
         return self._input_builder.build(project, stage, self._report.overrides)
+
+    def build_damwand_sections(self) -> list[ReportSection]:
+        """Bouw damwand-invoersecties voor het actieve project.
+
+        Returns
+        -------
+        list[ReportSection]
+            Damwandgegevens als eerste sectie, gevolgd door fase-invoer.
+        """
+        project = self._app.get_active_project()
+        if not project:
+            return []
+        return self._damwand_builder.build_input_sections(project)
 
     def build_result_descriptions(self) -> list[ReportSection]:
         """Bouw resultaatbeschrijvingssecties voor actief project/fase/stap."""
@@ -111,35 +126,53 @@ class ReportController:
         return self._report.plan
 
     def auto_populate_plan(self) -> None:
-        """Vul het rapportplan automatisch met items vanuit de builders.
+        """Vul het rapportplan automatisch in vaste rapportvolgorde.
 
-        Voegt alleen items toe die er nog niet in zitten (op id).
+        Bestaande exportkeuzes blijven behouden; nieuwe of bestaande items
+        worden geordend als damwand/fases, grondsoorten en resultaten.
         """
-        from reporting.models import ReportItem
-        input_secs = self.build_input_descriptions()
+        damwand_secs = self.build_damwand_sections()
+        soil_secs = self.build_soil_sections()
         result_secs = self.build_result_descriptions()
-        for sec in input_secs:
+
+        gewenste_ids: list[str] = []
+        for sec in damwand_secs:
+            item_id = f'damwand_{sec.id}'
+            gewenste_ids.append(item_id)
             self._report.plan.add_item(ReportItem(
-                id=f'input_{sec.id}',
+                id=item_id,
                 kind='invoer',
                 caption=sec.title,
                 source_ref=sec.id,
             ))
-        for sec in result_secs:
-            self._report.plan.add_item(ReportItem(
-                id=f'result_{sec.id}',
-                kind='resultaat',
-                caption=sec.title,
-                source_ref=sec.id,
-            ))
-        soil_secs = self.build_soil_sections()
         for sec in soil_secs:
+            item_id = f'grondsoorten_{sec.id}'
+            gewenste_ids.append(item_id)
             self._report.plan.add_item(ReportItem(
-                id=f'grondsoorten_{sec.id}',
+                id=item_id,
                 kind='grondsoorten',
                 caption=sec.title,
                 source_ref=sec.id,
             ))
+        for sec in result_secs:
+            item_id = f'result_{sec.id}'
+            gewenste_ids.append(item_id)
+            self._report.plan.add_item(ReportItem(
+                id=item_id,
+                kind='resultaat',
+                caption=sec.title,
+                source_ref=sec.id,
+            ))
+
+        self._orden_plan_items(gewenste_ids)
+
+    def _orden_plan_items(self, gewenste_ids: list[str]) -> None:
+        """Orden bestaande planitems volgens de opgegeven id-volgorde."""
+        volgorde = {item_id: i for i, item_id in enumerate(gewenste_ids)}
+        self._report.plan.items.sort(
+            key=lambda item: (volgorde.get(item.id, len(volgorde)), item.order)
+        )
+        self._report.plan._renumber()
 
     # ------------------------------------------------------------------
     # Pakketbouw
@@ -147,7 +180,7 @@ class ReportController:
 
     def build_package(self) -> ReportPackage:
         """Bouw een ReportPackage op basis van huidige state."""
-        input_secs = self.build_input_descriptions()
+        input_secs = self.build_damwand_sections()
         result_secs = self.build_result_descriptions()
         soil_secs = self.build_soil_sections()
         pkg = self._report.plan.build_package(
@@ -202,4 +235,6 @@ class ReportController:
             or self._app.app_settings.word_template_path
             or None
         )
-        return self._word.export(package, template, output_path)
+        return self._word.export(
+            package, template, output_path, project=self._app.get_active_project()
+        )

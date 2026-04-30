@@ -123,12 +123,12 @@ class InputDescriptionBuilder:
             for name in (stage.moments or []):
                 m = _find(project.moments, name)
                 if m:
-                    card.rows.append(FaseRow(m.name, f'{fmt_number(m.moment)} [kNm/m]'))
+                    card.rows.append(FaseRow(m.name, f'{fmt_number(m.value)} [kNm/m]'))
 
             for name in (stage.horizontal_line_loads or []):
                 hl = _find(project.horizontal_line_loads, name)
                 if hl:
-                    card.rows.append(FaseRow(hl.name, f'{fmt_number(hl.force)} [kN/m]'))
+                    card.rows.append(FaseRow(hl.name, f'{fmt_number(hl.value)} [kN/m]'))
 
             cards.append(card)
         return cards

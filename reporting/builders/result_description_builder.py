@@ -5,7 +5,13 @@ from __future__ import annotations
 import re
 
 from parsers.models import Project
-from reporting.models import ReportSection, ReportField, ReportTable
+from reporting.models import (
+    ReportImageGroup,
+    ReportImageRequest,
+    ReportSection,
+    ReportField,
+    ReportTable,
+)
 from utils.formatting import fmt_number
 
 
@@ -14,6 +20,10 @@ _VTYPE_VOLGORDE: list[int] = [4, 5, 0, 1, 3, 14]
 _VTYPE_LABELS: dict[int, str] = {
     4: '6.1', 5: '6.2', 0: '6.3', 1: '6.4', 3: '6.5', 14: '6.5 × factor',
 }
+
+
+_UGT_LABELS: set[str] = {'6.1', '6.2', '6.3', '6.4', '6.5 x factor'}
+_BGT_LABELS: set[str] = {'6.5'}
 
 
 def _vtype_label(vtype: int) -> str:
@@ -31,10 +41,42 @@ def _step_short_label(key: str) -> str:
     -------
     str  Kort label, bijv. '6.1' of '6.5 × factor'.
     """
-    m = re.search(r'(\d+\.\d+(?:\s+x\s+factor)?)', key, re.IGNORECASE)
+    m = re.search(r'(\d+\.\d+(?:\s+[x×]\s+factor)?)', key, re.IGNORECASE)
     if m:
-        return m.group(1).replace(' x factor', ' × factor')
+        return re.sub(r'\s+[x×]\s+factor', ' × factor', m.group(1),
+                      flags=re.IGNORECASE)
     return key
+
+
+def _step_norm_label(key: str) -> str:
+    """Geef een vergelijkbaar CUR 166-staplabel terug.
+
+    Parameters
+    ----------
+    key:
+        Genormaliseerde of ruwe VERIFY STEP-sleutel.
+
+    Returns
+    -------
+    str
+        Label in kleine letters, met ``x factor`` zonder typografisch teken.
+    """
+    label = _step_short_label(key).replace('×', 'x')
+    return re.sub(r'\s+', ' ', label).strip().lower()
+
+
+def is_ugt_step_key(key: str) -> bool:
+    """Geef True als een stap volgens de app-definitie UGT is.
+
+    UGT omvat CUR 166 stappen 6.1 t/m 6.4 en 6.5 x factor. De gewone
+    stap 6.5 is BGT en telt niet mee voor Msd/Dsd.
+    """
+    return _step_norm_label(key) in _UGT_LABELS
+
+
+def is_bgt_step_key(key: str) -> bool:
+    """Geef True als een stap volgens de app-definitie BGT is."""
+    return _step_norm_label(key) in _BGT_LABELS
 
 
 class ResultDescriptionBuilder:
@@ -49,6 +91,7 @@ class ResultDescriptionBuilder:
         sections = []
         sections.append(self._anchor_forces(project))
         sections.append(self._per_phase_summary(project))
+        sections.append(self._build_extremen_overzicht(project))
         return sections
 
     # ------------------------------------------------------------------
@@ -68,6 +111,44 @@ class ResultDescriptionBuilder:
         max_v, max_d = max(vals, key=lambda t: t[0])
         min_v, min_d = min(vals, key=lambda t: t[0])
         return max_v, max_d, min_v, min_d
+
+    def _find_extreme(
+        self,
+        project: Project,
+        attr: str,
+        step_filter=None,
+    ) -> tuple[float, int, str, float] | None:
+        """Vind het absolute extremum over alle fases en toegestane stappen.
+
+        Parameters
+        ----------
+        project:
+            Project met ``result_steps``.
+        attr:
+            Attribuut op ``ResultPoint``: ``moment``, ``shear`` of ``disp``.
+        step_filter:
+            Optionele callable die een stap-sleutel accepteert en ``True``
+            teruggeeft als de stap moet meetellen.
+
+        Returns
+        -------
+        tuple[float, int, str, float] | None
+            ``(waarde, fase_nummer, stap_key, diepte)`` van het absolute
+            maximum, of ``None`` als er geen data is.
+        """
+        beste: tuple[float, int, str, float] | None = None
+        for stap_key, step in project.result_steps.items():
+            if step_filter is not None and not step_filter(stap_key):
+                continue
+            for stage_num, result_stage in step.stages.items():
+                ex = self._extremes(result_stage, attr)
+                if ex is None:
+                    continue
+                max_v, max_d, min_v, min_d = ex
+                for waarde, diepte in [(max_v, max_d), (min_v, min_d)]:
+                    if beste is None or abs(waarde) > abs(beste[0]):
+                        beste = (waarde, stage_num, stap_key, diepte)
+        return beste
 
     # ------------------------------------------------------------------
     # Secties
@@ -164,5 +245,66 @@ class ResultDescriptionBuilder:
                 ('Dwarskrachten (kN)', n),
                 ('Vervormingen (mm)', n),
             ],
+        ))
+        return sec
+
+    def _build_extremen_overzicht(self, project: Project) -> ReportSection:
+        """Bouw de 3x3 figuurtabel met Msd, Dsd en Urep BGT.
+
+        Msd en Dsd worden bepaald uit UGT-stappen 6.1 t/m 6.4 plus
+        6.5 x factor. Urep BGT wordt bepaald uit de gewone stap 6.5.
+        """
+        sec = ReportSection(
+            id='extremen_overzicht',
+            title='Maatgevende resultaten',
+        )
+        if not project.result_steps:
+            sec.fields.append(ReportField(
+                'extremen_none',
+                'Maatgevende resultaten',
+                'Geen resultaten beschikbaar',
+            ))
+            return sec
+
+        msd = self._find_extreme(project, 'moment', is_ugt_step_key)
+        dsd = self._find_extreme(project, 'shear', is_ugt_step_key)
+        urep = self._find_extreme(project, 'disp', is_bgt_step_key)
+
+        kolommen = [
+            ('Msd', 'moment_curve', 'kNm/m', msd),
+            ('Dsd', 'shear_curve', 'kN/m', dsd),
+            ('Urep BGT', 'disp_curve', 'mm', urep),
+        ]
+
+        headers: list[str] = []
+        images: list[ReportImageRequest | None] = []
+        footers: list[str] = []
+        for label, figure_key, eenheid, extreme in kolommen:
+            if extreme is None:
+                headers.append(f'{label} = -')
+                images.append(None)
+                footers.append('-')
+                continue
+
+            waarde, stage_num, stap_key, _diepte = extreme
+            headers.append(f'{label} = {fmt_number(abs(waarde))} {eenheid}')
+            footers.append(
+                f'Fase {stage_num} - {self._stage_naam(project, stage_num)}; '
+                f'stap {_step_short_label(stap_key)}'
+            )
+            images.append(ReportImageRequest(
+                id=f'extreme_{label.lower().replace(" ", "_")}',
+                caption='',
+                figure_key=figure_key,
+                stage_index=stage_num - 1,
+                step_key=stap_key,
+            ))
+
+        sec.image_groups.append(ReportImageGroup(
+            id='extremen_3x3',
+            title='',
+            headers=headers,
+            images=images,
+            footers=footers,
         ))
         return sec
