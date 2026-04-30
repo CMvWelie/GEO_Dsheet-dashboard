@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt6.QtCore import QSettings, QUrl
+from PyQt6.QtCore import QSettings
 from PyQt6.QtPdf import QPdfDocument
 from PyQt6.QtPdfWidgets import QPdfView
 from PyQt6.QtWidgets import (
