@@ -138,6 +138,30 @@ def test_build_stylesheet_bevat_kleuren_en_font(tmp_path: Path) -> None:
     assert "QTabWidget::pane" in qss
     assert "top: -1px" in qss
 
+    # Scrollbar modern
+    assert "QScrollBar:vertical" in qss
+    assert "QScrollBar::handle:vertical" in qss
+    assert "QScrollBar::handle:vertical:hover" in qss
+    assert "QScrollBar::add-line:vertical" in qss
+    assert "QScrollBar::sub-line:vertical" in qss
+
+    # QComboBox dropdown knop
+    assert "QComboBox::drop-down" in qss
+    assert "QComboBox::drop-down:hover" in qss
+
+    # QSpinBox knoppen
+    assert "QSpinBox::up-button" in qss
+    assert "QSpinBox::down-button" in qss
+    assert "QSpinBox::up-button:hover" in qss
+
+    # QDoubleSpinBox knoppen
+    assert "QDoubleSpinBox::up-button" in qss
+    assert "QDoubleSpinBox::down-button" in qss
+
+    # QTabBar scroll-knoppen
+    assert "QTabBar QToolButton" in qss
+    assert "QTabBar QToolButton:hover" in qss
+
 
 def test_build_stylesheet_gebruikt_meegegeven_font(tmp_path: Path) -> None:
     """Als de werkelijke font-familienaam afwijkt van typography.family,
@@ -150,3 +174,51 @@ def test_build_stylesheet_gebruikt_meegegeven_font(tmp_path: Path) -> None:
 
     assert '"Segoe UI"' in qss
     assert '"Eina 04"' not in qss
+
+
+def test_build_stylesheet_moderne_ui_gebruikt_thema_kleuren(tmp_path: Path) -> None:
+    pad = tmp_path / "test.json"
+    pad.write_text(json.dumps(_voorbeeld_thema_dict()), encoding="utf-8")
+    thema = Theme.load(pad)
+
+    qss = thema.build_stylesheet(font_family="Eina 04")
+
+    # Controleer handle kleur in exact de handle-regel
+    handle_start = qss.index("QScrollBar::handle:vertical")
+    handle_end = qss.index("}", handle_start)
+    handle_blok = qss[handle_start:handle_end]
+    assert "#aabdca" in handle_blok
+
+    # Controleer hover gebruikt primary
+    hover_start = qss.index("QScrollBar::handle:vertical:hover")
+    hover_end = qss.index("}", hover_start)
+    hover_blok = qss[hover_start:hover_end]
+    assert "#147ACF" in hover_blok
+
+    # Horizontale scrollbar aanwezig
+    assert "QScrollBar:horizontal" in qss
+    assert "QScrollBar::handle:horizontal" in qss
+
+    # Horizontale handle kleur
+    h_handle_start = qss.index("QScrollBar::handle:horizontal")
+    h_handle_end = qss.index("}", h_handle_start)
+    h_handle_blok = qss[h_handle_start:h_handle_end]
+    assert "#aabdca" in h_handle_blok
+
+    # SpinBox hover gebruikt primary
+    spinbox_hover_start = qss.index("QSpinBox::up-button:hover")
+    spinbox_hover_end = qss.index("}", spinbox_hover_start)
+    spinbox_hover_blok = qss[spinbox_hover_start:spinbox_hover_end]
+    assert "#147ACF" in spinbox_hover_blok
+
+    # DoubleSpinBox hover gebruikt ook primary
+    double_hover_start = qss.index("QDoubleSpinBox::up-button:hover")
+    double_hover_end = qss.index("}", double_hover_start)
+    double_hover_blok = qss[double_hover_start:double_hover_end]
+    assert "#147ACF" in double_hover_blok
+
+    # Scrollbar pijlen zijn verborgen (hoogte 0)
+    add_line_start = qss.index("QScrollBar::add-line:vertical")
+    add_line_end = qss.index("}", add_line_start)
+    add_line_blok = qss[add_line_start:add_line_end]
+    assert "height: 0" in add_line_blok
