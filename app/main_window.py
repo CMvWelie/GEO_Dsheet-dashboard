@@ -159,14 +159,14 @@ class MainWindow(QMainWindow):
         self._tab_debug = TabDebug()
         self._main_tabs.addTab(self._tab_debug, 'Debug')
 
-        # Tab 1: Doorsnede
-        self._tab_input_view = TabInputView()
-        self._info_panel = InfoPanel()
-        self._main_tabs.addTab(self._tab_input_view, 'Doorsnede')
-
-        # Tab 2B: Grondsoortentabel
+        # Tab 1: Grondsoortentabel
         self._tab_grondsoorten = TabGrondsoorten()
         self._main_tabs.addTab(self._tab_grondsoorten, 'Grondsoortentabel')
+
+        # Tab 2: Invoer
+        self._tab_input_view = TabInputView()
+        self._info_panel = InfoPanel()
+        self._main_tabs.addTab(self._tab_input_view, 'Invoer')
 
         # Tab 2C: Invoerbeschrijving
         self._tab_input_desc = TabInputDesc()
