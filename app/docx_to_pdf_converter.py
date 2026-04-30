@@ -98,9 +98,27 @@ class DocxToPdfConverter:
         return laatste_fout or 'Conversie mislukt zonder details'
 
     def _convert_docx2pdf(self, docx_path: str, pdf_path: str) -> None:
-        """Converteer via docx2pdf (Word COM op Windows)."""
+        """Converteer via docx2pdf (Word COM op Windows).
+
+        docx2pdf gebruikt intern tqdm voor een voortgangsbalk; onder
+        ``pythonw.exe`` (GUI-context) is ``sys.stdout`` echter ``None``,
+        waardoor tqdm met ``AttributeError: 'NoneType' object has no
+        attribute 'write'`` crasht. We zetten daarom tijdelijk een
+        dummy-stream zodat de conversie netjes verloopt.
+        """
+        import io
+        import sys
         import docx2pdf  # type: ignore[import-untyped]
-        docx2pdf.convert(docx_path, pdf_path)
+        bewaard_stdout, bewaard_stderr = sys.stdout, sys.stderr
+        if sys.stdout is None:
+            sys.stdout = io.StringIO()
+        if sys.stderr is None:
+            sys.stderr = io.StringIO()
+        try:
+            docx2pdf.convert(docx_path, pdf_path)
+        finally:
+            sys.stdout = bewaard_stdout
+            sys.stderr = bewaard_stderr
 
     def _convert_libreoffice(self, docx_path: str, pdf_path: str) -> None:
         """Converteer via `soffice --headless --convert-to pdf`."""
