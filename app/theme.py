@@ -350,7 +350,6 @@ QScrollBar:vertical {{
     width: 8px;
     margin: 0;
     border: none;
-    border-radius: 4px;
 }}
 
 QScrollBar::handle:vertical {{
@@ -366,6 +365,7 @@ QScrollBar::handle:vertical:hover {{
 QScrollBar::add-line:vertical,
 QScrollBar::sub-line:vertical {{
     height: 0;
+    width: 0;
     border: none;
     background: none;
 }}
@@ -380,7 +380,6 @@ QScrollBar:horizontal {{
     height: 8px;
     margin: 0;
     border: none;
-    border-radius: 4px;
 }}
 
 QScrollBar::handle:horizontal {{
@@ -396,6 +395,7 @@ QScrollBar::handle:horizontal:hover {{
 QScrollBar::add-line:horizontal,
 QScrollBar::sub-line:horizontal {{
     width: 0;
+    height: 0;
     border: none;
     background: none;
 }}
@@ -415,7 +415,10 @@ QComboBox::drop-down {{
 
 QComboBox::drop-down:hover {{
     background: {c.background};
+    border: none;
     border-left: 1px solid {c.border_strong};
+    border-top-right-radius: {g.radius}px;
+    border-bottom-right-radius: {g.radius}px;
 }}
 
 QSpinBox::up-button, QDoubleSpinBox::up-button {{
