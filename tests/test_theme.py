@@ -205,17 +205,11 @@ def test_build_stylesheet_moderne_ui_gebruikt_thema_kleuren(tmp_path: Path) -> N
     h_handle_blok = qss[h_handle_start:h_handle_end]
     assert "#aabdca" in h_handle_blok
 
-    # SpinBox hover gebruikt primary
+    # SpinBox hover gebruikt border_strong (geen blauwe achtergrond — native pijlen blijven zichtbaar)
     spinbox_hover_start = qss.index("QSpinBox::up-button:hover")
     spinbox_hover_end = qss.index("}", spinbox_hover_start)
     spinbox_hover_blok = qss[spinbox_hover_start:spinbox_hover_end]
-    assert "#147ACF" in spinbox_hover_blok
-
-    # DoubleSpinBox hover gebruikt ook primary
-    double_hover_start = qss.index("QDoubleSpinBox::up-button:hover")
-    double_hover_end = qss.index("}", double_hover_start)
-    double_hover_blok = qss[double_hover_start:double_hover_end]
-    assert "#147ACF" in double_hover_blok
+    assert "#aabdca" in spinbox_hover_blok
 
     # Scrollbar pijlen zijn verborgen (hoogte 0)
     add_line_start = qss.index("QScrollBar::add-line:vertical")
