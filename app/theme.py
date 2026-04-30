@@ -439,13 +439,11 @@ QScrollBar::sub-page:horizontal {{
 QComboBox::drop-down {{
     border: none;
     width: 20px;
-    background: {c.surface};
     border-top-right-radius: {g.radius}px;
     border-bottom-right-radius: {g.radius}px;
 }}
 
 QComboBox::drop-down:hover {{
-    background: {c.background};
     border: none;
     border-left: 1px solid {c.border_strong};
     border-top-right-radius: {g.radius}px;
@@ -460,7 +458,6 @@ QComboBox::down-arrow {{
 
 QSpinBox::up-button, QDoubleSpinBox::up-button {{
     width: 16px;
-    background: {c.background};
     border: none;
     border-left: 1px solid {c.border};
     border-bottom: 1px solid {c.border};
@@ -471,7 +468,6 @@ QSpinBox::up-button, QDoubleSpinBox::up-button {{
 
 QSpinBox::down-button, QDoubleSpinBox::down-button {{
     width: 16px;
-    background: {c.background};
     border: none;
     border-left: 1px solid {c.border};
     border-bottom-right-radius: {g.radius}px;
@@ -481,27 +477,7 @@ QSpinBox::down-button, QDoubleSpinBox::down-button {{
 
 QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
 QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
-    background: {c.primary};
-}}
-
-QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-    image: {pijl_omhoog};
-    width: 8px;
-    height: 5px;
-}}
-
-QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-    image: {pijl_omlaag};
-    width: 8px;
-    height: 5px;
-}}
-
-QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover {{
-    image: {pijl_omhoog_wit};
-}}
-
-QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover {{
-    image: {pijl_omlaag_wit};
+    border-left-color: {c.border_strong};
 }}
 
 QTabBar QToolButton {{
