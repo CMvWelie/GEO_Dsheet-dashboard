@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QFileDialog, QMessageBox, QSizePolicy, QFrame, QAbstractItemView, QTabWidget,
     QTableWidget,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 import matplotlib
@@ -49,6 +49,9 @@ from ui.tabs.tab_grondsoorten import TabGrondsoorten
 from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.tabs.tab_debug import TabDebug
 from ui.preview_window import WordPreviewWindow
+from ui.word_pdf_preview_window import WordPdfPreviewWindow
+from app.docx_to_pdf_converter import DocxToPdfConverter
+from app.word_preview_worker import WordPreviewWorker
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
 from app.theme import BASIC_THEME_NAME, Theme, discover_themes
 from app.theme_apply import THEMES_DIR, bootstrap_theme
@@ -95,7 +98,26 @@ class MainWindow(QMainWindow):
         self._controller.load_config()
         self._preview_window = WordPreviewWindow()
         self._html_builder = HtmlPreviewBuilder()
+
+        self._word_pdf_preview_window = WordPdfPreviewWindow()
+        self._docx_to_pdf = DocxToPdfConverter()
+        self._word_preview_thread: QThread | None = None
+        self._word_preview_worker: WordPreviewWorker | None = None
+
         self._build_ui()
+
+        if self._docx_to_pdf.is_available():
+            engines = ', '.join(self._docx_to_pdf.available_engines())
+            self._tab_report_select.set_word_pdf_preview_enabled(
+                True, f'Beschikbare engines: {engines}'
+            )
+        else:
+            self._tab_report_select.set_word_pdf_preview_enabled(
+                False,
+                'Geen Word/LibreOffice gevonden — installeer Microsoft Word '
+                'of LibreOffice om deze preview te gebruiken.'
+            )
+
         self._connect_signals()
         self._tab_report_select.set_template_path(
             self._state.app_settings.word_template_path
@@ -330,6 +352,12 @@ class MainWindow(QMainWindow):
             self._on_preview_open
         )
         self._tab_report_select.selection_changed.connect(self._update_preview)
+        self._tab_report_select.word_pdf_preview_open_requested.connect(
+            self._on_word_pdf_preview_open
+        )
+        self._tab_report_select.selection_changed.connect(
+            self._update_word_pdf_preview
+        )
 
     # ------------------------------------------------------------------
     # Event handlers
@@ -958,3 +986,62 @@ class MainWindow(QMainWindow):
         package = self._report_controller.build_package()
         html = self._html_builder.build(package)
         self._preview_window.set_html(html, len(package.selected_items))
+
+    def _on_word_pdf_preview_open(self) -> None:
+        """Open het Word-WYSIWYG preview-venster en start een conversie."""
+        self._word_pdf_preview_window.show()
+        self._word_pdf_preview_window.raise_()
+        self._start_word_pdf_conversie()
+
+    def _update_word_pdf_preview(self) -> None:
+        """Herrender de Word-WYSIWYG preview als het venster zichtbaar is."""
+        if not self._word_pdf_preview_window.isVisible():
+            return
+        self._start_word_pdf_conversie()
+
+    def _start_word_pdf_conversie(self) -> None:
+        """Start een nieuwe export+conversie op een aparte thread.
+
+        Een lopende conversie wordt niet onderbroken; de gebruiker moet
+        wachten tot die klaar is voordat een nieuwe start.
+        """
+        if not self._docx_to_pdf.is_available():
+            self._word_pdf_preview_window.set_status(
+                'Geen conversie-engine beschikbaar', ok=False
+            )
+            return
+        if self._word_preview_thread is not None and \
+                self._word_preview_thread.isRunning():
+            return  # negeer; lopende conversie eerst afmaken
+
+        self._word_pdf_preview_window.set_busy(True)
+
+        thread = QThread(self)
+        worker = WordPreviewWorker(self._report_controller, self._docx_to_pdf)
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_word_pdf_finished)
+        worker.failed.connect(self._on_word_pdf_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._on_word_pdf_thread_finished)
+
+        self._word_preview_thread = thread
+        self._word_preview_worker = worker
+        thread.start()
+
+    def _on_word_pdf_finished(self, pdf_path: str) -> None:
+        """Toon het PDF-resultaat in het preview-venster."""
+        self._word_pdf_preview_window.set_pdf(pdf_path)
+
+    def _on_word_pdf_failed(self, message: str) -> None:
+        """Toon een foutmelding in het preview-venster."""
+        self._word_pdf_preview_window.set_status(message, ok=False)
+
+    def _on_word_pdf_thread_finished(self) -> None:
+        """Reset thread-referenties zodat een volgende conversie kan starten."""
+        self._word_preview_thread = None
+        self._word_preview_worker = None
