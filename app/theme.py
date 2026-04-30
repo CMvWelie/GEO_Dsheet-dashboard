@@ -344,6 +344,123 @@ QLabel#hintLabel {{
             color: {self.headings.h2_color or c.text};
             background: transparent;
         }}
+
+QScrollBar:vertical {{
+    background: {c.background};
+    width: 8px;
+    margin: 0;
+    border: none;
+    border-radius: 4px;
+}}
+
+QScrollBar::handle:vertical {{
+    background: {c.border_strong};
+    border-radius: 4px;
+    min-height: 20px;
+}}
+
+QScrollBar::handle:vertical:hover {{
+    background: {c.primary};
+}}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {{
+    height: 0;
+    border: none;
+    background: none;
+}}
+
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {{
+    background: none;
+}}
+
+QScrollBar:horizontal {{
+    background: {c.background};
+    height: 8px;
+    margin: 0;
+    border: none;
+    border-radius: 4px;
+}}
+
+QScrollBar::handle:horizontal {{
+    background: {c.border_strong};
+    border-radius: 4px;
+    min-width: 20px;
+}}
+
+QScrollBar::handle:horizontal:hover {{
+    background: {c.primary};
+}}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {{
+    width: 0;
+    border: none;
+    background: none;
+}}
+
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {{
+    background: none;
+}}
+
+QComboBox::drop-down {{
+    border: none;
+    width: 20px;
+    background: {c.surface};
+    border-top-right-radius: {g.radius}px;
+    border-bottom-right-radius: {g.radius}px;
+}}
+
+QComboBox::drop-down:hover {{
+    background: {c.background};
+    border-left: 1px solid {c.border_strong};
+}}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    width: 16px;
+    background: {c.background};
+    border: none;
+    border-left: 1px solid {c.border};
+    border-bottom: 1px solid {c.border};
+    border-top-right-radius: {g.radius}px;
+    subcontrol-position: top right;
+    subcontrol-origin: border;
+}}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    width: 16px;
+    background: {c.background};
+    border: none;
+    border-left: 1px solid {c.border};
+    border-bottom-right-radius: {g.radius}px;
+    subcontrol-position: bottom right;
+    subcontrol-origin: border;
+}}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    background: {c.primary};
+}}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+    width: 6px;
+    height: 6px;
+}}
+
+QTabBar QToolButton {{
+    background: {c.surface};
+    border: 1px solid {c.border};
+    border-radius: {g.radius}px;
+    padding: 2px 4px;
+}}
+
+QTabBar QToolButton:hover {{
+    background: {c.background};
+    border-color: {c.border_strong};
+}}
         """.strip()
 
     @classmethod
