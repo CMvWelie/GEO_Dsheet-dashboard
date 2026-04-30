@@ -61,7 +61,7 @@ class WordPdfPreviewWindow(QMainWindow):
         layout.addWidget(status_balk)
 
         # ── PDF-viewer ────────────────────────────────────────────────
-        self._view = QPdfView()
+        self._view = QPdfView(central)
         self._view.setDocument(self._doc)
         self._view.setPageMode(QPdfView.PageMode.MultiPage)
         self._view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
