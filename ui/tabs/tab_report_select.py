@@ -17,6 +17,8 @@ class TabReportSelect(QWidget):
     selection_changed = pyqtSignal()
     preview_open_requested = pyqtSignal()
     """Afgegeven als de gebruiker op 'Preview openen' klikt."""
+    word_pdf_preview_open_requested = pyqtSignal()
+    """Afgegeven als de gebruiker op 'Word preview (WYSIWYG)' klikt."""
     export_word_requested = pyqtSignal(str)
     template_path_changed = pyqtSignal(str)
 
@@ -91,17 +93,32 @@ class TabReportSelect(QWidget):
 
         root.addWidget(word_box)
 
-        # ── Preview-venster ────────────────────────────────────────────
+        # ── Preview-vensters ──────────────────────────────────────────
         prev_rij = QHBoxLayout()
         open_btn = QPushButton('↗ Preview openen')
         open_btn.setObjectName('btnPrimary')
         open_btn.clicked.connect(self.preview_open_requested)
-        prev_hint = QLabel('Opent een zwevend Word-preview venster naast de applicatie')
+        prev_hint = QLabel('Snelle HTML-preview naast de applicatie')
         prev_hint.setObjectName('hintLabel')
         prev_rij.addWidget(open_btn)
         prev_rij.addWidget(prev_hint)
         prev_rij.addStretch()
         root.addLayout(prev_rij)
+
+        wysiwyg_rij = QHBoxLayout()
+        self._word_preview_btn = QPushButton('📄 Word preview (WYSIWYG)')
+        self._word_preview_btn.setObjectName('btnPrimary')
+        self._word_preview_btn.clicked.connect(
+            self.word_pdf_preview_open_requested
+        )
+        wysiwyg_hint = QLabel(
+            'Genereert het echte .docx en toont als PDF — exact zoals in Word'
+        )
+        wysiwyg_hint.setObjectName('hintLabel')
+        wysiwyg_rij.addWidget(self._word_preview_btn)
+        wysiwyg_rij.addWidget(wysiwyg_hint)
+        wysiwyg_rij.addStretch()
+        root.addLayout(wysiwyg_rij)
 
         self._up_btn.clicked.connect(self._move_up)
         self._down_btn.clicked.connect(self._move_down)
@@ -123,6 +140,20 @@ class TabReportSelect(QWidget):
         color = '#2f7d32' if ok else '#b42318'
         self._word_status.setStyleSheet(f'color:{color};font-size:11px;')
         self._word_status.setText(text)
+
+    def set_word_pdf_preview_enabled(self, beschikbaar: bool,
+                                       tooltip: str = '') -> None:
+        """Schakel de WYSIWYG-knop in/uit op basis van engine-beschikbaarheid.
+
+        Parameters
+        ----------
+        beschikbaar:
+            True als minstens één conversie-engine beschikbaar is.
+        tooltip:
+            Hint die bij hover getoond wordt (bijv. installatie-instructie).
+        """
+        self._word_preview_btn.setEnabled(beschikbaar)
+        self._word_preview_btn.setToolTip(tooltip)
 
     def _refresh(self) -> None:
         self._list.blockSignals(True)
