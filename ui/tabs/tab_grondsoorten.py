@@ -1,9 +1,8 @@
-"""Tab Grondsoortentabel — toont grondparameters per profiel met profiel-dropdown."""
+"""Tab Grondsoortentabel — toont grondparameters voor alle profielen."""
 
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
-    QScrollArea, QFrame, QGridLayout, QSizePolicy,
+    QWidget, QVBoxLayout, QLabel, QScrollArea, QFrame, QGridLayout, QSizePolicy,
 )
 from PyQt6.QtCore import Qt
 
@@ -44,7 +43,7 @@ _KOLOMMEN: list[tuple[str, str]] = [
 
 
 class TabGrondsoorten(QWidget):
-    """Toont grondparameters per profiel; dropdown voor profielselectie."""
+    """Toont grondparameters per profiel onder elkaar."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -55,20 +54,6 @@ class TabGrondsoorten(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(8)
-
-        # ── Profielkeuze ─────────────────────────────────────────────────
-        ctrl_row = QHBoxLayout()
-        ctrl_row.setSpacing(8)
-
-        lbl = QLabel('Profiel:')
-        ctrl_row.addWidget(lbl)
-
-        self._profiel_combo = QComboBox()
-        self._profiel_combo.setMinimumWidth(260)
-        ctrl_row.addWidget(self._profiel_combo)
-        ctrl_row.addStretch()
-
-        root.addLayout(ctrl_row)
 
         # ── Scrollgebied ─────────────────────────────────────────────────
         scroll = QScrollArea()
@@ -84,15 +69,12 @@ class TabGrondsoorten(QWidget):
         scroll.setWidget(self._content)
         root.addWidget(scroll, stretch=1)
 
-        # ── Signalen ─────────────────────────────────────────────────────
-        self._profiel_combo.currentIndexChanged.connect(self._on_profiel_changed)
-
     # ------------------------------------------------------------------
     # Publieke API
     # ------------------------------------------------------------------
 
     def populate(self, project: Project | None) -> None:
-        """Vul de dropdown en render het eerste profiel.
+        """Render alle grondsoortentabellen onder elkaar.
 
         Parameters
         ----------
@@ -100,50 +82,21 @@ class TabGrondsoorten(QWidget):
             Het actieve project, of None om de tab leeg te tonen.
         """
         self._project = project
-        self._profiel_combo.blockSignals(True)
-        self._profiel_combo.clear()
-
-        if not project or not project.profiles:
-            self._profiel_combo.blockSignals(False)
-            self._render_leeg()
-            return
-
-        for profiel in project.profiles:
-            self._profiel_combo.addItem(profiel.name)
-
-        self._profiel_combo.blockSignals(False)
-        self._render_profiel(0)
-
-    # ------------------------------------------------------------------
-    # Interne handlers
-    # ------------------------------------------------------------------
-
-    def _on_profiel_changed(self, index: int) -> None:
-        """Herrender de tabel wanneer de gebruiker een ander profiel kiest."""
-        self._render_profiel(index)
-
-    def _render_profiel(self, index: int) -> None:
-        """Bouw de grondsoortentabel voor het profiel op positie index.
-
-        Parameters
-        ----------
-        index : int
-            Positie in de profiellijst van het actieve project.
-        """
         self._clear_content()
 
-        if not self._project or index < 0 or index >= len(self._project.profiles):
+        if not project or not project.profiles:
             self._render_leeg()
             return
-
-        profiel = self._project.profiles[index]
-        soil_map = {s.name: s for s in self._project.soils}
 
         intro = self._maak_intro_tekst()
         self._content_layout.insertWidget(self._content_layout.count() - 1, intro)
 
-        tabel = self._maak_tabel(profiel, soil_map)
-        self._content_layout.insertWidget(self._content_layout.count() - 1, tabel)
+        soil_map = {s.name: s for s in project.soils}
+        for nummer, profiel in enumerate(project.profiles, start=1):
+            kop = self._maak_profiel_kop(nummer, profiel.name)
+            self._content_layout.insertWidget(self._content_layout.count() - 1, kop)
+            tabel = self._maak_tabel(profiel, soil_map)
+            self._content_layout.insertWidget(self._content_layout.count() - 1, tabel)
 
     def _render_leeg(self) -> None:
         """Toon een lege-state bericht wanneer er geen profieldata is."""
@@ -177,6 +130,16 @@ class TabGrondsoorten(QWidget):
         lbl.setStyleSheet(
             f'font-family: {_FONT}; font-size: 12px; color: {_LABEL_CLR}; '
             f'background: transparent; padding: 0px 4px 12px 4px;'
+        )
+        return lbl
+
+    def _maak_profiel_kop(self, nummer: int, naam: str) -> QWidget:
+        """Maak een sectiekop voor een profiel."""
+        lbl = QLabel(f'{nummer}* — {naam}')
+        lbl.setStyleSheet(
+            f'font-family: {_FONT}; font-size: 13px; font-weight: 600; '
+            f'color: {_LABEL_CLR}; background: transparent; '
+            f'padding: 16px 4px 6px 4px;'
         )
         return lbl
 
