@@ -421,6 +421,12 @@ QComboBox::drop-down:hover {{
     border-bottom-right-radius: {g.radius}px;
 }}
 
+QComboBox::down-arrow {{
+    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,0 8,0 4,5' fill='%23{c.text[1:]}'/></svg>");
+    width: 8px;
+    height: 5px;
+}}
+
 QSpinBox::up-button, QDoubleSpinBox::up-button {{
     width: 16px;
     background: {c.background};
@@ -447,10 +453,24 @@ QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
     background: {c.primary};
 }}
 
-QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,5 8,5 4,0' fill='%23{c.text[1:]}'/></svg>");
+    width: 8px;
+    height: 5px;
+}}
+
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-    width: 6px;
-    height: 6px;
+    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,0 8,0 4,5' fill='%23{c.text[1:]}'/></svg>");
+    width: 8px;
+    height: 5px;
+}}
+
+QSpinBox::up-arrow:hover, QDoubleSpinBox::up-arrow:hover {{
+    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,5 8,5 4,0' fill='white'/></svg>");
+}}
+
+QSpinBox::down-arrow:hover, QDoubleSpinBox::down-arrow:hover {{
+    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><polygon points='0,0 8,0 4,5' fill='white'/></svg>");
 }}
 
 QTabBar QToolButton {{
@@ -463,6 +483,29 @@ QTabBar QToolButton {{
 QTabBar QToolButton:hover {{
     background: {c.background};
     border-color: {c.border_strong};
+}}
+
+QCheckBox::indicator {{
+    width: 14px;
+    height: 14px;
+    border: 1px solid {c.border};
+    border-radius: 3px;
+    background: {c.surface};
+}}
+
+QCheckBox::indicator:hover {{
+    border-color: {c.border_strong};
+}}
+
+QCheckBox::indicator:checked {{
+    background: {c.primary};
+    border: 1px solid {c.primary_hover};
+    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='9' viewBox='0 0 12 9'><polyline points='1,4 4,8 11,1' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}}
+
+QCheckBox::indicator:checked:hover {{
+    background: {c.primary_hover};
+    border: 1px solid {c.primary_pressed};
 }}
         """.strip()
 
