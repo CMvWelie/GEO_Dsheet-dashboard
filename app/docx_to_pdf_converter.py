@@ -57,3 +57,65 @@ class DocxToPdfConverter:
     def is_available(self) -> bool:
         """Geef True als minstens één engine beschikbaar is."""
         return bool(self._engines)
+
+    # ------------------------------------------------------------------
+    # Conversie
+    # ------------------------------------------------------------------
+
+    def convert(self, docx_path: str, pdf_path: str) -> str | None:
+        """Converteer .docx naar .pdf met de eerste beschikbare engine.
+
+        Parameters
+        ----------
+        docx_path:
+            Pad naar het bron-.docx-bestand.
+        pdf_path:
+            Pad waar het PDF-bestand wordt opgeslagen.
+
+        Returns
+        -------
+        str | None
+            None bij succes, foutmelding bij een fout.
+        """
+        if not Path(docx_path).exists():
+            return f'Bron-bestand bestaat niet: {docx_path}'
+        if not self._engines:
+            return ('Geen conversie-engine beschikbaar. '
+                    'Installeer Microsoft Word of LibreOffice.')
+
+        laatste_fout: str | None = None
+        for engine in self._engines:
+            try:
+                if engine == 'docx2pdf':
+                    self._convert_docx2pdf(docx_path, pdf_path)
+                elif engine == 'libreoffice':
+                    self._convert_libreoffice(docx_path, pdf_path)
+                if Path(pdf_path).exists():
+                    return None
+                laatste_fout = f'{engine}: PDF niet aangemaakt'
+            except Exception as exc:
+                laatste_fout = f'{engine}: {exc}'
+        return laatste_fout or 'Conversie mislukt zonder details'
+
+    def _convert_docx2pdf(self, docx_path: str, pdf_path: str) -> None:
+        """Converteer via docx2pdf (Word COM op Windows)."""
+        import docx2pdf  # type: ignore[import-untyped]
+        docx2pdf.convert(docx_path, pdf_path)
+
+    def _convert_libreoffice(self, docx_path: str, pdf_path: str) -> None:
+        """Converteer via `soffice --headless --convert-to pdf`."""
+        soffice = _find_libreoffice()
+        if soffice is None:
+            raise RuntimeError('soffice niet gevonden')
+        uitvoer_dir = str(Path(pdf_path).parent)
+        result = subprocess.run(
+            [soffice, '--headless', '--convert-to', 'pdf',
+             '--outdir', uitvoer_dir, docx_path],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr or result.stdout or 'soffice faalde')
+        # soffice schrijft naar <stem>.pdf in outdir; hernoem naar gevraagd pad
+        verwacht = Path(uitvoer_dir) / (Path(docx_path).stem + '.pdf')
+        if verwacht != Path(pdf_path) and verwacht.exists():
+            verwacht.replace(pdf_path)
