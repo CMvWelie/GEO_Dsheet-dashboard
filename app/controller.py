@@ -81,6 +81,8 @@ class AppController:
             try:
                 text = Path(path).read_text(encoding='utf-8', errors='replace')
                 self._state.raw_files[Path(path).name] = text
+                if path not in self._state.source_paths:
+                    self._state.source_paths.append(path)
                 loaded += 1
             except Exception as exc:
                 errors.append(f'{path}: {exc}')
@@ -126,6 +128,10 @@ class AppController:
         """Verwijder één project en alle bijbehorende raw_files uit de state."""
         for ext in ('shi', 'shd', 'shs'):
             self._state.raw_files.pop(f'{base_name}.{ext}', None)
+        self._state.source_paths = [
+            p for p in self._state.source_paths
+            if Path(p).stem.lower() != base_name.lower()
+        ]
         self._state.projects.pop(base_name, None)
         if self._state.active_project == base_name:
             self._state.active_project = next(iter(self._state.projects), None)

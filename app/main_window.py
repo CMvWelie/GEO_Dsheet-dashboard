@@ -4,15 +4,16 @@ Layout: compacte topbalk + hoofd-tabwidget met 10 tabs.
 """
 
 from __future__ import annotations
+import sys
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QGroupBox, QPushButton, QComboBox,
     QCheckBox, QDoubleSpinBox, QScrollArea, QListWidget, QListWidgetItem,
     QFileDialog, QMessageBox, QSizePolicy, QFrame, QAbstractItemView, QTabWidget,
-    QTableWidget,
+    QTableWidget, QApplication,
 )
-from PyQt6.QtCore import Qt, QThread
+from PyQt6.QtCore import Qt, QThread, QProcess, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 import matplotlib
@@ -47,12 +48,12 @@ from ui.tabs.tab_report_select import TabReportSelect
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
 from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
-from ui.tabs.tab_debug import TabDebug
 from ui.preview_window import WordPreviewWindow
 from ui.word_pdf_preview_window import WordPdfPreviewWindow
 from app.docx_to_pdf_converter import DocxToPdfConverter
 from app.word_preview_worker import WordPreviewWorker
 from reporting.builders.html_preview_builder import HtmlPreviewBuilder
+from app import restart_session
 from app.theme import BASIC_THEME_NAME, Theme, discover_themes
 from app.theme_apply import THEMES_DIR, bootstrap_theme
 import ui.table_styles as table_styles
@@ -142,6 +143,20 @@ class MainWindow(QMainWindow):
         )
         self._update_all()
 
+        # Herstel paden van een eventuele vorige herstart-actie. Uitgesteld zodat
+        # het venster eerst getoond wordt voordat de import start.
+        QTimer.singleShot(0, self._herstel_herstart_sessie)
+
+    def _herstel_herstart_sessie(self) -> None:
+        """Herlaad bestanden uit een sessiebestand dat bij restart is geschreven."""
+        paden = restart_session.pop()
+        if not paden:
+            return
+        bestaand = [p for p in paden if Path(p).exists()]
+        if not bestaand:
+            return
+        self._ingest_paths(bestaand)
+
     # ------------------------------------------------------------------
     # Drag-and-drop op het hoofdvenster
     # ------------------------------------------------------------------
@@ -179,10 +194,6 @@ class MainWindow(QMainWindow):
         # Tab 0: Rapportcontext (gecombineerd met import)
         self._tab_report_context = TabReportContext()
         self._main_tabs.addTab(self._tab_report_context, 'Rapportcontext')
-
-        # Tab 0.5: Debug
-        self._tab_debug = TabDebug()
-        self._main_tabs.addTab(self._tab_debug, 'Debug')
 
         # Tab 1: Grondsoortentabel
         self._tab_grondsoorten = TabGrondsoorten()
@@ -351,6 +362,7 @@ class MainWindow(QMainWindow):
         self._tab_instellingen.theme_selected.connect(self._on_theme_selected)
         self._tab_instellingen.theme_created.connect(self._on_theme_created)
         self._tab_instellingen.theme_delete_requested.connect(self._on_theme_delete_requested)
+        self._tab_instellingen.restart_requested.connect(self._on_restart_app)
         self._tab_report_select.preview_open_requested.connect(
             self._on_preview_open
         )
@@ -397,7 +409,7 @@ class MainWindow(QMainWindow):
     def _on_reset(self) -> None:
         self._controller.reset()
         self._tab_aanvullende_berekeningen.update_project(None)
-        self._tab_debug.update_project(None)
+        self._tab_instellingen.update_project(None)
         self._tab_report_context.refresh_projects({})
         self._project_combo.blockSignals(True)
         self._project_combo.clear()
@@ -708,7 +720,7 @@ class MainWindow(QMainWindow):
         self._tab_aanvullende_berekeningen.update_project(
             self._state.get_active_project()
         )
-        self._tab_debug.update_project(
+        self._tab_instellingen.update_project(
             self._state.get_active_project()
         )
 
@@ -829,6 +841,14 @@ class MainWindow(QMainWindow):
     def _on_settings_requested(self) -> None:
         """Toon de verborgen Instellingen-pagina."""
         self._main_tabs.setCurrentWidget(self._tab_instellingen)
+
+    def _on_restart_app(self) -> None:
+        """Start de applicatie opnieuw op en bewaar de huidige bestandsselectie."""
+        restart_session.save(self._state.source_paths)
+        QProcess.startDetached(sys.executable, sys.argv)
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
     def _on_export_hoofdstuk(self) -> None:
         """Exporteer het actieve project als Word-rapport."""

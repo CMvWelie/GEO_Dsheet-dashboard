@@ -26,6 +26,23 @@ def _svg_pijl_url(punten: str, vulkleur: str, breedte: int = 8, hoogte: int = 5)
     return f"url(data:image/svg+xml;base64,{b64})"
 
 
+def _schrijf_pijl_svg(pad: Path, punten: str, vulkleur: str, breedte: int, hoogte: int) -> str:
+    """Schrijf een driehoekige pijl-SVG naar disk en geef Qt-compatibele ``url(...)``-string terug.
+
+    Wordt gebruikt voor ``QSpinBox::up-arrow`` / ``::down-arrow`` omdat Qt6
+    voor die specifieke subcontrols geen data-URI's accepteert.
+    """
+    pad.parent.mkdir(parents=True, exist_ok=True)
+    svg = (
+        f"<svg xmlns='http://www.w3.org/2000/svg' width='{breedte}' height='{hoogte}'"
+        f" viewBox='0 0 {breedte} {hoogte}'>"
+        f"<polygon points='{punten}' fill='{vulkleur}'/>"
+        f"</svg>"
+    )
+    pad.write_text(svg, encoding='utf-8')
+    return f"url({pad.absolute().as_posix()})"
+
+
 def _svg_vinkje_url() -> str:
     """Genereer een base64-gecodeerde SVG data-URI voor een wit vinkje."""
     svg = (
@@ -117,7 +134,7 @@ class Theme:
     table: ThemeTableStyle = field(default_factory=ThemeTableStyle)
     headings: ThemeHeadingStyle = field(default_factory=ThemeHeadingStyle)
 
-    def build_stylesheet(self, font_family: str) -> str:
+    def build_stylesheet(self, font_family: str, icon_dir: Path | None = None) -> str:
         """Genereer een Qt-QSS-string voor dit thema.
 
         Parameters
@@ -126,6 +143,13 @@ class Theme:
             De werkelijke font-familienaam zoals Qt deze rapporteert na
             ``QFontDatabase.addApplicationFont()``. Kan afwijken van
             ``typography.family`` in het JSON-bestand.
+        icon_dir:
+            Optionele directory waarin de spinbox-pijl-SVG's geschreven worden
+            en als ``url(file:///…)`` gerefereerd. Vereist omdat Qt6 de
+            ``data:image/svg+xml`` URI's niet betrouwbaar rendert voor
+            ``QSpinBox::up-arrow`` / ``::down-arrow`` (combobox/checkbox werken
+            wel via data-URI). Bij ``None`` wordt teruggevallen op data-URI's
+            (handig voor tests).
 
         Returns
         -------
@@ -139,9 +163,22 @@ class Theme:
 
         pijl_omlaag = _svg_pijl_url('0,0 8,0 4,5', c.text)
         pijl_omhoog = _svg_pijl_url('0,5 8,5 4,0', c.text)
-        pijl_omlaag_wit = _svg_pijl_url('0,0 8,0 4,5', '#ffffff')
-        pijl_omhoog_wit = _svg_pijl_url('0,5 8,5 4,0', '#ffffff')
         vinkje = _svg_vinkje_url()
+
+        if icon_dir is not None:
+            spinbox_omhoog = _schrijf_pijl_svg(
+                icon_dir / 'spin_up.svg', '0,7 10,7 5,0', c.text, 10, 7,
+            )
+            spinbox_omlaag = _schrijf_pijl_svg(
+                icon_dir / 'spin_down.svg', '0,0 10,0 5,7', c.text, 10, 7,
+            )
+            combo_omlaag = _schrijf_pijl_svg(
+                icon_dir / 'combo_down.svg', '0,0 10,0 5,7', c.text, 10, 7,
+            )
+        else:
+            spinbox_omhoog = pijl_omhoog
+            spinbox_omlaag = pijl_omlaag
+            combo_omlaag = pijl_omlaag
 
         return f"""
 * {{
@@ -451,13 +488,13 @@ QComboBox::drop-down:hover {{
 }}
 
 QComboBox::down-arrow {{
-    image: {pijl_omlaag};
-    width: 8px;
-    height: 5px;
+    image: {combo_omlaag};
+    width: 10px;
+    height: 7px;
 }}
 
 QSpinBox::up-button, QDoubleSpinBox::up-button {{
-    width: 16px;
+    width: 18px;
     border: none;
     border-left: 1px solid {c.border};
     border-bottom: 1px solid {c.border};
@@ -467,7 +504,7 @@ QSpinBox::up-button, QDoubleSpinBox::up-button {{
 }}
 
 QSpinBox::down-button, QDoubleSpinBox::down-button {{
-    width: 16px;
+    width: 18px;
     border: none;
     border-left: 1px solid {c.border};
     border-bottom-right-radius: {g.radius}px;
@@ -475,9 +512,37 @@ QSpinBox::down-button, QDoubleSpinBox::down-button {{
     subcontrol-origin: border;
 }}
 
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    image: {spinbox_omhoog};
+    width: 10px;
+    height: 7px;
+}}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+    image: {spinbox_omlaag};
+    width: 10px;
+    height: 7px;
+}}
+
 QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
 QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    background: {c.background};
     border-left-color: {c.border_strong};
+}}
+
+QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed,
+QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{
+    background: {c.border};
+}}
+
+QSpinBox::up-arrow:disabled, QSpinBox::up-arrow:off,
+QDoubleSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:off {{
+    image: {spinbox_omhoog};
+}}
+
+QSpinBox::down-arrow:disabled, QSpinBox::down-arrow:off,
+QDoubleSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:off {{
+    image: {spinbox_omlaag};
 }}
 
 QTabBar QToolButton {{
@@ -492,27 +557,205 @@ QTabBar QToolButton:hover {{
     border-color: {c.border_strong};
 }}
 
-QCheckBox::indicator {{
-    width: 14px;
-    height: 14px;
-    border: 1px solid {c.border};
+QCheckBox::indicator,
+QListView::indicator, QTreeView::indicator, QTableView::indicator {{
+    width: 16px;
+    height: 16px;
+    border: 2px solid {c.border_strong};
     border-radius: 3px;
     background: {c.surface};
+    padding: 1px;
 }}
 
-QCheckBox::indicator:hover {{
-    border-color: {c.border_strong};
+QCheckBox::indicator:hover,
+QListView::indicator:hover, QTreeView::indicator:hover, QTableView::indicator:hover {{
+    border-color: {c.text_muted};
 }}
 
-QCheckBox::indicator:checked {{
+QCheckBox::indicator:checked,
+QListView::indicator:checked, QTreeView::indicator:checked, QTableView::indicator:checked {{
     background: {c.primary};
-    border: 1px solid {c.primary_hover};
+    border: 2px solid {c.border_strong};
     image: {vinkje};
 }}
 
-QCheckBox::indicator:checked:hover {{
+QCheckBox::indicator:checked:hover,
+QListView::indicator:checked:hover, QTreeView::indicator:checked:hover,
+QTableView::indicator:checked:hover {{
     background: {c.primary_hover};
-    border: 1px solid {c.primary_pressed};
+    border: 2px solid {c.text_muted};
+}}
+
+QRadioButton::indicator {{
+    width: 16px;
+    height: 16px;
+    border: 2px solid {c.border_strong};
+    border-radius: 9px;
+    background: {c.surface};
+}}
+
+QRadioButton::indicator:hover {{
+    border-color: {c.text_muted};
+}}
+
+QRadioButton::indicator:checked {{
+    background: {c.primary};
+    border: 2px solid {c.border_strong};
+}}
+
+QRadioButton::indicator:checked:hover {{
+    background: {c.primary_hover};
+    border: 2px solid {c.text_muted};
+}}
+
+QSlider::groove:horizontal {{
+    height: 4px;
+    background: {c.border};
+    border-radius: 2px;
+}}
+
+QSlider::sub-page:horizontal {{
+    background: {c.primary};
+    border-radius: 2px;
+}}
+
+QSlider::add-page:horizontal {{
+    background: {c.border};
+    border-radius: 2px;
+}}
+
+QSlider::handle:horizontal {{
+    background: {c.primary};
+    border: 2px solid {c.surface};
+    width: 14px;
+    height: 14px;
+    margin: -6px 0;
+    border-radius: 8px;
+}}
+
+QSlider::handle:horizontal:hover {{
+    background: {c.primary_hover};
+}}
+
+QSlider::handle:horizontal:pressed {{
+    background: {c.primary_pressed};
+}}
+
+QSlider::groove:vertical {{
+    width: 4px;
+    background: {c.border};
+    border-radius: 2px;
+}}
+
+QSlider::sub-page:vertical {{
+    background: {c.border};
+    border-radius: 2px;
+}}
+
+QSlider::add-page:vertical {{
+    background: {c.primary};
+    border-radius: 2px;
+}}
+
+QSlider::handle:vertical {{
+    background: {c.primary};
+    border: 2px solid {c.surface};
+    width: 14px;
+    height: 14px;
+    margin: 0 -6px;
+    border-radius: 8px;
+}}
+
+QSlider::handle:vertical:hover {{
+    background: {c.primary_hover};
+}}
+
+QHeaderView {{
+    background: {c.background};
+    border: none;
+}}
+
+QHeaderView::section {{
+    background: {c.background};
+    color: {c.primary};
+    padding: 6px 8px;
+    border: none;
+    border-right: 1px solid {c.border};
+    border-bottom: 1px solid {c.border_strong};
+    font-weight: 600;
+}}
+
+QHeaderView::section:last {{
+    border-right: none;
+}}
+
+QHeaderView::section:hover {{
+    background: {c.surface};
+}}
+
+QTableCornerButton::section {{
+    background: {c.background};
+    border: none;
+    border-right: 1px solid {c.border};
+    border-bottom: 1px solid {c.border_strong};
+}}
+
+QMenu {{
+    background: {c.surface};
+    border: 1px solid {c.border_strong};
+    border-radius: {g.radius}px;
+    padding: 4px;
+}}
+
+QMenu::item {{
+    padding: 6px 18px 6px 22px;
+    border-radius: 3px;
+    color: {c.text};
+}}
+
+QMenu::item:selected {{
+    background: {c.primary};
+    color: #ffffff;
+}}
+
+QMenu::item:disabled {{
+    color: {c.text_muted};
+}}
+
+QMenu::separator {{
+    height: 1px;
+    background: {c.border};
+    margin: 4px 6px;
+}}
+
+QMenu::indicator {{
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+}}
+
+QToolTip {{
+    background: {c.text};
+    color: #ffffff;
+    border: 1px solid {c.text_muted};
+    border-radius: 3px;
+    padding: 4px 8px;
+}}
+
+QSplitter::handle {{
+    background: {c.border};
+}}
+
+QSplitter::handle:horizontal {{
+    width: 4px;
+}}
+
+QSplitter::handle:vertical {{
+    height: 4px;
+}}
+
+QSplitter::handle:hover {{
+    background: {c.border_strong};
 }}
         """.strip()
 

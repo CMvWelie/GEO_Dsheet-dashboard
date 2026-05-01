@@ -6,10 +6,13 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QGroupBox, QFileDialog, QComboBox, QDialog, QMessageBox,
+    QTabWidget,
 )
 from PyQt6.QtCore import pyqtSignal
 
 from app.theme_apply import THEMES_DIR
+from parsers.models import Project
+from ui.tabs.tab_debug import TabDebug
 from ui.theme_dialog import ThemeTemplateDialog
 
 
@@ -28,6 +31,9 @@ class TabInstellingen(QWidget):
     theme_delete_requested = pyqtSignal(str)
     """Afgegeven zodra de gebruiker een custom template wil verwijderen."""
 
+    restart_requested = pyqtSignal()
+    """Afgegeven zodra de gebruiker op 'Applicatie herstarten' klikt."""
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._huidig_thema_naam: str = ''
@@ -36,11 +42,26 @@ class TabInstellingen(QWidget):
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 16, 16, 16)
-        root.setSpacing(14)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        self._sub_tabs = QTabWidget()
+        self._sub_tabs.addTab(self._build_algemeen_tab(), 'Algemeen')
+
+        self._tab_debug = TabDebug()
+        self._sub_tabs.addTab(self._tab_debug, 'Debug')
+
+        root.addWidget(self._sub_tabs)
+
+    def _build_algemeen_tab(self) -> QWidget:
+        """Bouw de Algemeen-subtab met thema-, import- en applicatie-groepen."""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(14)
 
         # ── Groep: Template (UI-thema) ────────────────────────────────
-        root.addWidget(self._build_template_group())
+        layout.addWidget(self._build_template_group())
 
         # ── Groep: Import-instellingen ────────────────────────────────
         imp_box = QGroupBox('Import-instellingen')
@@ -75,9 +96,32 @@ class TabInstellingen(QWidget):
         imp_vl.addWidget(imp_lbl)
         imp_vl.addLayout(imp_rij)
         imp_vl.addWidget(imp_hint)
-        root.addWidget(imp_box)
+        layout.addWidget(imp_box)
 
-        root.addStretch()
+        # ── Groep: Applicatie ─────────────────────────────────────────
+        layout.addWidget(self._build_applicatie_group())
+
+        layout.addStretch()
+        return widget
+
+    def _build_applicatie_group(self) -> QGroupBox:
+        """Bouw de Applicatie-groep met de Herstart-knop."""
+        box = QGroupBox('Applicatie')
+        vl = QVBoxLayout(box)
+        vl.setSpacing(6)
+
+        rij = QHBoxLayout()
+        self._restart_btn = QPushButton('Applicatie herstarten')
+        self._restart_btn.setObjectName('btnNormal')
+        self._restart_btn.clicked.connect(self._on_restart)
+        rij.addWidget(self._restart_btn)
+        rij.addStretch()
+        vl.addLayout(rij)
+
+        hint = QLabel('Sluit het venster en start de applicatie opnieuw op.')
+        hint.setObjectName('hintLabel')
+        vl.addWidget(hint)
+        return box
 
     def _build_template_group(self) -> QGroupBox:
         """Bouw de Template-groep (UI-thema-keuze).
@@ -141,6 +185,16 @@ class TabInstellingen(QWidget):
         self._import_map_edit.setText(pad)
         self._import_map_edit.blockSignals(False)
 
+    def update_project(self, project: Project | None) -> None:
+        """Propageer projectwijziging naar de Debug-subtab.
+
+        Parameters
+        ----------
+        project:
+            Actief project, of ``None`` als geen project geladen.
+        """
+        self._tab_debug.update_project(project)
+
     def set_themes(self, themas: list[tuple[str, Path]], actief_naam: str) -> None:
         """Vul de thema-dropdown en markeer het huidige actieve thema.
 
@@ -174,6 +228,18 @@ class TabInstellingen(QWidget):
     # ------------------------------------------------------------------
     # Privé handlers
     # ------------------------------------------------------------------
+
+    def _on_restart(self) -> None:
+        """Vraag bevestiging en geef herstart-verzoek door aan het hoofdvenster."""
+        antwoord = QMessageBox.question(
+            self,
+            'Applicatie herstarten',
+            'De applicatie wordt afgesloten en opnieuw opgestart. Doorgaan?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if antwoord == QMessageBox.StandardButton.Yes:
+            self.restart_requested.emit()
 
     def _on_bladeren_importmap(self) -> None:
         map_pad = QFileDialog.getExistingDirectory(

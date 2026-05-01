@@ -17,6 +17,7 @@ from app.theme import BASIC_THEME_NAME, Theme, create_basic_theme
 from ui.table_styles import configure_from_theme
 
 THEMES_DIR = Path(__file__).resolve().parent.parent / 'themes'
+ICON_CACHE_DIR = THEMES_DIR / '_cache'
 DEFAULT_THEME = 'DKIB'
 
 
@@ -46,7 +47,7 @@ def bootstrap_theme(actief_thema_naam: str) -> Theme | None:
                                            fallback=thema.typography.family)
     configure_from_theme(thema)
 
-    qss = thema.build_stylesheet(font_family=werkelijke_familie)
+    qss = thema.build_stylesheet(font_family=werkelijke_familie, icon_dir=ICON_CACHE_DIR)
     app = QApplication.instance()
     if app is not None:
         app.setStyleSheet(qss)

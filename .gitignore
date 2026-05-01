@@ -10,6 +10,9 @@ pytest-cache-files-*/
 # Worktrees
 .worktrees/
 
+# Thema-cache (gegenereerde icoon-SVG's)
+themes/_cache/
+
 # Superpowers brainstorm-werkmateriaal
 .superpowers/brainstorm/
 docs/

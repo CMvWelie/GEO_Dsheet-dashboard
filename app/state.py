@@ -33,6 +33,9 @@ class AppState:
     raw_files: dict[str, str] = field(default_factory=dict)
     """Ruwe bestandsteksten: filename → text."""
 
+    source_paths: list[str] = field(default_factory=list)
+    """Originele paden van succesvol ingelezen bestanden — voor herlaad bij herstart."""
+
     render_settings: RenderSettings = field(default_factory=RenderSettings)
     viewport_settings: ViewportSettings = field(default_factory=ViewportSettings)
     app_settings: AppSettings = field(default_factory=AppSettings)
@@ -56,6 +59,7 @@ class AppState:
         """Wis alle projectdata en reset selecties naar beginwaarden."""
         self.projects.clear()
         self.raw_files.clear()
+        self.source_paths.clear()
         self.active_project = None
         self.active_stage_index = 0
         self.active_output_stage_index = 0
