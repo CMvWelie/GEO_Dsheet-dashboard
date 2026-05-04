@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtSvg import QSvgRenderer
 
 from app.theme import BASIC_THEME_NAME, Theme, create_basic_theme
 from ui.table_styles import configure_from_theme
@@ -63,11 +64,18 @@ def bootstrap_theme(actief_thema_naam: str) -> Theme | None:
     configure_from_theme(thema)
 
     qss = thema.build_stylesheet(font_family=werkelijke_familie, icon_dir=ICON_CACHE_DIR)
+    _initialiseer_svg_renderer()
     app = QApplication.instance()
     if app is not None:
         app.setStyleSheet(qss)
 
     return thema
+
+
+def _initialiseer_svg_renderer() -> None:
+    """Laad QtSvg expliciet zodat QSS ``image: url(...svg)`` betrouwbaar rendert."""
+    for svg_pad in ICON_CACHE_DIR.glob('*.svg'):
+        QSvgRenderer(str(svg_pad))
 
 
 def _laad_thema_met_fallback(naam: str) -> Theme | None:
