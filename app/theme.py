@@ -44,7 +44,7 @@ def _schrijf_pijl_svg(pad: Path, punten: str, vulkleur: str, breedte: int, hoogt
         f"</svg>"
     )
     pad.write_text(svg, encoding='utf-8')
-    return f'url("{pad.absolute().as_posix()}")'
+    return f'url("{pad.resolve().as_posix()}")'
 
 
 def _svg_vinkje_url() -> str:
