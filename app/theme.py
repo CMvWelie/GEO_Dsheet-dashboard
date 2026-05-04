@@ -32,9 +32,8 @@ def _schrijf_pijl_svg(pad: Path, punten: str, vulkleur: str, breedte: int, hoogt
     Wordt gebruikt voor ``QSpinBox::up-arrow`` / ``::down-arrow`` omdat Qt6
     voor die specifieke subcontrols geen data-URI's accepteert.
 
-    De URL wordt gequoot zodat paden met spaties (zoals ``04 Apps``) correct
-    door de QSS-parser worden opgevangen — anders kapt Qt het pad af bij de
-    eerste spatie.
+    De URL wordt gequoot en naar forward slashes omgezet zodat Windows-paden
+    correct door de QSS-parser worden opgevangen.
     """
     pad.parent.mkdir(parents=True, exist_ok=True)
     svg = (
@@ -149,7 +148,7 @@ class Theme:
             ``typography.family`` in het JSON-bestand.
         icon_dir:
             Optionele directory waarin de spinbox-pijl-SVG's geschreven worden
-            en als ``url(file:///…)`` gerefereerd. Vereist omdat Qt6 de
+            en als gequote absoluut pad gerefereerd. Vereist omdat Qt6 de
             ``data:image/svg+xml`` URI's niet betrouwbaar rendert voor
             ``QSpinBox::up-arrow`` / ``::down-arrow`` (combobox/checkbox werken
             wel via data-URI). Bij ``None`` wordt teruggevallen op data-URI's
@@ -165,20 +164,25 @@ class Theme:
         g = self.geometry
         ff = f'"{font_family}"'
 
-        pijl_omlaag = _svg_pijl_url('0,0 8,0 4,5', c.text)
-        pijl_omhoog = _svg_pijl_url('0,5 8,5 4,0', c.text)
+        pijl_omlaag = _svg_pijl_url('0,0 8,0 4,5', c.primary)
+        pijl_omhoog = _svg_pijl_url('0,5 8,5 4,0', c.primary)
         vinkje = _svg_vinkje_url()
 
         if icon_dir is not None:
-            spinbox_omhoog = _schrijf_pijl_svg(
-                icon_dir / 'spin_up.svg', '0,7 10,7 5,0', c.text, 10, 7,
-            )
-            spinbox_omlaag = _schrijf_pijl_svg(
-                icon_dir / 'spin_down.svg', '0,0 10,0 5,7', c.text, 10, 7,
-            )
-            combo_omlaag = _schrijf_pijl_svg(
-                icon_dir / 'combo_down.svg', '0,0 10,0 5,7', c.text, 10, 7,
-            )
+            try:
+                spinbox_omhoog = _schrijf_pijl_svg(
+                    icon_dir / 'spin_up.svg', '0,7 10,7 5,0', c.primary, 10, 7,
+                )
+                spinbox_omlaag = _schrijf_pijl_svg(
+                    icon_dir / 'spin_down.svg', '0,0 10,0 5,7', c.primary, 10, 7,
+                )
+                combo_omlaag = _schrijf_pijl_svg(
+                    icon_dir / 'combo_down.svg', '0,0 10,0 5,7', c.primary, 10, 7,
+                )
+            except OSError:
+                spinbox_omhoog = pijl_omhoog
+                spinbox_omlaag = pijl_omlaag
+                combo_omlaag = pijl_omlaag
         else:
             spinbox_omhoog = pijl_omhoog
             spinbox_omlaag = pijl_omlaag
@@ -485,7 +489,6 @@ QComboBox::drop-down {{
 }}
 
 QComboBox::drop-down:hover {{
-    border: none;
     border-left: 1px solid {c.border_strong};
     border-top-right-radius: {g.radius}px;
     border-bottom-right-radius: {g.radius}px;

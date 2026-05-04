@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import app.theme as theme_module
 from app.theme import Theme, discover_themes
 
 
@@ -94,9 +95,9 @@ def test_discover_themes_finds_json_files(tmp_path: Path) -> None:
 
     profielen = discover_themes(tmp_path)
 
-    assert len(profielen) == 2
+    assert len(profielen) == 3
     namen = sorted(p[0] for p in profielen)
-    assert namen == ["Bravo", "Test"]
+    assert namen == ["Basic", "Bravo", "Test"]
 
 
 def test_discover_themes_skipt_kapotte_bestanden(tmp_path: Path) -> None:
@@ -107,8 +108,9 @@ def test_discover_themes_skipt_kapotte_bestanden(tmp_path: Path) -> None:
 
     profielen = discover_themes(tmp_path)
 
-    assert len(profielen) == 1
-    assert profielen[0][0] == "Test"
+    assert len(profielen) == 2
+    namen = sorted(p[0] for p in profielen)
+    assert namen == ["Basic", "Test"]
 
 
 def test_build_stylesheet_bevat_kleuren_en_font(tmp_path: Path) -> None:
@@ -174,6 +176,37 @@ def test_build_stylesheet_gebruikt_meegegeven_font(tmp_path: Path) -> None:
 
     assert '"Segoe UI"' in qss
     assert '"Eina 04"' not in qss
+
+
+def test_build_stylesheet_icon_dir_gebruikt_gequote_absoluut_pad(tmp_path: Path) -> None:
+    pad = tmp_path / "test.json"
+    pad.write_text(json.dumps(_voorbeeld_thema_dict()), encoding="utf-8")
+    thema = Theme.load(pad)
+
+    qss = thema.build_stylesheet(font_family="Eina 04", icon_dir=tmp_path / "icons")
+
+    assert f'url("{(tmp_path / "icons" / "spin_up.svg").resolve().as_posix()}")' in qss
+    assert "file:///" not in qss
+    assert (tmp_path / "icons" / "spin_up.svg").exists()
+    assert (tmp_path / "icons" / "spin_down.svg").exists()
+    assert (tmp_path / "icons" / "combo_down.svg").exists()
+
+
+def test_build_stylesheet_icon_dir_schrijffout_valt_terug_op_data_uri(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pad = tmp_path / "test.json"
+    pad.write_text(json.dumps(_voorbeeld_thema_dict()), encoding="utf-8")
+    thema = Theme.load(pad)
+
+    def fail_write(*_args, **_kwargs):
+        raise PermissionError("geen toegang")
+
+    monkeypatch.setattr(theme_module, "_schrijf_pijl_svg", fail_write)
+
+    qss = thema.build_stylesheet(font_family="Eina 04", icon_dir=tmp_path / "icons")
+
+    assert "data:image/svg+xml;base64" in qss
 
 
 def test_build_stylesheet_moderne_ui_gebruikt_thema_kleuren(tmp_path: Path) -> None:

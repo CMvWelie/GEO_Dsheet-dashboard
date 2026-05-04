@@ -8,6 +8,7 @@ zodat de pure Python-logica los van Qt getest kan worden.
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 from PyQt6.QtGui import QFontDatabase
@@ -17,8 +18,22 @@ from app.theme import BASIC_THEME_NAME, Theme, create_basic_theme
 from ui.table_styles import configure_from_theme
 
 THEMES_DIR = Path(__file__).resolve().parent.parent / 'themes'
-ICON_CACHE_DIR = THEMES_DIR / '_cache'
 DEFAULT_THEME = 'DKIB'
+APP_VENDOR = 'DKIB_geotechniek'
+APP_NAME = 'Dsheet_dashboard'
+
+
+def _gebruikers_cache_dir() -> Path:
+    """Geef een gebruikersspecifieke temp-cachemap terug waarin de app mag schrijven.
+
+    De SVG's worden bij elke themabootstrap opnieuw opgebouwd, dus een tempmap
+    is voldoende en voorkomt schrijfrechten in de projectmap, Dropbox-map of
+    latere installatiemap.
+    """
+    return Path(tempfile.gettempdir()) / APP_VENDOR / APP_NAME
+
+
+ICON_CACHE_DIR = _gebruikers_cache_dir() / 'themes' / '_cache'
 
 
 def bootstrap_theme(actief_thema_naam: str) -> Theme | None:
