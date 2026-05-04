@@ -13,11 +13,14 @@ from pathlib import Path
 from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import QApplication
 
+from app.config_manager import CONFIG_DIR
 from app.theme import BASIC_THEME_NAME, Theme, create_basic_theme
 from ui.table_styles import configure_from_theme
 
 THEMES_DIR = Path(__file__).resolve().parent.parent / 'themes'
-ICON_CACHE_DIR = THEMES_DIR / '_cache'
+# De icoon-cache staat in de gebruikersmap zonder spaties in het pad — Qt's
+# QSS-parser gaat anders mis bij spaties (zoals in '04 Apps').
+ICON_CACHE_DIR = CONFIG_DIR / 'icons'
 DEFAULT_THEME = 'DKIB'
 
 

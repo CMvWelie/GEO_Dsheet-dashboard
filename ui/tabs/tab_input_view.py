@@ -92,7 +92,8 @@ class TabInputView(QWidget):
             'QDoubleSpinBox { font-size: 11px; color: #245b7a; '
             'background: #f0f5f9; border: 1px solid #aabdca; border-radius: 3px; padding: 2px 4px; }'
             'QDoubleSpinBox:focus { border-color: #245b7a; background: #ffffff; }'
-            'QDoubleSpinBox:disabled { color: #999; background: #e8eef3; }'
+            'QDoubleSpinBox:disabled { color: #aab0b8; background: #eef0f3; '
+            'border-color: #d8dce0; }'
         )
         for attr, default in [
             ('xmin_spin', -10.0), ('xmax_spin', 10.0),

@@ -9,11 +9,27 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 
 _HDR_STYLE = 'font-size: 8px; color: #888; margin: 0; padding: 0;'
+_HDR_STYLE_DISABLED = 'font-size: 8px; color: #c8cdd2; margin: 0; padding: 0;'
+_NAME_STYLE = 'font-size: 10px; color: #2c3e50;'
+_NAME_STYLE_DISABLED = 'font-size: 10px; color: #aab0b8;'
 _VAL_STYLE = (
     'QDoubleSpinBox { font-size: 10px; font-weight: bold; color: #245b7a; '
     'background: #f0f5f9; border: 1px solid #aabdca; border-radius: 3px; '
     'padding: 1px 3px; }'
     'QDoubleSpinBox:focus { border-color: #245b7a; background: #ffffff; }'
+    'QDoubleSpinBox:disabled { color: #aab0b8; background: #eef0f3; '
+    'border-color: #d8dce0; }'
+)
+_MINMAX_STYLE = (
+    'QDoubleSpinBox { font-size: 9px; }'
+    'QDoubleSpinBox:disabled { color: #aab0b8; background: #eef0f3; }'
+)
+_SLIDER_DISABLED_STYLE = (
+    'QSlider::groove:horizontal:disabled,'
+    'QSlider::sub-page:horizontal:disabled,'
+    'QSlider::add-page:horizontal:disabled { background: #d8dce0; }'
+    'QSlider::handle:horizontal:disabled { background: #aab0b8; '
+    'border: 2px solid #f0f5f9; }'
 )
 
 
@@ -62,7 +78,7 @@ class ScaleSlider(QWidget):
         name_hl = QHBoxLayout(self._name_row)
         name_hl.setContentsMargins(0, 0, 0, 0)
         self._name_lbl = QLabel(label)
-        self._name_lbl.setStyleSheet('font-size: 10px; color: #2c3e50;')
+        self._name_lbl.setStyleSheet(_NAME_STYLE)
         name_hl.addWidget(self._name_lbl)
         name_hl.addStretch()
         root.addWidget(self._name_row)
@@ -100,6 +116,7 @@ class ScaleSlider(QWidget):
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(0, self._STEPS)
         self._slider.setValue(self._to_pos(default))
+        self._slider.setStyleSheet(_SLIDER_DISABLED_STYLE)
         self._slider.valueChanged.connect(self._on_slider_moved)
 
         self._max_spin = self._make_spin(hi)
@@ -123,7 +140,7 @@ class ScaleSlider(QWidget):
         s.setValue(val)
         s.setDecimals(2)
         s.setFixedWidth(52)
-        s.setStyleSheet('font-size: 9px;')
+        s.setStyleSheet(_MINMAX_STYLE)
         s.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
         return s
 
@@ -211,3 +228,11 @@ class ScaleSlider(QWidget):
         self._update_value_label()
         if not self.signalsBlocked():
             self.valueChanged.emit(self._val)
+
+    def setEnabled(self, enabled: bool) -> None:
+        """Pas ook hardcoded label-kleuren aan zodat alles consistent vergrijst."""
+        super().setEnabled(enabled)
+        self._name_lbl.setStyleSheet(_NAME_STYLE if enabled else _NAME_STYLE_DISABLED)
+        hdr = _HDR_STYLE if enabled else _HDR_STYLE_DISABLED
+        self._min_hdr.setStyleSheet(hdr)
+        self._max_hdr.setStyleSheet(hdr)

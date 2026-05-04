@@ -31,6 +31,10 @@ def _schrijf_pijl_svg(pad: Path, punten: str, vulkleur: str, breedte: int, hoogt
 
     Wordt gebruikt voor ``QSpinBox::up-arrow`` / ``::down-arrow`` omdat Qt6
     voor die specifieke subcontrols geen data-URI's accepteert.
+
+    De URL wordt gequoot zodat paden met spaties (zoals ``04 Apps``) correct
+    door de QSS-parser worden opgevangen — anders kapt Qt het pad af bij de
+    eerste spatie.
     """
     pad.parent.mkdir(parents=True, exist_ok=True)
     svg = (
@@ -40,7 +44,7 @@ def _schrijf_pijl_svg(pad: Path, punten: str, vulkleur: str, breedte: int, hoogt
         f"</svg>"
     )
     pad.write_text(svg, encoding='utf-8')
-    return f"url({pad.absolute().as_posix()})"
+    return f'url("{pad.absolute().as_posix()}")'
 
 
 def _svg_vinkje_url() -> str:
