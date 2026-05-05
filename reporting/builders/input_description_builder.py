@@ -22,6 +22,7 @@ class FaseRow:
     label: str
     value: str
     extra: str = ''
+    extra_lines: list[str] = field(default_factory=list)
 
 @dataclass
 class FaseCard:
