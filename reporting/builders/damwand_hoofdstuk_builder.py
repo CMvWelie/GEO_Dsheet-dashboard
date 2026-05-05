@@ -73,7 +73,41 @@ class DamwandHoofdstukBuilder:
             ReportField('teenniveau',        'Teenniveau',                  fmt_number(w.bottom),               'm NAP'),
             ReportField('lengte',            'Lengte',                      lengte_str,                         'm'),
         ]
+        for naam, niveau in self._actieve_ondersteuningen(project):
+            sec.fields.append(ReportField(
+                f'ondersteuning_{len(sec.fields)}',
+                naam,
+                fmt_number(niveau),
+                'm NAP',
+            ))
         return sec
+
+    def _actieve_ondersteuningen(self, project: Project) -> list[tuple[str, float]]:
+        """Geef ondersteuningsniveaus die in minstens een fase actief zijn."""
+        actieve_ankers: set[str] = set()
+        actieve_stempels: set[str] = set()
+        actieve_rigid: set[str] = set()
+        actieve_spring: set[str] = set()
+        for stage in project.stages:
+            actieve_ankers.update(stage.anchors or [])
+            actieve_stempels.update(stage.struts or [])
+            actieve_rigid.update(stage.rigid_supports or [])
+            actieve_spring.update(stage.spring_supports or [])
+
+        steunen: list[tuple[str, float]] = []
+        for anker in project.anchors:
+            if anker.name in actieve_ankers:
+                steunen.append((anker.name, anker.level))
+        for stempel in project.struts:
+            if stempel.name in actieve_stempels:
+                steunen.append((stempel.name, stempel.level))
+        for steun in project.rigid_supports:
+            if steun.name in actieve_rigid:
+                steunen.append((steun.name, steun.level))
+        for steun in project.spring_supports:
+            if steun.name in actieve_spring:
+                steunen.append((steun.name, steun.level))
+        return sorted(steunen, key=lambda steun: steun[1], reverse=True)
 
     # ------------------------------------------------------------------
     # Sectie 3: Invoer per fase

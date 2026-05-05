@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from parsers.models import (
     Project, FileBundle, SheetPilingElement,
     Soil, SoilProfile, SoilLayer, Stage, ResultSummary,
-    ResultStep, ResultStage, ResultPoint,
+    ResultStep, ResultStage, ResultPoint, RigidSupport,
 )
 from reporting.builders.damwand_hoofdstuk_builder import DamwandHoofdstukBuilder
 
@@ -64,6 +64,28 @@ def test_damwand_sectie_lengte_correct() -> None:
     sec = DamwandHoofdstukBuilder()._bouw_damwand_sectie(project)
     veld = next(f for f in sec.fields if f.key == 'lengte')
     assert '9' in veld.value   # abs(-4.3 - -13.5) = 9.2 m
+
+
+def test_damwand_sectie_gebruikt_naam_van_ondersteuning() -> None:
+    stage = _maak_stage('Fase 1')
+    stage.rigid_supports = ['Stempelraam A']
+    project = _basis_project(
+        sheet_piling=[_wall()],
+        stages=[stage],
+        rigid_supports=[
+            RigidSupport(
+                nr=1,
+                level=-2.1,
+                rot_stiff=0.0,
+                tr_stiff=0.0,
+                name='Stempelraam A',
+            ),
+        ],
+    )
+
+    sec = DamwandHoofdstukBuilder()._bouw_damwand_sectie(project)
+    veld = next(f for f in sec.fields if f.key.startswith('ondersteuning_'))
+    assert veld.label == 'Stempelraam A'
 
 
 def test_damwand_sectie_geen_damwand_geeft_lege_fields() -> None:

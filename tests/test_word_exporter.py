@@ -12,6 +12,7 @@ from exporters import word_exporter
 from exporters.word_exporter import WordExporter
 from reporting.models import (
     FaseInvoerSectie,
+    ReportField,
     ReportImageGroup,
     ReportImageRequest,
     ReportItem,
@@ -154,3 +155,38 @@ def test_word_exporter_gebruikt_fase_invoer_tabel_layout() -> None:
     assert 'Bovenbelasting' in alle_tekst
     assert '3,0m breed' in alle_tekst
     assert '0,0m vanaf damwand' in alle_tekst
+
+
+def test_word_exporter_gebruikt_damwandgegevens_tabel_layout() -> None:
+    """Normale Word-export schrijft damwandgegevens als voorbeeldtabel."""
+    sec = ReportSection(id='damwand_gegevens', title='Damwandgegevens')
+    sec.fields.extend([
+        ReportField('profiel', 'Profiel', 'AZ 18-700'),
+        ReportField('hoogte', 'Hoogte', '420,0', 'mm'),
+    ])
+    pkg = ReportPackage(
+        metadata=ReportMetadata(project_name='T'),
+        input_sections=[sec],
+        selected_items=[
+            ReportItem(
+                id='damwand_damwand_gegevens',
+                kind='invoer',
+                caption='Damwandgegevens',
+                source_ref='damwand_gegevens',
+            )
+        ],
+    )
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as handle:
+        out = handle.name
+    fout = WordExporter().export(pkg, None, out, project=None)
+    assert fout is None
+    doc = Document(out)
+    os.unlink(out)
+
+    damwand_tabel = doc.tables[-1]
+    assert [c.text for c in damwand_tabel.rows[0].cells] == [
+        'Parameter', 'Waarde', 'Eenheid',
+    ]
+    assert [c.text for c in damwand_tabel.rows[2].cells] == [
+        'Hoogte', '420,0', '[mm]',
+    ]

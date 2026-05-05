@@ -40,6 +40,8 @@ class DamwandCard:
     hoogte_mm: float
     breedte_mm: float
     ei_knm2: float
+    weerstandsmoment_cm3: float
+    opneembaar_moment_knm: float
     kopniveau: float
     teenniveau: float
     lengte: float
@@ -237,6 +239,8 @@ class InputDescriptionBuilder:
             hoogte_mm=el.height_mm,
             breedte_mm=el.pile_width_mm,
             ei_knm2=el.ei_knm2_per_m,
+            weerstandsmoment_cm3=el.resisting_moment_cm3,
+            opneembaar_moment_knm=el.opneembaar_moment_knm,
             kopniveau=el.top if el.top is not None else 0.0,
             teenniveau=el.bottom,
             lengte=abs((el.top or 0.0) - el.bottom),

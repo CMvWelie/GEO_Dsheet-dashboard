@@ -14,6 +14,7 @@ from docx.table import Table
 
 from reporting.models import (
     FaseInvoerSectie,
+    ReportField,
     ReportImageRequest,
     ReportMetadata,
     ReportSection,
@@ -22,6 +23,9 @@ from reporting.figure_renderer import render_figuur
 
 
 _FASE_RIJHOOGTE_CM = 0.45
+_DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
+_DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
+_DAMWAND_SCHEIDING_TWIPS = 40
 
 
 def _png_hoogte_cm(png_bytes: bytes, breedte_cm: float) -> float:
@@ -137,6 +141,9 @@ class WordHoofdstukExporter:
         if isinstance(sec, FaseInvoerSectie):
             self._schrijf_fase_sectie(doc, sec, project)
             return
+        if sec.id == 'damwand_gegevens':
+            self._schrijf_damwandgegevens_sectie(doc, sec)
+            return
 
         doc.add_heading(sec.title, level=2)
         for veld in sec.fields:
@@ -148,6 +155,82 @@ class WordHoofdstukExporter:
             doc.add_paragraph(tb.effective_text)
         for img_req in sec.images:
             self._schrijf_figuur(doc, img_req, project)
+
+    def _schrijf_damwandgegevens_sectie(
+        self,
+        doc: Document,
+        sec: ReportSection,
+    ) -> None:
+        """Schrijf damwandgegevens als compacte 3-koloms Word-tabel."""
+        doc.add_heading(sec.title, level=2)
+        if not sec.fields:
+            return
+
+        velden: list[ReportField | None] = []
+        for veld in sec.fields:
+            if veld.key.startswith('ondersteuning_') and not any(v is None for v in velden):
+                velden.append(None)
+            velden.append(veld)
+
+        tbl = doc.add_table(rows=1 + len(velden), cols=3)
+        tbl.autofit = False
+        try:
+            tbl.style = 'Table Grid'
+        except KeyError:
+            pass
+
+        kolom_breedtes = [round(cm * 567) for cm in _DAMWAND_KOLOM_BREEDTES_CM]
+        self._stel_tabel_grid_in(tbl, _DAMWAND_KOLOM_BREEDTES_CM)
+        for row in tbl.rows:
+            for col_idx, cell in enumerate(row.cells[:3]):
+                self._stel_cel_breedte(cell, kolom_breedtes[col_idx])
+            self._stel_rijhoogte_exact_twips(row, _DAMWAND_RIJHOOGTE_TWIPS)
+
+        for col, tekst in enumerate(['Parameter', 'Waarde', 'Eenheid']):
+            tbl.rows[0].cells[col].text = tekst
+
+        for row_idx, veld in enumerate(velden, start=1):
+            if veld is None:
+                self._stel_rijhoogte_exact_twips(
+                    tbl.rows[row_idx],
+                    _DAMWAND_SCHEIDING_TWIPS,
+                )
+                continue
+            tbl.rows[row_idx].cells[0].text = veld.label
+            tbl.rows[row_idx].cells[1].text = veld.value
+            tbl.rows[row_idx].cells[2].text = self._formatteer_eenheid(veld.unit)
+
+        self._pas_damwand_tabel_opmaak_toe(tbl)
+
+    def _formatteer_eenheid(self, eenheid: str) -> str:
+        """Geef een Word-eenheid terug met blokhaken, indien aanwezig."""
+        tekst = (eenheid or '').strip()
+        if not tekst:
+            return ''
+        if tekst.startswith('[') and tekst.endswith(']'):
+            return tekst
+        return f'[{tekst}]'
+
+    def _pas_damwand_tabel_opmaak_toe(self, tbl: Table) -> None:
+        """Pas themakleuren en fontgroottes toe op de damwandgegevens-tabel."""
+        from ui import table_styles
+
+        font = _eerste_fontfamilie(table_styles.TABLE_FONT)
+        for row in tbl.rows:
+            for cell in row.cells:
+                self._pas_cel_font_toe(
+                    cell, font, '000000', bold=False,
+                    size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
+                )
+
+        header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
+        header_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_FG)
+        for cell in tbl.rows[0].cells:
+            self._stel_cel_vulling(cell, header_bg)
+            self._pas_cel_font_toe(
+                cell, font, header_fg, bold=True,
+                size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
+            )
 
     def _schrijf_fase_sectie(
         self,
@@ -341,6 +424,16 @@ class WordHoofdstukExporter:
             tr_height = OxmlElement('w:trHeight')
             tr_pr.append(tr_height)
         tr_height.set(qn('w:val'), str(hoogte_twips))
+
+    def _stel_rijhoogte_exact_twips(self, row, hoogte_twips: int) -> None:
+        """Zet een vaste rijhoogte in Word-twips."""
+        tr_pr = row._tr.get_or_add_trPr()
+        tr_height = tr_pr.find(qn('w:trHeight'))
+        if tr_height is None:
+            tr_height = OxmlElement('w:trHeight')
+            tr_pr.append(tr_height)
+        tr_height.set(qn('w:val'), str(hoogte_twips))
+        tr_height.set(qn('w:hRule'), 'exact')
 
     def _stel_tabel_grid_in(self, tbl: Table, breedtes_cm: list[float]) -> None:
         """Stel vaste Word-kolombreedtes in via ``tblGrid``."""

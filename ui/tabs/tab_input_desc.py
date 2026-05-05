@@ -44,6 +44,8 @@ _PARAM_STRETCH = 3
 _NIVEAU_STRETCH = 2
 _TOEL_STRETCH  = 5
 _ROW_HEIGHT_PX = 17
+_DAMWAND_SPACING_PX = max(1, _ROW_HEIGHT_PX // 5)
+_DAMWAND_DATA_MIN_HEIGHT_PX = 27
 _IMG_RENDER_W  = 360
 _IMG_RENDER_H  = 800
 
@@ -159,7 +161,7 @@ class TabInputDesc(QWidget):
         return wrapper
 
     def _maak_damwand_card(self, card: DamwandCard) -> QWidget:
-        """Bouw de vaste damwandkaart (bovenaan de tab)."""
+        """Bouw de vaste damwandkaart als tabel bovenaan de tab."""
         from utils.formatting import fmt_number
 
         wrapper = QWidget()
@@ -177,86 +179,108 @@ class TabInputDesc(QWidget):
 
         frame = QFrame()
         frame.setStyleSheet(
-            f'QFrame {{ background: {_CARD_BG}; border: 1px solid {_BORDER}; }}'
+            f'QFrame {{ background: {_CARD_BG}; border: none; }}'
         )
         frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         outer.addWidget(frame)
 
         lay = QVBoxLayout(frame)
-        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setContentsMargins(0, 8, 0, 10)
         lay.setSpacing(0)
 
-        # Header
-        hdr = QWidget()
-        hdr.setStyleSheet(f'background: {_HDR_BG};')
-        hdr_lay = QHBoxLayout(hdr)
-        hdr_lay.setContentsMargins(0, 0, 0, 0)
-        titel = QLabel('Damwandprofiel')
+        titel = QLabel('Damwandgegevens')
         titel.setStyleSheet(
-            f'font-family: {_FONT}; font-size: 14px; font-weight: 700; '
-            f'color: {_HDR_FG}; background: {_HDR_BG}; padding: 10px 16px;'
+            f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+            f'color: {_LABEL_CLR}; background: transparent; padding: 0 0 6px 0; '
+            f'border: none;'
         )
-        hdr_lay.addWidget(titel)
-        lay.addWidget(hdr)
+        lay.addWidget(titel)
 
-        # Datarijen — None als schildwacht voor een horizontale deelstreep
         rijen: list[tuple[str, str, str] | None] = [
-            ('Profiel',          card.profiel,                        ''),
-            ('Staalkwaliteit',   card.staalkwaliteit,                 ''),
-            ('Hoogte h',         fmt_number(card.hoogte_mm),          '[mm]'),
-            ('Breedte b',        fmt_number(card.breedte_mm),         '[mm]'),
-            ('E-modulus staal',  '2,10E+05',                          '[N/mm²]'),
-            ('Kopniveau',        fmt_number(card.kopniveau),          '[m NAP]'),
-            ('Teenniveau',       fmt_number(card.teenniveau),         '[m NAP]'),
-            ('Lengte',           fmt_number(card.lengte),             '[m]'),
+            ('Profiel', card.profiel, ''),
+            ('Staalkwaliteit', card.staalkwaliteit, ''),
+            ('Hoogte', fmt_number(card.hoogte_mm), '[mm]'),
+            ('Breedte', fmt_number(card.breedte_mm), '[mm]'),
+            ('Buigstijfheid EI', fmt_number(card.ei_knm2), '[kNm²/m]'),
+            ('Weerstandsmoment Wy;el', fmt_number(card.weerstandsmoment_cm3), '[cm³/m]'),
+            ('Opneembaar moment', fmt_number(card.opneembaar_moment_knm), '[kNm/m]'),
+            ('Kopniveau', fmt_number(card.kopniveau), '[m NAP]'),
+            ('Teenniveau', fmt_number(card.teenniveau), '[m NAP]'),
+            ('Lengte', fmt_number(card.lengte), '[m]'),
         ]
         if card.ondersteuningen:
-            rijen.append(None)  # deelstreep
-            for naam, niveau in card.ondersteuningen[:4]:
+            rijen.append(None)
+            for naam, niveau in card.ondersteuningen:
                 rijen.append((naam, fmt_number(niveau), '[m NAP]'))
 
         grid_w = QWidget()
+        grid_w.setStyleSheet(f'background: {_CARD_BG}; border: none;')
         grid = QGridLayout(grid_w)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
-        grid.setColumnMinimumWidth(0, 190)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnMinimumWidth(2, 120)
+        grid.setColumnStretch(0, 5)
+        grid.setColumnStretch(1, 3)
+        grid.setColumnStretch(2, 2)
 
-        n_data = sum(1 for r in rijen if r is not None)
-        grid_row = 0
+        for col, tekst in enumerate(['Parameter', 'Waarde', 'Eenheid']):
+            header = QLabel(tekst)
+            header.setMinimumHeight(_DAMWAND_DATA_MIN_HEIGHT_PX)
+            border_l = f'border-left: 1px solid {_BORDER};' if col == 0 else ''
+            border_r = f'border-right: 1px solid {_BORDER};'
+            header.setStyleSheet(
+                f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+                f'color: {_HDR_FG}; background: {_HDR_BG}; padding: 3px 6px; '
+                f'min-height: {_DAMWAND_DATA_MIN_HEIGHT_PX}px; {border_l} '
+                f'border-top: 1px solid {_BORDER}; {border_r} '
+            )
+            grid.addWidget(header, 0, col)
+
+        aantal_data_rijen = sum(1 for rij in rijen if rij is not None)
         data_index = 0
-        for rij in rijen:
+        grid_row = 1
+        for rij_index, rij in enumerate(rijen):
             if rij is None:
-                sep = QFrame()
-                sep.setFrameShape(QFrame.Shape.HLine)
-                sep.setStyleSheet(f'background: {_BORDER}; max-height: 2px; border: none;')
-                grid.addWidget(sep, grid_row, 0, 1, 3)
+                spacing = QLabel('')
+                spacing.setFixedHeight(_DAMWAND_SPACING_PX)
+                spacing.setStyleSheet(f'background: {_CARD_BG}; padding: 0; border: none;')
+                grid.addWidget(spacing, grid_row, 0, 1, 3)
                 grid_row += 1
                 continue
 
             label, waarde, eenheid = rij
             bg = _ROW_ODD_BG if data_index % 2 == 0 else _ROW_EVEN_BG
-            is_last = data_index == n_data - 1
-            border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
+            gevolgd_door_spacing = (
+                rij_index + 1 < len(rijen) and rijen[rij_index + 1] is None
+            )
+            border_t = f'border-top: 1px solid {_ROW_SEP};'
+            border_b = f'border-bottom: 1px solid {_ROW_SEP};' if gevolgd_door_spacing else ''
 
             lbl = QLabel(label)
+            lbl.setMinimumHeight(_DAMWAND_DATA_MIN_HEIGHT_PX)
+            label_border_l = f'border-left: 1px solid {_ROW_SEP};'
+            label_border_r = f'border-right: 1px solid {_ROW_SEP};'
             lbl.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 12px; font-weight: 500; '
-                f'color: {_LABEL_CLR}; background: {bg}; padding: 6px 12px; '
-                f'border-right: 1px solid {_ROW_SEP}; {border_b}'
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-weight: 400; '
+                f'color: {_LABEL_CLR}; background: {bg}; padding: 2px 6px; '
+                f'min-height: {_DAMWAND_DATA_MIN_HEIGHT_PX}px; '
+                f'{label_border_l} {label_border_r} {border_t} {border_b}'
             )
             val = QLabel(waarde)
+            val.setMinimumHeight(_DAMWAND_DATA_MIN_HEIGHT_PX)
             val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            waarde_border_r = f'border-right: 1px solid {_ROW_SEP};'
             val.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 12px; color: {_VALUE_CLR}; '
-                f'background: {bg}; padding: 6px 14px; '
-                f'border-right: 1px solid {_ROW_SEP}; {border_b}'
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
+                f'background: {bg}; padding: 2px 6px; min-height: {_DAMWAND_DATA_MIN_HEIGHT_PX}px; '
+                f'{waarde_border_r} {border_t} {border_b}'
             )
             ext = QLabel(eenheid)
+            ext.setMinimumHeight(_DAMWAND_DATA_MIN_HEIGHT_PX)
+            eenheid_border_r = f'border-right: 1px solid {_ROW_SEP};'
             ext.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 11px; font-style: italic; '
-                f'color: {_EXTRA_CLR}; background: {bg}; padding: 6px 10px; {border_b}'
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-style: italic; '
+                f'color: {_EXTRA_CLR}; background: {bg}; padding: 2px 6px; '
+                f'min-height: {_DAMWAND_DATA_MIN_HEIGHT_PX}px; {eenheid_border_r} {border_t} {border_b}'
             )
             grid.addWidget(lbl, grid_row, 0)
             grid.addWidget(val, grid_row, 1)
@@ -264,7 +288,19 @@ class TabInputDesc(QWidget):
             grid_row += 1
             data_index += 1
 
-        lay.addWidget(grid_w)
+        for col in range(3):
+            sluitlijn = QLabel('')
+            sluitlijn.setFixedHeight(1)
+            sluitlijn.setStyleSheet(f'background: {_ROW_SEP}; padding: 0; border: none;')
+            grid.addWidget(sluitlijn, grid_row, col)
+
+        tabel_rij = QWidget()
+        tabel_rij_layout = QHBoxLayout(tabel_rij)
+        tabel_rij_layout.setContentsMargins(0, 0, 0, 0)
+        tabel_rij_layout.setSpacing(0)
+        tabel_rij_layout.addWidget(grid_w, stretch=16)
+        tabel_rij_layout.addStretch(10)
+        lay.addWidget(tabel_rij)
         return wrapper
 
     def _make_header(self, stage_name: str) -> QWidget:

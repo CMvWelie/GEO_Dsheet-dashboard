@@ -243,6 +243,11 @@ class WordExporter:
 
             WordHoofdstukExporter()._schrijf_fase_sectie(doc, section, project)
             return
+        if section.id == 'damwand_gegevens':
+            from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
+
+            WordHoofdstukExporter()._schrijf_damwandgegevens_sectie(doc, section)
+            return
 
         doc.add_heading(section.title, level=2)
 

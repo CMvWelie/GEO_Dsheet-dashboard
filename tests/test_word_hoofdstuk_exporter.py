@@ -120,6 +120,41 @@ def test_fase_invoer_sectie_maakt_tabel_in_word() -> None:
     assert len(doc.tables) >= 1
 
 
+def test_damwandgegevens_sectie_wordt_voorbeeldtabel() -> None:
+    from docx.oxml.ns import qn
+
+    sec = ReportSection(id='damwand_gegevens', title='Damwandgegevens')
+    sec.fields.extend([
+        ReportField('profiel', 'Profiel', 'AZ 18-700'),
+        ReportField('staalkwaliteit', 'Staalkwaliteit', 'S355'),
+        ReportField('hoogte', 'Hoogte', '420,0', 'mm'),
+        ReportField('ondersteuning_3', 'Anker A', '-2,1', 'm NAP'),
+    ])
+
+    doc = _export([sec], metadata=ReportMetadata(project_name='Test'))
+    tbl = doc.tables[0]
+
+    assert [col.get(qn('w:w')) for col in tbl._tbl.tblGrid.gridCol_lst] == [
+        '2835', '1701', '1134',
+    ]
+    assert [cell.text for cell in tbl.rows[0].cells] == [
+        'Parameter', 'Waarde', 'Eenheid',
+    ]
+    assert [cell.text for cell in tbl.rows[1].cells] == ['Profiel', 'AZ 18-700', '']
+    assert [cell.text for cell in tbl.rows[3].cells] == ['Hoogte', '420,0', '[mm]']
+    assert [cell.text for cell in tbl.rows[4].cells] == ['', '', '']
+    assert [cell.text for cell in tbl.rows[5].cells] == [
+        'Anker A', '-2,1', '[m NAP]',
+    ]
+    for cell in tbl.rows[0].cells:
+        shd = cell._tc.tcPr.find(qn('w:shd'))
+        assert shd is not None
+        assert shd.get(qn('w:fill')) == '147ACF'
+    assert tbl.rows[0]._tr.trPr.trHeight.get(qn('w:val')) == '255'
+    assert tbl.rows[0]._tr.trPr.trHeight.get(qn('w:hRule')) == 'exact'
+    assert tbl.rows[4]._tr.trPr.trHeight.get(qn('w:val')) == '40'
+
+
 def test_fase_sectie_tabel_bevat_kolomhoofden() -> None:
     from reporting.builders.input_description_builder import FaseCard, FaseRow
     from reporting.models import FaseInvoerSectie
