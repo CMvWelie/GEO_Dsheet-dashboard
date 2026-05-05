@@ -177,7 +177,9 @@ def test_fase_sectie_tabel_gebruikt_voorbeeld_breedtes_en_headerkleur() -> None:
             assert shd.get(qn('w:fill')) == '147ACF'
 
     header_run = tbl.rows[1].cells[0].paragraphs[0].runs[0]
-    assert header_run.font.size.pt == 7
+    assert header_run.font.size.pt == 8
+    data_run = tbl.rows[2].cells[0].paragraphs[0].runs[0]
+    assert data_run.font.size.pt == 7
 
     heights = [
         tbl.rows[i]._tr.trPr.trHeight.get(qn('w:val'))
