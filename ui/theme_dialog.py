@@ -22,13 +22,14 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 
 class ColorField(QGroupBox):
     """Compact kleurveld met hex-input en kleurkiezer."""
 
-    def __init__(self, label: str, value: str, parent=None) -> None:
+    def __init__(self, label: str, value: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setTitle(label)
         layout = QHBoxLayout(self)
@@ -70,7 +71,7 @@ class ThemeTemplateDialog(QDialog):
     def __init__(
         self,
         themes_dir: Path,
-        parent=None,
+        parent: QWidget | None = None,
         theme_path: Path | None = None,
     ) -> None:
         super().__init__(parent)
