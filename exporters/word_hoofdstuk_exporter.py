@@ -21,7 +21,7 @@ from reporting.models import (
 from reporting.figure_renderer import render_figuur
 
 
-_FASE_RIJHOOGTE_CM = 0.18
+_FASE_RIJHOOGTE_CM = 0.45
 
 
 def _png_hoogte_cm(png_bytes: bytes, breedte_cm: float) -> float:
