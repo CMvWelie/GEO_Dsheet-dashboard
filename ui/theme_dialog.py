@@ -123,6 +123,22 @@ class ThemeTemplateDialog(QDialog):
         heading_layout.addRow('Kop 2 grootte', h2_row)
         root.addWidget(headings)
 
+        typography = QGroupBox('Tekstgroottes')
+        typography_layout = QFormLayout(typography)
+        self.body_text_size = QSpinBox()
+        self.body_text_size.setRange(6, 18)
+        self.body_text_size.setValue(11)
+        self.table_text_size = QSpinBox()
+        self.table_text_size.setRange(5, 14)
+        self.table_text_size.setValue(7)
+        self.table_header_size = QSpinBox()
+        self.table_header_size.setRange(5, 16)
+        self.table_header_size.setValue(8)
+        typography_layout.addRow('Tekst buiten tabellen', self.body_text_size)
+        typography_layout.addRow('Tekst in tabellen', self.table_text_size)
+        typography_layout.addRow('Tabelkoppen', self.table_header_size)
+        root.addWidget(typography)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
@@ -186,6 +202,9 @@ class ThemeTemplateDialog(QDialog):
                 'size_base': 11,
                 'size_title': self.h2_size.value(),
                 'size_small': 10,
+                'size_text': self.body_text_size.value(),
+                'size_table': self.table_text_size.value(),
+                'size_table_header': self.table_header_size.value(),
             },
             'geometry': {
                 'radius': 4,

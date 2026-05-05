@@ -22,7 +22,7 @@ import zipfile
 from pathlib import Path
 
 from docx import Document
-from docx.shared import Cm
+from docx.shared import Cm, Pt
 
 from reporting.models import FaseInvoerSectie, ReportPackage, ReportSection
 from reporting.figure_renderer import render_figuur
@@ -54,6 +54,7 @@ class WordExporter:
                 doc = self._open_template(template_path)
             else:
                 doc = Document()
+            self._apply_theme_typography(doc)
 
             if mapping:
                 self._write_with_mapping(doc, package, mapping, project)
@@ -116,6 +117,15 @@ class WordExporter:
 
         uitvoer.seek(0)
         return Document(uitvoer)
+
+    def _apply_theme_typography(self, doc) -> None:
+        """Pas thematekstgrootte toe op standaardtekst buiten tabellen."""
+        from exporters.word_hoofdstuk_exporter import _eerste_fontfamilie
+        from ui import table_styles
+
+        stijl = doc.styles['Normal']
+        stijl.font.name = _eerste_fontfamilie(table_styles.TABLE_FONT)
+        stijl.font.size = Pt(table_styles.BODY_TEXT_SIZE)
 
     # ------------------------------------------------------------------
     # JSON-sidecar laden

@@ -19,7 +19,10 @@
     "fallback": "Segoe UI",
     "size_base": 11,
     "size_title": 12,
-    "size_small": 10
+    "size_small": 10,
+    "size_text": 11,
+    "size_table": 7,
+    "size_table_header": 8
   },
   "geometry": {
     "radius": 4,

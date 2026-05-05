@@ -56,9 +56,31 @@ def test_load_valid_json(tmp_path: Path) -> None:
     assert thema.name == "Test"
     assert thema.colors.primary == "#147ACF"
     assert thema.typography.family == "Eina 04"
+    assert thema.typography.size_text == 11
+    assert thema.typography.size_table == 7
+    assert thema.typography.size_table_header == 8
     assert thema.geometry.radius == 4
     assert thema.assets.app_logo == "/pad/naar/logo.png"
     assert thema.assets.font_files == ["/pad/naar/font.ttf"]
+
+
+def test_load_explicit_typography_sizes(tmp_path: Path) -> None:
+    data = _voorbeeld_thema_dict()
+    data["typography"].update(
+        {
+            "size_text": 13,
+            "size_table": 6,
+            "size_table_header": 9,
+        }
+    )
+    pad = tmp_path / "test.json"
+    pad.write_text(json.dumps(data), encoding="utf-8")
+
+    thema = Theme.load(pad)
+
+    assert thema.typography.size_text == 13
+    assert thema.typography.size_table == 6
+    assert thema.typography.size_table_header == 9
 
 
 def test_load_missing_required_field_raises(tmp_path: Path) -> None:
@@ -115,7 +137,9 @@ def test_discover_themes_skipt_kapotte_bestanden(tmp_path: Path) -> None:
 
 def test_build_stylesheet_bevat_kleuren_en_font(tmp_path: Path) -> None:
     pad = tmp_path / "test.json"
-    pad.write_text(json.dumps(_voorbeeld_thema_dict()), encoding="utf-8")
+    data = _voorbeeld_thema_dict()
+    data["typography"]["size_text"] = 13
+    pad.write_text(json.dumps(data), encoding="utf-8")
     thema = Theme.load(pad)
 
     qss = thema.build_stylesheet(font_family="Eina 04")
@@ -126,6 +150,7 @@ def test_build_stylesheet_bevat_kleuren_en_font(tmp_path: Path) -> None:
 
     # Tekstkleur
     assert "#44546A" in qss
+    assert "font-size: 13pt;" in qss
 
     # Font-familienaam met dubbele quotes (cruciaal voor namen met spatie)
     assert '"Eina 04"' in qss

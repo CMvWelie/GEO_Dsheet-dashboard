@@ -14,7 +14,7 @@ from ui.table_styles import (
     TABLE_BORDER, TABLE_EXTRA_COLOR, TABLE_FONT, TABLE_HEADER_BG,
     TABLE_HEADER_FG, TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG,
     TABLE_LABEL_COLOR, TABLE_ROW_EVEN_BG, TABLE_ROW_ODD_BG, TABLE_ROW_SEP,
-    TABLE_VALUE_COLOR,
+    TABLE_HEADER_SIZE, TABLE_TEXT_SIZE, TABLE_VALUE_COLOR,
 )
 
 # ── Kleurconstanten ──────────────────────────────────────────────────────────
@@ -36,8 +36,8 @@ _IMG_BG        = '#f8fbfd'
 
 # ── Typografie ────────────────────────────────────────────────────────────────
 _FONT          = TABLE_FONT
-_HDR_PT        = 8
-_DATA_PT       = 7
+_HDR_PT        = TABLE_HEADER_SIZE
+_DATA_PT       = TABLE_TEXT_SIZE
 _TEXT_STRETCH  = 100
 _IMG_STRETCH   = 63
 _PARAM_STRETCH = 3

@@ -83,6 +83,9 @@ class ThemeTypography:
     size_base: int
     size_title: int
     size_small: int
+    size_text: int = 11
+    size_table: int = 7
+    size_table_header: int = 8
 
 
 @dataclass
@@ -191,7 +194,7 @@ class Theme:
         return f"""
 * {{
     font-family: {ff}, "{t.fallback}", sans-serif;
-    font-size: {t.size_base}pt;
+    font-size: {t.size_text}pt;
     color: {c.text};
 }}
 
@@ -237,7 +240,7 @@ QPushButton {{
     border: 1px solid {c.border};
     border-radius: {g.radius}px;
     padding: {g.padding_button};
-    font-size: {t.size_base}pt;
+    font-size: {t.size_text}pt;
     font-weight: 500;
 }}
 
@@ -794,10 +797,24 @@ QSplitter::handle:hover {{
 
         try:
             colors = ThemeColors(**data['colors'])
-            typography = ThemeTypography(**data['typography'])
+            typography_data = data['typography']
+            typography = ThemeTypography(
+                family=typography_data['family'],
+                fallback=typography_data['fallback'],
+                size_base=int(typography_data['size_base']),
+                size_title=int(typography_data['size_title']),
+                size_small=int(typography_data['size_small']),
+                size_text=int(typography_data.get(
+                    'size_text', typography_data.get('size_base', 11),
+                )),
+                size_table=int(typography_data.get('size_table', 7)),
+                size_table_header=int(typography_data.get('size_table_header', 8)),
+            )
             geometry = ThemeGeometry(**data['geometry'])
         except TypeError as exc:
             raise ValueError(f'Ongeldige thema-inhoud: {exc}') from exc
+        except KeyError as exc:
+            raise ValueError(f'Ongeldige thema-inhoud: ontbrekend veld {exc}') from exc
 
         assets_data = data.get('assets') or {}
         assets = ThemeAssets(
@@ -894,6 +911,9 @@ def create_basic_theme() -> Theme:
         size_base=11,
         size_title=12,
         size_small=10,
+        size_text=11,
+        size_table=7,
+        size_table_header=8,
     )
     geometry = ThemeGeometry(radius=4, spacing=8, padding_button='7px 14px')
     table = ThemeTableStyle(

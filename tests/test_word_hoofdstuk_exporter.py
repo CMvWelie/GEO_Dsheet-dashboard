@@ -191,6 +191,27 @@ def test_fase_sectie_tabel_gebruikt_voorbeeld_breedtes_en_headerkleur() -> None:
     assert '52' in heights
 
 
+def test_fase_sectie_gebruikt_theme_fontgroottes(monkeypatch) -> None:
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+    from ui import table_styles
+
+    monkeypatch.setattr(table_styles, 'BODY_TEXT_SIZE', 12)
+    monkeypatch.setattr(table_styles, 'TABLE_TEXT_SIZE', 6)
+    monkeypatch.setattr(table_styles, 'TABLE_HEADER_SIZE', 9)
+
+    kaart = FaseCard(fase_num=1, stage_name='Fase 1')
+    kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))
+    sec = FaseInvoerSectie(id='fase_1', title='Fase 1', fase_card=kaart)
+
+    doc = _export([sec], metadata=ReportMetadata())
+    tbl = doc.tables[0]
+
+    assert doc.styles['Normal'].font.size.pt == 12
+    assert tbl.rows[1].cells[0].paragraphs[0].runs[0].font.size.pt == 9
+    assert tbl.rows[2].cells[0].paragraphs[0].runs[0].font.size.pt == 6
+
+
 def test_fase_sectie_voegt_geen_paddingrij_toe_zonder_afbeelding() -> None:
     from reporting.builders.input_description_builder import FaseCard, FaseRow
     from reporting.models import FaseInvoerSectie

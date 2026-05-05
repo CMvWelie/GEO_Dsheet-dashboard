@@ -90,6 +90,7 @@ class WordHoofdstukExporter:
         """
         try:
             doc = self._open_doc(template_path)
+            self._pas_document_typografie_toe(doc)
             self._schrijf_titel(doc, metadata)
             for sec in sections:
                 self._schrijf_sectie(doc, sec, project)
@@ -114,6 +115,14 @@ class WordHoofdstukExporter:
     def _schrijf_titel(self, doc: Document, metadata: ReportMetadata) -> None:
         titel = metadata.project_name or 'Damwand rapport'
         doc.add_heading(titel, level=1)
+
+    def _pas_document_typografie_toe(self, doc: Document) -> None:
+        """Pas thematekstgrootte toe op standaardtekst buiten tabellen."""
+        from ui import table_styles
+
+        stijl = doc.styles['Normal']
+        stijl.font.name = _eerste_fontfamilie(table_styles.TABLE_FONT)
+        stijl.font.size = Pt(table_styles.BODY_TEXT_SIZE)
 
     # ------------------------------------------------------------------
     # Secties
@@ -258,7 +267,10 @@ class WordHoofdstukExporter:
         font = _eerste_fontfamilie(table_styles.TABLE_FONT)
         for row in tbl.rows:
             for cell in row.cells:
-                self._pas_cel_font_toe(cell, font, '000000', bold=False, size_pt=7)
+                self._pas_cel_font_toe(
+                    cell, font, '000000', bold=False,
+                    size_pt=table_styles.TABLE_TEXT_SIZE,
+                )
 
         header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
         header_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_FG)
@@ -266,10 +278,16 @@ class WordHoofdstukExporter:
         subheader_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_SUB_FG)
         for cell in tbl.rows[0].cells:
             self._stel_cel_vulling(cell, header_bg)
-            self._pas_cel_font_toe(cell, font, header_fg, bold=True, size_pt=8)
+            self._pas_cel_font_toe(
+                cell, font, header_fg, bold=True,
+                size_pt=table_styles.TABLE_HEADER_SIZE,
+            )
         for cell in tbl.rows[1].cells:
             self._stel_cel_vulling(cell, subheader_bg)
-            self._pas_cel_font_toe(cell, font, subheader_fg, bold=True, size_pt=8)
+            self._pas_cel_font_toe(
+                cell, font, subheader_fg, bold=True,
+                size_pt=table_styles.TABLE_HEADER_SIZE,
+            )
 
     def _pas_cel_font_toe(
         self,

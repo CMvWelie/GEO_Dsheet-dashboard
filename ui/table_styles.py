@@ -19,6 +19,9 @@ TABLE_LABEL_COLOR = '#000000'
 TABLE_VALUE_COLOR = '#000000'
 TABLE_EXTRA_COLOR = '#000000'
 TABLE_FONT = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
+TABLE_TEXT_SIZE = 7
+TABLE_HEADER_SIZE = 8
+BODY_TEXT_SIZE = 11
 
 def configure_from_theme(theme: Theme | None) -> None:
     """Werk de centrale tabelstijl bij vanuit het actieve UI-thema."""
@@ -28,6 +31,7 @@ def configure_from_theme(theme: Theme | None) -> None:
     global TABLE_HEADER_BG, TABLE_HEADER_FG, TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG
     global TABLE_BORDER, TABLE_ROW_SEP, TABLE_ROW_ODD_BG, TABLE_ROW_EVEN_BG
     global TABLE_LABEL_COLOR, TABLE_VALUE_COLOR, TABLE_EXTRA_COLOR, TABLE_FONT
+    global TABLE_TEXT_SIZE, TABLE_HEADER_SIZE, BODY_TEXT_SIZE
     global REPORT_QTABLE_STYLE, BASIC_DEBUG_QTABLE_STYLE
 
     table = theme.table
@@ -43,6 +47,9 @@ def configure_from_theme(theme: Theme | None) -> None:
     TABLE_VALUE_COLOR = table.value_color
     TABLE_EXTRA_COLOR = table.extra_color
     TABLE_FONT = f'"{theme.typography.family}", "{theme.typography.fallback}", sans-serif'
+    TABLE_TEXT_SIZE = theme.typography.size_table
+    TABLE_HEADER_SIZE = theme.typography.size_table_header
+    BODY_TEXT_SIZE = theme.typography.size_text
     REPORT_QTABLE_STYLE = build_report_qtable_style()
     BASIC_DEBUG_QTABLE_STYLE = build_debug_qtable_style()
     _sync_loaded_legacy_aliases()
@@ -56,7 +63,7 @@ QTableWidget {{
     gridline-color: {TABLE_BORDER};
     border: 1px solid {TABLE_BORDER};
     font-family: {TABLE_FONT};
-    font-size: 11px;
+    font-size: {TABLE_TEXT_SIZE}pt;
 }}
 
 QHeaderView::section {{
@@ -65,6 +72,7 @@ QHeaderView::section {{
     border: 1px solid {TABLE_BORDER};
     padding: 4px 6px;
     font-weight: 700;
+    font-size: {TABLE_HEADER_SIZE}pt;
 }}
 
 QTableWidget::item {{
@@ -80,7 +88,7 @@ QTableWidget {{
     gridline-color: #808080;
     border: 1px solid #808080;
     font-family: {TABLE_FONT};
-    font-size: 11px;
+    font-size: {TABLE_TEXT_SIZE}pt;
 }}
 
 QHeaderView::section {{
@@ -89,6 +97,7 @@ QHeaderView::section {{
     border: 1px solid #808080;
     padding: 3px 6px;
     font-weight: 600;
+    font-size: {TABLE_HEADER_SIZE}pt;
 }}
 
 QTableWidget::item {{
@@ -127,6 +136,8 @@ def _sync_loaded_legacy_aliases() -> None:
         '_VALUE_CLR': TABLE_VALUE_COLOR,
         '_EXTRA_CLR': TABLE_EXTRA_COLOR,
         '_FONT': TABLE_FONT,
+        '_DATA_PT': TABLE_TEXT_SIZE,
+        '_HDR_PT': TABLE_HEADER_SIZE,
         'REPORT_QTABLE_STYLE': REPORT_QTABLE_STYLE,
         'BASIC_DEBUG_QTABLE_STYLE': BASIC_DEBUG_QTABLE_STYLE,
     }
