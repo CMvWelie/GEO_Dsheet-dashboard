@@ -54,7 +54,7 @@ class InputDescriptionBuilder:
     # ------------------------------------------------------------------
 
     def build_all_stages(self, project: Project) -> list[FaseCard]:
-        """Bouw een FaseCard per stage met de vaste rijen uit de screenshot."""
+        """Bouw een FaseCard per stage met niveau, toelichting en extra regels."""
         cards: list[FaseCard] = []
         for i, stage in enumerate(project.stages, start=1):
             card = FaseCard(fase_num=i, stage_name=stage.name)
@@ -75,39 +75,74 @@ class InputDescriptionBuilder:
             card.rows.append(FaseRow('Water Links',  f'{w_lv} [m NAP]'))
             card.rows.append(FaseRow('Water Rechts', f'{w_rv} [m NAP]'))
 
-            # ── Ankers, stempels, steunen (in volgorde: anchor, rigid, spring) ──
+            # ── Ankers ───────────────────────────────────────────────
             for name in stage.anchors:
                 a = _find(project.anchors, name)
                 if a:
-                    card.rows.append(FaseRow(a.name, f'{fmt_number(a.level)} [m NAP]'))
+                    card.rows.append(FaseRow(
+                        a.name,
+                        f'{fmt_number(a.level)} [m NAP]',
+                        f'{fmt_number(a.angle)} graden t.o.v. maaiveld',
+                    ))
+
+            # ── Stempels ─────────────────────────────────────────────
+            for name in (stage.struts or []):
+                st = _find(project.struts, name)
+                if st:
+                    card.rows.append(FaseRow(
+                        st.name,
+                        f'{fmt_number(st.level)} [m NAP]',
+                        f'{fmt_number(st.angle)} graden t.o.v. maaiveld',
+                        extra_lines=[f'{fmt_number(st.length)} m lengte'],
+                    ))
+
+            # ── Veersteunen ──────────────────────────────────────────
+            for name in stage.spring_supports:
+                s = _find(project.spring_supports, name)
+                if s:
+                    card.rows.append(FaseRow(
+                        s.name,
+                        f'{fmt_number(s.level)} [m NAP]',
+                        f'{fmt_number(s.rot_stiff)} [kNm/rad]',
+                        extra_lines=[f'{fmt_number(s.tr_stiff)} [kN/m]'],
+                    ))
+
+            # ── Rigide steunen ───────────────────────────────────────
             for name in stage.rigid_supports:
                 r = _find(project.rigid_supports, name)
                 if r:
                     card.rows.append(FaseRow(r.name, f'{fmt_number(r.level)} [m NAP]'))
-            for name in stage.spring_supports:
-                s = _find(project.spring_supports, name)
-                if s:
-                    card.rows.append(FaseRow(s.name, f'{fmt_number(s.level)} [m NAP]'))
-            for name in (stage.struts or []):
-                st = _find(project.struts, name)
-                if st:
-                    card.rows.append(FaseRow(st.name, f'{fmt_number(st.level)} [m NAP]'))
 
-            # ── Belastingen ──────────────────────────────────────────
+            # ── Normaalkrachten ──────────────────────────────────────
             for name in (stage.normal_forces or []):
                 nf = _find(project.normal_forces, name)
                 if nf:
-                    card.rows.append(FaseRow(
-                        nf.name,
-                        f'{fmt_number(nf.surface_left)} / {fmt_number(nf.surface_right)} [kN/m]',
-                    ))
+                    waarden = [nf.top, nf.surface_left, nf.surface_right, nf.bottom]
+                    if len(set(waarden)) == 1:
+                        card.rows.append(FaseRow(
+                            nf.name, '-', f'{fmt_number(nf.top)} [kN/m]',
+                        ))
+                    else:
+                        card.rows.append(FaseRow(
+                            nf.name, '-',
+                            f'Top: {fmt_number(nf.top)} [kN/m]',
+                            extra_lines=[
+                                f'Vlak links: {fmt_number(nf.surface_left)} [kN/m]',
+                                f'Vlak rechts: {fmt_number(nf.surface_right)} [kN/m]',
+                                f'Bottom: {fmt_number(nf.bottom)} [kN/m]',
+                            ],
+                        ))
 
+            # ── Gelijkmatige belastingen ─────────────────────────────
             for name in (stage.uniform_loads or []):
                 ul = _find(project.uniform_loads, name)
                 if ul:
                     val = fmt_number(ul.left) if ul.left else fmt_number(ul.right)
-                    card.rows.append(FaseRow(ul.name, f'{val} [kN/m²]'))
+                    card.rows.append(FaseRow(
+                        ul.name, 'op maaiveld', f'{val} [kN/m²]',
+                    ))
 
+            # ── Surcharge belastingen ────────────────────────────────
             seen: set[str] = set()
             for name in (stage.surcharge_loads_left or []) + (stage.surcharge_loads_right or []):
                 if name in seen:
@@ -118,18 +153,34 @@ class InputDescriptionBuilder:
                     val = fmt_number(sl.points[0]['value'])
                     dists = sorted(p['distance'] for p in sl.points)
                     breedte = dists[-1] - dists[0] if len(dists) >= 2 else 0.0
-                    extra = f'{fmt_number(breedte)}m breed' if breedte > 0 else ''
-                    card.rows.append(FaseRow(sl.name, f'{val} [kN/m²]', extra))
+                    afstand = dists[0]
+                    card.rows.append(FaseRow(
+                        sl.name, 'op maaiveld', f'{val} [kN/m²]',
+                        extra_lines=[
+                            f'{fmt_number(breedte)}m breed',
+                            f'{fmt_number(afstand)}m vanaf damwand',
+                        ],
+                    ))
 
+            # ── Momenten ─────────────────────────────────────────────
             for name in (stage.moments or []):
                 m = _find(project.moments, name)
                 if m:
-                    card.rows.append(FaseRow(m.name, f'{fmt_number(m.value)} [kNm/m]'))
+                    card.rows.append(FaseRow(
+                        m.name,
+                        f'{fmt_number(m.level)} [m NAP]',
+                        f'{fmt_number(m.value)} [kNm/m]',
+                    ))
 
+            # ── Horizontale lijnlasten ───────────────────────────────
             for name in (stage.horizontal_line_loads or []):
                 hl = _find(project.horizontal_line_loads, name)
                 if hl:
-                    card.rows.append(FaseRow(hl.name, f'{fmt_number(hl.value)} [kN/m]'))
+                    card.rows.append(FaseRow(
+                        hl.name,
+                        f'{fmt_number(hl.level)} [m NAP]',
+                        f'{fmt_number(hl.value)} [kN/m]',
+                    ))
 
             cards.append(card)
         return cards
