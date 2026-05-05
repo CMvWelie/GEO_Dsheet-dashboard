@@ -43,6 +43,9 @@ _IMG_STRETCH   = 63
 _PARAM_STRETCH = 3
 _NIVEAU_STRETCH = 2
 _TOEL_STRETCH  = 5
+_ROW_HEIGHT_PX = 17
+_IMG_RENDER_W  = 360
+_IMG_RENDER_H  = 800
 
 
 class TabInputDesc(QWidget):
@@ -407,6 +410,15 @@ class TabInputDesc(QWidget):
 
             grid_row += n_sub
 
+        padding_hoogte = self._padding_hoogte_px(card, grid_row)
+        if padding_hoogte > 0:
+            padding = QLabel('')
+            padding.setMinimumHeight(padding_hoogte)
+            padding.setStyleSheet(
+                f'background: {_CARD_BG}; border-right: 1px solid {_ROW_SEP};'
+            )
+            grid.addWidget(padding, grid_row, 0, 1, 3)
+
         body_layout.addWidget(grid_widget, stretch=_TEXT_STRETCH)
 
         # ── Afbeeldingscontainer ──────────────────────────────────────
@@ -423,8 +435,8 @@ class TabInputDesc(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(card.image_bytes)
             scaled = pixmap.scaled(
-                360,
-                800,
+                _IMG_RENDER_W,
+                _IMG_RENDER_H,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
@@ -448,3 +460,20 @@ class TabInputDesc(QWidget):
 
         return body
 
+    def _padding_hoogte_px(self, card: FaseCard, gevulde_rijen: int) -> int:
+        """Geef extra lege teksthoogte als de afbeelding hoger is dan de tekstzijde."""
+        if not card.image_bytes or gevulde_rijen <= 0:
+            return 0
+
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(card.image_bytes):
+            return 0
+
+        scaled = pixmap.scaled(
+            _IMG_RENDER_W,
+            _IMG_RENDER_H,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        teksthoogte = gevulde_rijen * _ROW_HEIGHT_PX
+        return max(0, scaled.height() - teksthoogte)
