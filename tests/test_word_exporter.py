@@ -11,6 +11,7 @@ from docx import Document
 from exporters import word_exporter
 from exporters.word_exporter import WordExporter
 from reporting.models import (
+    FaseInvoerSectie,
     ReportImageGroup,
     ReportImageRequest,
     ReportItem,
@@ -18,6 +19,7 @@ from reporting.models import (
     ReportPackage,
     ReportSection,
 )
+from reporting.builders.input_description_builder import FaseCard, FaseRow
 
 
 _PNG_1X1 = base64.b64decode(
@@ -107,3 +109,48 @@ def test_word_exporter_schrijft_image_group_als_tabel(monkeypatch) -> None:
     assert len(doc.tables) == 2
     assert len(doc.inline_shapes) == 3
     assert doc.tables[-1].rows[0].cells[0].text == 'Msd = 210 kNm/m'
+
+
+def test_word_exporter_gebruikt_fase_invoer_tabel_layout() -> None:
+    """Normale Word-export gebruikt dezelfde fase-layout als hoofdstukexport."""
+    kaart = FaseCard(fase_num=2, stage_name='Fase 2: Belasting')
+    kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))
+    kaart.rows.append(FaseRow(
+        'Bovenbelasting',
+        'op maaiveld',
+        '5,0 [kN/m²]',
+        extra_lines=['3,0m breed', '0,0m vanaf damwand'],
+    ))
+    sec = FaseInvoerSectie(
+        id='fase_2_invoer',
+        title='Fase 2: Belasting',
+        fase_card=kaart,
+    )
+    pkg = ReportPackage(
+        metadata=ReportMetadata(project_name='T'),
+        input_sections=[sec],
+        selected_items=[
+            ReportItem(
+                id='damwand_fase_2_invoer',
+                kind='invoer',
+                caption='Fase 2: Belasting',
+                source_ref='fase_2_invoer',
+            )
+        ],
+    )
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as handle:
+        out = handle.name
+    fout = WordExporter().export(pkg, None, out, project=None)
+    assert fout is None
+    doc = Document(out)
+    os.unlink(out)
+
+    assert len(doc.tables) >= 2
+    fase_tabel = doc.tables[-1]
+    assert [c.text for c in fase_tabel.rows[1].cells][:3] == [
+        'Parameter', 'Niveau', 'Toelichting',
+    ]
+    alle_tekst = '\n'.join(c.text for row in fase_tabel.rows for c in row.cells)
+    assert 'Bovenbelasting' in alle_tekst
+    assert '3,0m breed' in alle_tekst
+    assert '0,0m vanaf damwand' in alle_tekst

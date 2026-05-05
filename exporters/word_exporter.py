@@ -24,7 +24,7 @@ from pathlib import Path
 from docx import Document
 from docx.shared import Cm
 
-from reporting.models import ReportPackage, ReportSection
+from reporting.models import FaseInvoerSectie, ReportPackage, ReportSection
 from reporting.figure_renderer import render_figuur
 
 _DOTX_CONTENT_TYPE = (
@@ -228,6 +228,12 @@ class WordExporter:
             row.cells[1].text = value or ''
 
     def _write_section(self, doc, section: ReportSection, project=None) -> None:
+        if isinstance(section, FaseInvoerSectie):
+            from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
+
+            WordHoofdstukExporter()._schrijf_fase_sectie(doc, section, project)
+            return
+
         doc.add_heading(section.title, level=2)
 
         for f in section.fields:
