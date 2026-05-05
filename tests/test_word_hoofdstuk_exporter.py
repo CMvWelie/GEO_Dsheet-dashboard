@@ -191,6 +191,56 @@ def test_fase_sectie_tabel_gebruikt_voorbeeld_breedtes_en_headerkleur() -> None:
     assert '52' in heights
 
 
+def test_fase_sectie_voegt_geen_paddingrij_toe_zonder_afbeelding() -> None:
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    kaart = FaseCard(fase_num=1, stage_name='Fase 1')
+    kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))
+    sec = FaseInvoerSectie(id='fase_1', title='Fase 1', fase_card=kaart)
+
+    doc = _export([sec], metadata=ReportMetadata())
+    tbl = doc.tables[0]
+    assert len(tbl.rows) == 3  # twee koprijen + één gevulde tekstregel
+
+
+def test_fase_sectie_voegt_paddingrij_toe_als_afbeelding_hoger_is(monkeypatch) -> None:
+    import base64
+    from exporters import word_hoofdstuk_exporter
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    png_1x1 = base64.b64decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwAD'
+        'hgGAWjR9awAAAABJRU5ErkJggg=='
+    )
+
+    monkeypatch.setattr(
+        word_hoofdstuk_exporter,
+        'render_figuur',
+        lambda _img, _project: png_1x1,
+    )
+    monkeypatch.setattr(word_hoofdstuk_exporter, '_png_hoogte_cm', lambda *_: 12.0)
+    kaart = FaseCard(fase_num=1, stage_name='Fase 1')
+    kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))
+    sec = FaseInvoerSectie(id='fase_1', title='Fase 1', fase_card=kaart)
+
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as f:
+        pad = f.name
+    fout = WordHoofdstukExporter().export(
+        sections=[sec],
+        metadata=ReportMetadata(),
+        project=object(),
+        template_path=None,
+        output_path=pad,
+    )
+    assert fout is None
+    doc = Document(pad)
+    os.unlink(pad)
+    tbl = doc.tables[0]
+    assert len(tbl.rows) == 4  # twee koprijen + één tekstregel + één paddingrij
+
+
 # ---------------------------------------------------------------------------
 # Taak 6: figuurrendering
 # ---------------------------------------------------------------------------

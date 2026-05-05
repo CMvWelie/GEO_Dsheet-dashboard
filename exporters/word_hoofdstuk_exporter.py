@@ -21,6 +21,9 @@ from reporting.models import (
 from reporting.figure_renderer import render_figuur
 
 
+_FASE_RIJHOOGTE_CM = 0.18
+
+
 def _png_hoogte_cm(png_bytes: bytes, breedte_cm: float) -> float:
     """Bereken de weergavehoogte in cm van een PNG bij vaste breedte.
 
@@ -172,7 +175,9 @@ class WordHoofdstukExporter:
             png_bytes = render_figuur(img_req, project)
 
         n_data = sum(1 + len(rij.extra_lines) for rij in kaart.rows)
-        n_padding = 1
+        teksthoogte_cm = max(n_data, 1) * _FASE_RIJHOOGTE_CM
+        afbeeldingshoogte_cm = _png_hoogte_cm(png_bytes, 6.0) if png_bytes else 0.0
+        n_padding = 1 if afbeeldingshoogte_cm > teksthoogte_cm else 0
         n_header = 2
         n_rows = n_header + max(n_data, 1) + n_padding
 
@@ -222,10 +227,11 @@ class WordHoofdstukExporter:
                 tbl.rows[grid_row + k + 1].cells[2].text = extra_tekst
             grid_row += n_sub
 
-        pad_start = n_header + max(n_data, 1)
-        pad_cel = tbl.rows[pad_start].cells[0].merge(tbl.rows[n_rows - 1].cells[2])
-        self._stel_cel_breedte(pad_cel, sum(kolom_breedtes[:3]))
-        self._stel_rijhoogte_twips(tbl.rows[pad_start], 52)
+        if n_padding:
+            pad_start = n_header + max(n_data, 1)
+            pad_cel = tbl.rows[pad_start].cells[0].merge(tbl.rows[n_rows - 1].cells[2])
+            self._stel_cel_breedte(pad_cel, sum(kolom_breedtes[:3]))
+            self._stel_rijhoogte_twips(tbl.rows[pad_start], 52)
 
         self._pas_fase_tabel_opmaak_toe(tbl)
 
