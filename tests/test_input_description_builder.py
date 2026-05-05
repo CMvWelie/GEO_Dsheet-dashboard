@@ -192,3 +192,18 @@ def test_normal_force_ongelijk_rapporteert_vier_extra_lines() -> None:
     assert any('Vlak links' in r for r in alle)
     assert any('Vlak rechts' in r for r in alle)
     assert any('Bottom' in r for r in alle)
+
+
+def test_fase_invoer_sectie_is_report_section_subklasse() -> None:
+    from reporting.models import FaseInvoerSectie, ReportSection
+    sec = FaseInvoerSectie(id='f1', title='Fase 1')
+    assert isinstance(sec, ReportSection)
+    assert sec.fase_card is None
+
+
+def test_fase_invoer_sectie_bewaart_fase_card() -> None:
+    from reporting.models import FaseInvoerSectie
+    from reporting.builders.input_description_builder import FaseCard
+    kaart = FaseCard(fase_num=1, stage_name='Fase 1')
+    sec = FaseInvoerSectie(id='f1', title='Fase 1', fase_card=kaart)
+    assert sec.fase_card is kaart

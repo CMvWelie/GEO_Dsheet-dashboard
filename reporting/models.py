@@ -104,3 +104,16 @@ class ReportPackage:
     selected_items: list[ReportItem] = field(default_factory=list)
     template_excel: str | None = None
     template_word: str | None = None
+
+
+@dataclass
+class FaseInvoerSectie(ReportSection):
+    """ReportSection-subklasse die een FaseCard meedraagt voor gecombineerde tabel+afbeelding-export.
+
+    Parameters
+    ----------
+    fase_card:
+        De bijbehorende FaseCard; getypeerd als ``object`` om circulaire import
+        met ``reporting.builders.input_description_builder`` te vermijden.
+    """
+    fase_card: object = None
