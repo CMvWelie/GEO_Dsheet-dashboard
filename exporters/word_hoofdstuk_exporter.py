@@ -252,7 +252,7 @@ class WordHoofdstukExporter:
         font = _eerste_fontfamilie(table_styles.TABLE_FONT)
         for row in tbl.rows:
             for cell in row.cells:
-                self._pas_cel_font_toe(cell, font, '000000', bold=False, size_pt=8)
+                self._pas_cel_font_toe(cell, font, '000000', bold=False, size_pt=7)
 
         header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
         header_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_FG)
@@ -260,10 +260,10 @@ class WordHoofdstukExporter:
         subheader_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_SUB_FG)
         for cell in tbl.rows[0].cells:
             self._stel_cel_vulling(cell, header_bg)
-            self._pas_cel_font_toe(cell, font, header_fg, bold=True, size_pt=8)
+            self._pas_cel_font_toe(cell, font, header_fg, bold=True, size_pt=7)
         for cell in tbl.rows[1].cells:
             self._stel_cel_vulling(cell, subheader_bg)
-            self._pas_cel_font_toe(cell, font, subheader_fg, bold=True, size_pt=8)
+            self._pas_cel_font_toe(cell, font, subheader_fg, bold=True, size_pt=7)
 
     def _pas_cel_font_toe(
         self,
