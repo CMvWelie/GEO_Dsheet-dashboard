@@ -143,6 +143,49 @@ def test_fase_sectie_tabel_bevat_kolomhoofden() -> None:
     assert len(tbl.rows) >= 5
 
 
+def test_fase_sectie_tabel_gebruikt_voorbeeld_breedtes_en_headerkleur() -> None:
+    from docx.oxml.ns import qn
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    kaart = FaseCard(fase_num=2, stage_name='Fase 2: Belasting')
+    kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))
+    kaart.rows.append(FaseRow(
+        'Bovenbelasting',
+        'op maaiveld',
+        '5,0 [kN/m²]',
+        extra_lines=['3,0m breed', '0,0m vanaf damwand'],
+    ))
+    sec = FaseInvoerSectie(id='fase_2', title='Fase 2: Belasting', fase_card=kaart)
+
+    doc = _export([sec], metadata=ReportMetadata())
+    tbl = doc.tables[0]
+    grid = tbl._tbl.tblGrid
+    assert [col.get(qn('w:w')) for col in grid.gridCol_lst] == [
+        '1701', '1134', '2835', '3572',
+    ]
+    assert tbl.rows[0].cells[0]._tc.tcPr.tcW.w == 5670
+    assert tbl.rows[0].cells[3]._tc.tcPr.tcW.w == 3572
+    assert tbl.rows[1].cells[0]._tc.tcPr.tcW.w == 1701
+    assert tbl.rows[1].cells[1]._tc.tcPr.tcW.w == 1134
+    assert tbl.rows[1].cells[2]._tc.tcPr.tcW.w == 2835
+
+    for row_idx in (0, 1):
+        for cell in tbl.rows[row_idx].cells:
+            shd = cell._tc.tcPr.find(qn('w:shd'))
+            assert shd is not None
+            assert shd.get(qn('w:fill')) == '147ACF'
+
+    heights = [
+        tbl.rows[i]._tr.trPr.trHeight.get(qn('w:val'))
+        for i in range(len(tbl.rows))
+        if tbl.rows[i]._tr.trPr is not None
+        and tbl.rows[i]._tr.trPr.trHeight is not None
+    ]
+    assert '54' in heights
+    assert '52' in heights
+
+
 # ---------------------------------------------------------------------------
 # Taak 6: figuurrendering
 # ---------------------------------------------------------------------------

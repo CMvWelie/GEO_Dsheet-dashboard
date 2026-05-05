@@ -1,16 +1,15 @@
 """WordHoofdstukExporter — exporteert het damwand-hoofdstuk naar Word."""
 from __future__ import annotations
 import io
-import math
 from pathlib import Path
+import re
 import struct
 
 from docx import Document
-from docx.enum.table import WD_ROW_HEIGHT_RULE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm
+from docx.shared import Cm, Pt, RGBColor
 from docx.table import Table
 
 from reporting.models import (
@@ -44,6 +43,20 @@ def _png_hoogte_cm(png_bytes: bytes, breedte_cm: float) -> float:
     if w_px == 0:
         return 0.0
     return breedte_cm * h_px / w_px
+
+
+def _hex_zonder_hash(kleur: str) -> str:
+    """Normaliseer een CSS-hexkleur naar Word-hex zonder ``#``."""
+    kleur = (kleur or '').strip()
+    if kleur.startswith('#'):
+        kleur = kleur[1:]
+    return kleur.upper() if re.fullmatch(r'[0-9A-Fa-f]{6}', kleur) else '000000'
+
+
+def _eerste_fontfamilie(font_stack: str) -> str:
+    """Haal de eerste fontnaam uit een CSS-font-stack."""
+    eerste = (font_stack or 'Arial').split(',')[0].strip()
+    return eerste.strip('"\'') or 'Arial'
 
 
 class WordHoofdstukExporter:
@@ -159,38 +172,48 @@ class WordHoofdstukExporter:
             png_bytes = render_figuur(img_req, project)
 
         n_data = sum(1 + len(rij.extra_lines) for rij in kaart.rows)
-        n_img = math.ceil(_png_hoogte_cm(png_bytes, 6.0) / 0.18) if png_bytes else 0
-        n_total = max(n_data, n_img, 1)
-        n_padding = n_total - n_data
+        n_padding = 1
         n_header = 2
-        n_rows = n_header + n_total
+        n_rows = n_header + max(n_data, 1) + n_padding
 
         tbl = doc.add_table(rows=n_rows, cols=4)
+        tbl.autofit = False
         try:
             tbl.style = 'Table Grid'
         except KeyError:
             pass
 
-        self._stel_tabel_grid_in(tbl, [3.0, 2.0, 5.0, 6.0])
+        kolom_breedtes = [1701, 1134, 2835, 3572]
+        self._stel_tabel_grid_in(tbl, [3.0, 2.0, 5.0, 6.3])
+        for row in tbl.rows:
+            for col_idx, cell in enumerate(row.cells[:4]):
+                self._stel_cel_breedte(cell, kolom_breedtes[col_idx])
 
         cel_naam = tbl.rows[0].cells[0].merge(tbl.rows[0].cells[2])
+        self._stel_cel_breedte(cel_naam, sum(kolom_breedtes[:3]))
         cel_naam.text = kaart.stage_name
         tbl.rows[0].cells[3].text = 'Afbeelding'
 
         tbl.rows[1].cells[0].text = 'Parameter'
         tbl.rows[1].cells[1].text = 'Niveau'
         tbl.rows[1].cells[2].text = 'Toelichting'
+        tbl.rows[1].cells[3].text = ''
 
         grid_row = n_header
         for rij in kaart.rows:
             n_sub = 1 + len(rij.extra_lines)
             if n_sub > 1:
-                tbl.rows[grid_row].cells[0].merge(
+                label_cel = tbl.rows[grid_row].cells[0].merge(
                     tbl.rows[grid_row + n_sub - 1].cells[0]
                 )
-                tbl.rows[grid_row].cells[1].merge(
+                niveau_cel = tbl.rows[grid_row].cells[1].merge(
                     tbl.rows[grid_row + n_sub - 1].cells[1]
                 )
+                self._stel_cel_breedte(label_cel, kolom_breedtes[0])
+                self._stel_cel_breedte(niveau_cel, kolom_breedtes[1])
+                self._stel_rijhoogte_twips(tbl.rows[grid_row], 54)
+                for k in range(1, n_sub):
+                    self._stel_rijhoogte_twips(tbl.rows[grid_row + k], 52)
 
             tbl.rows[grid_row].cells[0].text = rij.label
             tbl.rows[grid_row].cells[1].text = rij.value
@@ -199,17 +222,17 @@ class WordHoofdstukExporter:
                 tbl.rows[grid_row + k + 1].cells[2].text = extra_tekst
             grid_row += n_sub
 
-        if n_padding > 0:
-            pad_start = n_header + n_data
-            tbl.rows[pad_start].cells[0].merge(tbl.rows[n_rows - 1].cells[2])
+        pad_start = n_header + max(n_data, 1)
+        pad_cel = tbl.rows[pad_start].cells[0].merge(tbl.rows[n_rows - 1].cells[2])
+        self._stel_cel_breedte(pad_cel, sum(kolom_breedtes[:3]))
+        self._stel_rijhoogte_twips(tbl.rows[pad_start], 52)
 
-        for rij_idx in range(n_header, n_rows):
-            tbl.rows[rij_idx].height = Cm(0.18)
-            tbl.rows[rij_idx].height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
+        self._pas_fase_tabel_opmaak_toe(tbl)
 
-        img_cel = tbl.rows[0].cells[3]
-        for rij_idx in range(1, n_rows):
+        img_cel = tbl.rows[n_header].cells[3]
+        for rij_idx in range(n_header + 1, n_rows):
             img_cel = img_cel.merge(tbl.rows[rij_idx].cells[3])
+        self._stel_cel_breedte(img_cel, kolom_breedtes[3])
 
         para = img_cel.paragraphs[0]
         para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -221,6 +244,79 @@ class WordHoofdstukExporter:
         v_align = OxmlElement('w:vAlign')
         v_align.set(qn('w:val'), 'center')
         tc_pr.append(v_align)
+
+    def _pas_fase_tabel_opmaak_toe(self, tbl: Table) -> None:
+        """Pas thema-font en headerkleuren toe op de fase-invoertabel."""
+        from ui import table_styles
+
+        font = _eerste_fontfamilie(table_styles.TABLE_FONT)
+        for row in tbl.rows:
+            for cell in row.cells:
+                self._pas_cel_font_toe(cell, font, '000000', bold=False, size_pt=8)
+
+        header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
+        header_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_FG)
+        subheader_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_SUB_BG)
+        subheader_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_SUB_FG)
+        for cell in tbl.rows[0].cells:
+            self._stel_cel_vulling(cell, header_bg)
+            self._pas_cel_font_toe(cell, font, header_fg, bold=True, size_pt=8)
+        for cell in tbl.rows[1].cells:
+            self._stel_cel_vulling(cell, subheader_bg)
+            self._pas_cel_font_toe(cell, font, subheader_fg, bold=True, size_pt=8)
+
+    def _pas_cel_font_toe(
+        self,
+        cell,
+        font_name: str,
+        color_hex: str,
+        *,
+        bold: bool,
+        size_pt: int,
+    ) -> None:
+        """Zet font, kleur en gewicht voor alle runs in een Word-cel."""
+        kleur = RGBColor.from_string(color_hex)
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.font.name = font_name
+                run.font.size = Pt(size_pt)
+                run.font.bold = bold
+                run.font.color.rgb = kleur
+                r_pr = run._r.get_or_add_rPr()
+                r_fonts = r_pr.rFonts
+                if r_fonts is None:
+                    r_fonts = OxmlElement('w:rFonts')
+                    r_pr.append(r_fonts)
+                r_fonts.set(qn('w:ascii'), font_name)
+                r_fonts.set(qn('w:hAnsi'), font_name)
+
+    def _stel_cel_vulling(self, cell, fill_hex: str) -> None:
+        """Zet celvulling op een hexkleur zonder randstijlen te wijzigen."""
+        tc_pr = cell._tc.get_or_add_tcPr()
+        shd = tc_pr.find(qn('w:shd'))
+        if shd is None:
+            shd = OxmlElement('w:shd')
+            tc_pr.append(shd)
+        shd.set(qn('w:fill'), fill_hex)
+
+    def _stel_cel_breedte(self, cell, breedte_dxa: int) -> None:
+        """Zet celbreedte in twips/dxa zoals Word die in ``tcW`` verwacht."""
+        tc_pr = cell._tc.get_or_add_tcPr()
+        tc_w = tc_pr.find(qn('w:tcW'))
+        if tc_w is None:
+            tc_w = OxmlElement('w:tcW')
+            tc_pr.append(tc_w)
+        tc_w.set(qn('w:w'), str(breedte_dxa))
+        tc_w.set(qn('w:type'), 'dxa')
+
+    def _stel_rijhoogte_twips(self, row, hoogte_twips: int) -> None:
+        """Zet een compacte rijhoogte in Word-twips zonder exact-height regel."""
+        tr_pr = row._tr.get_or_add_trPr()
+        tr_height = tr_pr.find(qn('w:trHeight'))
+        if tr_height is None:
+            tr_height = OxmlElement('w:trHeight')
+            tr_pr.append(tr_height)
+        tr_height.set(qn('w:val'), str(hoogte_twips))
 
     def _stel_tabel_grid_in(self, tbl: Table, breedtes_cm: list[float]) -> None:
         """Stel vaste Word-kolombreedtes in via ``tblGrid``."""
