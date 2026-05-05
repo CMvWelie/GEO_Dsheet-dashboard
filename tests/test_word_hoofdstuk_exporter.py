@@ -89,6 +89,60 @@ def test_export_zonder_template_gebruikt_lege_doc() -> None:
     os.unlink(pad)
 
 
+def test_png_hoogte_cm_berekent_correct() -> None:
+    import struct
+    import zlib
+
+    from exporters.word_hoofdstuk_exporter import _png_hoogte_cm
+
+    def _mini_png(w: int, h: int) -> bytes:
+        header = b'\x89PNG\r\n\x1a\n'
+        ihdr_data = struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)
+        crc = zlib.crc32(b'IHDR' + ihdr_data) & 0xFFFFFFFF
+        ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + struct.pack('>I', crc)
+        return header + ihdr
+
+    png = _mini_png(100, 200)
+    result = _png_hoogte_cm(png, 6.0)
+    assert abs(result - 12.0) < 0.001
+
+
+def test_fase_invoer_sectie_maakt_tabel_in_word() -> None:
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    kaart = FaseCard(fase_num=1, stage_name='Fase 1: Test')
+    kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))
+    kaart.rows.append(FaseRow('Leganker', '-0,3 [m NAP]', '0 graden t.o.v. maaiveld'))
+    sec = FaseInvoerSectie(id='fase_1', title='Fase 1: Test', fase_card=kaart)
+
+    doc = _export([sec], metadata=ReportMetadata(project_name='Test'))
+    assert len(doc.tables) >= 1
+
+
+def test_fase_sectie_tabel_bevat_kolomhoofden() -> None:
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    kaart = FaseCard(fase_num=2, stage_name='Fase 2: Belasting')
+    kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))
+    kaart.rows.append(FaseRow(
+        'Bovenbelasting',
+        'op maaiveld',
+        '5,0 [kN/m²]',
+        extra_lines=['3,0m breed', '0m vanaf damwand'],
+    ))
+    sec = FaseInvoerSectie(id='fase_2', title='Fase 2: Belasting', fase_card=kaart)
+
+    doc = _export([sec], metadata=ReportMetadata())
+    tbl = doc.tables[0]
+    teksten_rij1 = [c.text for c in tbl.rows[1].cells]
+    assert 'Parameter' in teksten_rij1
+    assert 'Niveau' in teksten_rij1
+    assert 'Toelichting' in teksten_rij1
+    assert len(tbl.rows) >= 5
+
+
 # ---------------------------------------------------------------------------
 # Taak 6: figuurrendering
 # ---------------------------------------------------------------------------

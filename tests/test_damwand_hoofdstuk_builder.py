@@ -98,6 +98,15 @@ def test_fase_sectie_bevat_image_request() -> None:
     assert secties[0].images[0].stage_index == 0
 
 
+def test_fase_sectie_is_fase_invoer_sectie_met_kaart() -> None:
+    from reporting.models import FaseInvoerSectie
+
+    project = _basis_project(stages=[_maak_stage('Fase 1')])
+    secties = DamwandHoofdstukBuilder()._bouw_fase_secties(project)
+    assert isinstance(secties[0], FaseInvoerSectie)
+    assert secties[0].fase_card is not None
+
+
 def test_fase_secties_leeg_project() -> None:
     project = _basis_project(stages=[])
     secties = DamwandHoofdstukBuilder()._bouw_fase_secties(project)

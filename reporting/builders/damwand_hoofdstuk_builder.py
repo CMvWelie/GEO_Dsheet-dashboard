@@ -4,7 +4,13 @@ from __future__ import annotations
 import re
 
 from parsers.models import Project
-from reporting.models import ReportSection, ReportField, ReportTable, ReportImageRequest
+from reporting.models import (
+    FaseInvoerSectie,
+    ReportField,
+    ReportImageRequest,
+    ReportSection,
+    ReportTable,
+)
 from reporting.builders.soil_table_builder import SoilTableBuilder
 from reporting.builders.input_description_builder import InputDescriptionBuilder
 from utils.formatting import fmt_number
@@ -73,8 +79,8 @@ class DamwandHoofdstukBuilder:
     # Sectie 3: Invoer per fase
     # ------------------------------------------------------------------
 
-    def _bouw_fase_secties(self, project: Project) -> list[ReportSection]:
-        """Bouw één ReportSection per constructiefase, inclusief een figuurverzoek.
+    def _bouw_fase_secties(self, project: Project) -> list[FaseInvoerSectie]:
+        """Bouw één FaseInvoerSectie per constructiefase, inclusief een figuurverzoek.
 
         Parameters
         ----------
@@ -83,16 +89,17 @@ class DamwandHoofdstukBuilder:
 
         Returns
         -------
-        list[ReportSection]
+        list[FaseInvoerSectie]
             Lijst van secties, één per fase; leeg als het project geen fases heeft.
         """
         idb = InputDescriptionBuilder()
         kaarten = idb.build_all_stages(project)
-        secties: list[ReportSection] = []
+        secties: list[FaseInvoerSectie] = []
         for i, kaart in enumerate(kaarten):
-            sec = ReportSection(
+            sec = FaseInvoerSectie(
                 id=f'fase_{i + 1}_invoer',
                 title=f'Fase {kaart.fase_num}: {kaart.stage_name}',
+                fase_card=kaart,
             )
             for j, rij in enumerate(kaart.rows):
                 sec.fields.append(ReportField(

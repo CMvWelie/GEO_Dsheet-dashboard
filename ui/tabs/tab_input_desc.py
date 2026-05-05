@@ -33,7 +33,6 @@ _CARD_BG       = '#ffffff'
 _SCROLL_BG     = '#e8eef3'
 _IMG_BORDER    = '#d0dde8'
 _IMG_BG        = '#f8fbfd'
-_IMG_W         = 500         # breedte afbeeldingskolom in pixels
 
 # ── Typografie ────────────────────────────────────────────────────────────────
 _FONT          = TABLE_FONT
@@ -139,7 +138,7 @@ class TabInputDesc(QWidget):
         hdr = self._make_header(card.stage_name)
         card_layout.addWidget(hdr)
 
-        # ── 2. Kolomhoofden (Parameter | Waarde | Extra) ──────────────
+        # ── 2. Kolomhoofden (Parameter | Niveau | Toelichting) ─────────
         col_hdr = self._make_column_header()
         card_layout.addWidget(col_hdr)
 
@@ -282,13 +281,12 @@ class TabInputDesc(QWidget):
         layout.addWidget(sep)
 
         img_lbl = QLabel('Afbeelding')
-        img_lbl.setFixedWidth(_IMG_W)
         img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
         img_lbl.setStyleSheet(
             f'font-family: {_FONT}; font-size: 14px; font-weight: 700; '
             f'color: {_HDR_FG}; background: {_HDR_BG}; padding: 10px 16px;'
         )
-        layout.addWidget(img_lbl)
+        layout.addWidget(img_lbl, stretch=1)
 
         return hdr
 
@@ -313,8 +311,8 @@ class TabInputDesc(QWidget):
 
         col_defs: list[tuple[str, Qt.AlignmentFlag]] = [
             ('Parameter',   Qt.AlignmentFlag.AlignLeft),
-            ('Waarde',      Qt.AlignmentFlag.AlignRight),
-            ('',            Qt.AlignmentFlag.AlignLeft),
+            ('Niveau',      Qt.AlignmentFlag.AlignRight),
+            ('Toelichting', Qt.AlignmentFlag.AlignLeft),
         ]
         for i, (tekst, uitlijning) in enumerate(col_defs):
             lbl = QLabel(tekst)
@@ -332,11 +330,10 @@ class TabInputDesc(QWidget):
 
         # Spacer voor afbeelding-kolom
         spacer = QLabel()
-        spacer.setFixedWidth(_IMG_W)
         spacer.setStyleSheet(
             f'background: {_SUBHDR_BG}; border-left: 1px solid {_BORDER};'
         )
-        layout.addWidget(spacer)
+        layout.addWidget(spacer, stretch=1)
 
         return col_hdr
 
@@ -357,13 +354,15 @@ class TabInputDesc(QWidget):
         grid.setColumnStretch(1, 1)
         grid.setColumnMinimumWidth(2, 120)
 
+        grid_row = 0
         for row_i, row in enumerate(card.rows):
+            n_sub = 1 + len(row.extra_lines)
             bg = _ROW_ODD_BG if row_i % 2 == 0 else _ROW_EVEN_BG
-            is_last = row_i == len(card.rows) - 1
-            border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
+            is_last_group = row_i == len(card.rows) - 1
+            border_b = '' if is_last_group else f'border-bottom: 1px solid {_ROW_SEP};'
 
             lbl = QLabel(row.label)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 12px; font-weight: 500; '
                 f'color: {_LABEL_CLR}; background: {bg}; '
@@ -372,7 +371,7 @@ class TabInputDesc(QWidget):
             )
 
             val = QLabel(row.value)
-            val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
             val.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 12px; font-weight: 400; '
                 f'color: {_VALUE_CLR}; background: {bg}; '
@@ -380,23 +379,29 @@ class TabInputDesc(QWidget):
                 f'border-right: 1px solid {_ROW_SEP}; {border_b}'
             )
 
-            extra = QLabel(row.extra)
-            extra.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            extra.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 11px; font-style: italic; '
-                f'color: {_EXTRA_CLR}; background: {bg}; '
-                f'padding: 6px 10px; {border_b}'
-            )
+            grid.addWidget(lbl, grid_row, 0, n_sub, 1)
+            grid.addWidget(val, grid_row, 1, n_sub, 1)
 
-            grid.addWidget(lbl,   row_i, 0)
-            grid.addWidget(val,   row_i, 1)
-            grid.addWidget(extra, row_i, 2)
+            for k, tekst in enumerate([row.extra] + row.extra_lines):
+                is_last_sub = k == n_sub - 1
+                sub_border = '' if (not is_last_sub or is_last_group) else (
+                    f'border-bottom: 1px solid {_ROW_SEP};'
+                )
+                extra = QLabel(tekst)
+                extra.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                extra.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: 11px; font-style: italic; '
+                    f'color: {_EXTRA_CLR}; background: {bg}; '
+                    f'padding: 6px 10px; {sub_border}'
+                )
+                grid.addWidget(extra, grid_row + k, 2)
+
+            grid_row += n_sub
 
         body_layout.addWidget(grid_widget, stretch=1)
 
         # ── Afbeeldingscontainer ──────────────────────────────────────
         img_container = QWidget()
-        img_container.setFixedWidth(_IMG_W)
         img_container.setStyleSheet(
             f'background: {_IMG_BG}; border-left: 1px solid {_IMG_BORDER};'
         )
@@ -409,7 +414,7 @@ class TabInputDesc(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(card.image_bytes)
             scaled = pixmap.scaled(
-                _IMG_W - 20,
+                480,
                 800,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
@@ -430,7 +435,7 @@ class TabInputDesc(QWidget):
             img_vbox.addWidget(placeholder)
             img_vbox.addStretch()
 
-        body_layout.addWidget(img_container)
+        body_layout.addWidget(img_container, stretch=1)
 
         return body
 
