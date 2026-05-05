@@ -59,6 +59,12 @@ def test_load_valid_json(tmp_path: Path) -> None:
     assert thema.typography.size_text == 11
     assert thema.typography.size_table == 7
     assert thema.typography.size_table_header == 8
+    assert thema.typography.size_app_text == 11
+    assert thema.typography.size_app_table == 7
+    assert thema.typography.size_app_table_header == 8
+    assert thema.typography.size_word_text == 11
+    assert thema.typography.size_word_table == 7
+    assert thema.typography.size_word_table_header == 8
     assert thema.geometry.radius == 4
     assert thema.assets.app_logo == "/pad/naar/logo.png"
     assert thema.assets.font_files == ["/pad/naar/font.ttf"]
@@ -71,6 +77,12 @@ def test_load_explicit_typography_sizes(tmp_path: Path) -> None:
             "size_text": 13,
             "size_table": 6,
             "size_table_header": 9,
+            "size_app_text": 14,
+            "size_app_table": 10,
+            "size_app_table_header": 11,
+            "size_word_text": 12,
+            "size_word_table": 7,
+            "size_word_table_header": 8,
         }
     )
     pad = tmp_path / "test.json"
@@ -81,6 +93,40 @@ def test_load_explicit_typography_sizes(tmp_path: Path) -> None:
     assert thema.typography.size_text == 13
     assert thema.typography.size_table == 6
     assert thema.typography.size_table_header == 9
+    assert thema.typography.size_app_text == 14
+    assert thema.typography.size_app_table == 10
+    assert thema.typography.size_app_table_header == 11
+    assert thema.typography.size_word_text == 12
+    assert thema.typography.size_word_table == 7
+    assert thema.typography.size_word_table_header == 8
+
+
+def test_tabelstijlen_scheiden_app_en_word_fontgroottes(tmp_path: Path) -> None:
+    from ui import table_styles
+
+    data = _voorbeeld_thema_dict()
+    data["typography"].update(
+        {
+            "size_app_text": 14,
+            "size_app_table": 10,
+            "size_app_table_header": 11,
+            "size_word_text": 12,
+            "size_word_table": 6,
+            "size_word_table_header": 9,
+        }
+    )
+    pad = tmp_path / "test.json"
+    pad.write_text(json.dumps(data), encoding="utf-8")
+
+    table_styles.configure_from_theme(Theme.load(pad))
+
+    assert table_styles.BODY_TEXT_SIZE == 14
+    assert table_styles.TABLE_TEXT_SIZE == 10
+    assert table_styles.TABLE_HEADER_SIZE == 11
+    assert table_styles.WORD_BODY_TEXT_SIZE == 12
+    assert table_styles.WORD_TABLE_TEXT_SIZE == 6
+    assert table_styles.WORD_TABLE_HEADER_SIZE == 9
+    table_styles.configure_from_theme(theme_module.create_basic_theme())
 
 
 def test_load_missing_required_field_raises(tmp_path: Path) -> None:
@@ -138,7 +184,7 @@ def test_discover_themes_skipt_kapotte_bestanden(tmp_path: Path) -> None:
 def test_build_stylesheet_bevat_kleuren_en_font(tmp_path: Path) -> None:
     pad = tmp_path / "test.json"
     data = _voorbeeld_thema_dict()
-    data["typography"]["size_text"] = 13
+    data["typography"]["size_app_text"] = 13
     pad.write_text(json.dumps(data), encoding="utf-8")
     thema = Theme.load(pad)
 

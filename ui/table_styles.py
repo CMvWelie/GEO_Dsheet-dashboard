@@ -22,6 +22,9 @@ TABLE_FONT = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
 TABLE_TEXT_SIZE = 7
 TABLE_HEADER_SIZE = 8
 BODY_TEXT_SIZE = 11
+WORD_TABLE_TEXT_SIZE = 7
+WORD_TABLE_HEADER_SIZE = 8
+WORD_BODY_TEXT_SIZE = 11
 
 def configure_from_theme(theme: Theme | None) -> None:
     """Werk de centrale tabelstijl bij vanuit het actieve UI-thema."""
@@ -32,6 +35,7 @@ def configure_from_theme(theme: Theme | None) -> None:
     global TABLE_BORDER, TABLE_ROW_SEP, TABLE_ROW_ODD_BG, TABLE_ROW_EVEN_BG
     global TABLE_LABEL_COLOR, TABLE_VALUE_COLOR, TABLE_EXTRA_COLOR, TABLE_FONT
     global TABLE_TEXT_SIZE, TABLE_HEADER_SIZE, BODY_TEXT_SIZE
+    global WORD_TABLE_TEXT_SIZE, WORD_TABLE_HEADER_SIZE, WORD_BODY_TEXT_SIZE
     global REPORT_QTABLE_STYLE, BASIC_DEBUG_QTABLE_STYLE
 
     table = theme.table
@@ -47,9 +51,12 @@ def configure_from_theme(theme: Theme | None) -> None:
     TABLE_VALUE_COLOR = table.value_color
     TABLE_EXTRA_COLOR = table.extra_color
     TABLE_FONT = f'"{theme.typography.family}", "{theme.typography.fallback}", sans-serif'
-    TABLE_TEXT_SIZE = theme.typography.size_table
-    TABLE_HEADER_SIZE = theme.typography.size_table_header
-    BODY_TEXT_SIZE = theme.typography.size_text
+    TABLE_TEXT_SIZE = theme.typography.size_app_table
+    TABLE_HEADER_SIZE = theme.typography.size_app_table_header
+    BODY_TEXT_SIZE = theme.typography.size_app_text
+    WORD_TABLE_TEXT_SIZE = theme.typography.size_word_table
+    WORD_TABLE_HEADER_SIZE = theme.typography.size_word_table_header
+    WORD_BODY_TEXT_SIZE = theme.typography.size_word_text
     REPORT_QTABLE_STYLE = build_report_qtable_style()
     BASIC_DEBUG_QTABLE_STYLE = build_debug_qtable_style()
     _sync_loaded_legacy_aliases()

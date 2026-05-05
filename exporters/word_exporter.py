@@ -125,7 +125,7 @@ class WordExporter:
 
         stijl = doc.styles['Normal']
         stijl.font.name = _eerste_fontfamilie(table_styles.TABLE_FONT)
-        stijl.font.size = Pt(table_styles.BODY_TEXT_SIZE)
+        stijl.font.size = Pt(table_styles.WORD_BODY_TEXT_SIZE)
 
     # ------------------------------------------------------------------
     # JSON-sidecar laden

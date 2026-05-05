@@ -196,9 +196,9 @@ def test_fase_sectie_gebruikt_theme_fontgroottes(monkeypatch) -> None:
     from reporting.models import FaseInvoerSectie
     from ui import table_styles
 
-    monkeypatch.setattr(table_styles, 'BODY_TEXT_SIZE', 12)
-    monkeypatch.setattr(table_styles, 'TABLE_TEXT_SIZE', 6)
-    monkeypatch.setattr(table_styles, 'TABLE_HEADER_SIZE', 9)
+    monkeypatch.setattr(table_styles, 'WORD_BODY_TEXT_SIZE', 12)
+    monkeypatch.setattr(table_styles, 'WORD_TABLE_TEXT_SIZE', 6)
+    monkeypatch.setattr(table_styles, 'WORD_TABLE_HEADER_SIZE', 9)
 
     kaart = FaseCard(fase_num=1, stage_name='Fase 1')
     kaart.rows.append(FaseRow('Maaiveld Links', '0,9 [m NAP]'))

@@ -17,7 +17,7 @@ Elk themabestand is één JSON-object met de volgende top-level keys:
 |---|---|
 | `name` | Weergavenaam (verschijnt in de Instellingen-tab). |
 | `colors` | `ThemeColors`: primary, primary_hover, primary_pressed, text, text_muted, border, border_strong, surface, background, ok, warning, danger. |
-| `typography` | `ThemeTypography`: family, fallback, size_base, size_title, size_small, size_text, size_table, size_table_header. |
+| `typography` | `ThemeTypography`: family, fallback, size_base, size_title, size_small, legacy velden size_text/size_table/size_table_header, app-velden size_app_text/size_app_table/size_app_table_header en Word-velden size_word_text/size_word_table/size_word_table_header. |
 | `geometry` | `ThemeGeometry`: radius, spacing, padding_button. |
 | `assets` | `ThemeAssets`: paden naar logo's (relatief aan project-root). |
 | `table` | `ThemeTableStyle`: header_bg, header_fg, subheader_bg, subheader_fg, border, row_odd_bg, row_even_bg, label_color, value_color, extra_color. |

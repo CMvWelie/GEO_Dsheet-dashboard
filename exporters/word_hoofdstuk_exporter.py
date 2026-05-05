@@ -122,7 +122,7 @@ class WordHoofdstukExporter:
 
         stijl = doc.styles['Normal']
         stijl.font.name = _eerste_fontfamilie(table_styles.TABLE_FONT)
-        stijl.font.size = Pt(table_styles.BODY_TEXT_SIZE)
+        stijl.font.size = Pt(table_styles.WORD_BODY_TEXT_SIZE)
 
     # ------------------------------------------------------------------
     # Secties
@@ -269,7 +269,7 @@ class WordHoofdstukExporter:
             for cell in row.cells:
                 self._pas_cel_font_toe(
                     cell, font, '000000', bold=False,
-                    size_pt=table_styles.TABLE_TEXT_SIZE,
+                    size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
                 )
 
         header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
@@ -280,13 +280,13 @@ class WordHoofdstukExporter:
             self._stel_cel_vulling(cell, header_bg)
             self._pas_cel_font_toe(
                 cell, font, header_fg, bold=True,
-                size_pt=table_styles.TABLE_HEADER_SIZE,
+                size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
             )
         for cell in tbl.rows[1].cells:
             self._stel_cel_vulling(cell, subheader_bg)
             self._pas_cel_font_toe(
                 cell, font, subheader_fg, bold=True,
-                size_pt=table_styles.TABLE_HEADER_SIZE,
+                size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
             )
 
     def _pas_cel_font_toe(

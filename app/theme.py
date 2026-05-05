@@ -86,6 +86,12 @@ class ThemeTypography:
     size_text: int = 11
     size_table: int = 7
     size_table_header: int = 8
+    size_app_text: int = 11
+    size_app_table: int = 7
+    size_app_table_header: int = 8
+    size_word_text: int = 11
+    size_word_table: int = 7
+    size_word_table_header: int = 8
 
 
 @dataclass
@@ -194,7 +200,7 @@ class Theme:
         return f"""
 * {{
     font-family: {ff}, "{t.fallback}", sans-serif;
-    font-size: {t.size_text}pt;
+    font-size: {t.size_app_text}pt;
     color: {c.text};
 }}
 
@@ -240,7 +246,7 @@ QPushButton {{
     border: 1px solid {c.border};
     border-radius: {g.radius}px;
     padding: {g.padding_button};
-    font-size: {t.size_text}pt;
+    font-size: {t.size_app_text}pt;
     font-weight: 500;
 }}
 
@@ -798,17 +804,30 @@ QSplitter::handle:hover {{
         try:
             colors = ThemeColors(**data['colors'])
             typography_data = data['typography']
+            legacy_text = int(typography_data.get(
+                'size_text', typography_data.get('size_base', 11),
+            ))
+            legacy_table = int(typography_data.get('size_table', 7))
+            legacy_table_header = int(typography_data.get('size_table_header', 8))
             typography = ThemeTypography(
                 family=typography_data['family'],
                 fallback=typography_data['fallback'],
                 size_base=int(typography_data['size_base']),
                 size_title=int(typography_data['size_title']),
                 size_small=int(typography_data['size_small']),
-                size_text=int(typography_data.get(
-                    'size_text', typography_data.get('size_base', 11),
+                size_text=legacy_text,
+                size_table=legacy_table,
+                size_table_header=legacy_table_header,
+                size_app_text=int(typography_data.get('size_app_text', legacy_text)),
+                size_app_table=int(typography_data.get('size_app_table', legacy_table)),
+                size_app_table_header=int(typography_data.get(
+                    'size_app_table_header', legacy_table_header,
                 )),
-                size_table=int(typography_data.get('size_table', 7)),
-                size_table_header=int(typography_data.get('size_table_header', 8)),
+                size_word_text=int(typography_data.get('size_word_text', legacy_text)),
+                size_word_table=int(typography_data.get('size_word_table', legacy_table)),
+                size_word_table_header=int(typography_data.get(
+                    'size_word_table_header', legacy_table_header,
+                )),
             )
             geometry = ThemeGeometry(**data['geometry'])
         except TypeError as exc:
@@ -914,6 +933,12 @@ def create_basic_theme() -> Theme:
         size_text=11,
         size_table=7,
         size_table_header=8,
+        size_app_text=11,
+        size_app_table=7,
+        size_app_table_header=8,
+        size_word_text=11,
+        size_word_table=7,
+        size_word_table_header=8,
     )
     geometry = ThemeGeometry(radius=4, spacing=8, padding_button='7px 14px')
     table = ThemeTableStyle(

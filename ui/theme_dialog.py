@@ -140,18 +140,30 @@ class ThemeTemplateDialog(QDialog):
 
         typography = QGroupBox('Tekstgroottes')
         typography_layout = QFormLayout(typography)
-        self.body_text_size = QSpinBox()
-        self.body_text_size.setRange(6, 18)
-        self.body_text_size.setValue(11)
-        self.table_text_size = QSpinBox()
-        self.table_text_size.setRange(5, 14)
-        self.table_text_size.setValue(7)
-        self.table_header_size = QSpinBox()
-        self.table_header_size.setRange(5, 16)
-        self.table_header_size.setValue(8)
-        typography_layout.addRow('Tekst buiten tabellen', self.body_text_size)
-        typography_layout.addRow('Tekst in tabellen', self.table_text_size)
-        typography_layout.addRow('Tabelkoppen', self.table_header_size)
+        self.app_body_text_size = QSpinBox()
+        self.app_body_text_size.setRange(6, 18)
+        self.app_body_text_size.setValue(11)
+        self.app_table_text_size = QSpinBox()
+        self.app_table_text_size.setRange(5, 14)
+        self.app_table_text_size.setValue(7)
+        self.app_table_header_size = QSpinBox()
+        self.app_table_header_size.setRange(5, 16)
+        self.app_table_header_size.setValue(8)
+        self.word_body_text_size = QSpinBox()
+        self.word_body_text_size.setRange(6, 18)
+        self.word_body_text_size.setValue(11)
+        self.word_table_text_size = QSpinBox()
+        self.word_table_text_size.setRange(5, 14)
+        self.word_table_text_size.setValue(7)
+        self.word_table_header_size = QSpinBox()
+        self.word_table_header_size.setRange(5, 16)
+        self.word_table_header_size.setValue(8)
+        typography_layout.addRow('App: tekst buiten tabellen', self.app_body_text_size)
+        typography_layout.addRow('App: tekst in tabellen', self.app_table_text_size)
+        typography_layout.addRow('App: tabelkoppen', self.app_table_header_size)
+        typography_layout.addRow('Word: tekst buiten tabellen', self.word_body_text_size)
+        typography_layout.addRow('Word: tekst in tabellen', self.word_table_text_size)
+        typography_layout.addRow('Word: tabelkoppen', self.word_table_header_size)
         root.addWidget(typography)
 
         buttons = QDialogButtonBox(
@@ -228,9 +240,15 @@ class ThemeTemplateDialog(QDialog):
             'size_base': typography.get('size_base', 11),
             'size_title': self.h2_size.value(),
             'size_small': typography.get('size_small', 10),
-            'size_text': self.body_text_size.value(),
-            'size_table': self.table_text_size.value(),
-            'size_table_header': self.table_header_size.value(),
+            'size_text': self.app_body_text_size.value(),
+            'size_table': self.app_table_text_size.value(),
+            'size_table_header': self.app_table_header_size.value(),
+            'size_app_text': self.app_body_text_size.value(),
+            'size_app_table': self.app_table_text_size.value(),
+            'size_app_table_header': self.app_table_header_size.value(),
+            'size_word_text': self.word_body_text_size.value(),
+            'size_word_table': self.word_table_text_size.value(),
+            'size_word_table_header': self.word_table_header_size.value(),
         })
 
         data.setdefault('geometry', {
@@ -305,9 +323,19 @@ class ThemeTemplateDialog(QDialog):
         self.h1_bold.setChecked(int(headings.get('h1_weight', 700)) >= 600)
         self.h2_size.setValue(int(headings.get('h2_size', typography.get('size_title', 12))))
         self.h2_bold.setChecked(int(headings.get('h2_weight', 600)) >= 600)
-        self.body_text_size.setValue(int(typography.get('size_text', typography.get('size_base', 11))))
-        self.table_text_size.setValue(int(typography.get('size_table', 7)))
-        self.table_header_size.setValue(int(typography.get('size_table_header', 8)))
+        legacy_text = int(typography.get('size_text', typography.get('size_base', 11)))
+        legacy_table = int(typography.get('size_table', 7))
+        legacy_table_header = int(typography.get('size_table_header', 8))
+        self.app_body_text_size.setValue(int(typography.get('size_app_text', legacy_text)))
+        self.app_table_text_size.setValue(int(typography.get('size_app_table', legacy_table)))
+        self.app_table_header_size.setValue(int(
+            typography.get('size_app_table_header', legacy_table_header)
+        ))
+        self.word_body_text_size.setValue(int(typography.get('size_word_text', legacy_text)))
+        self.word_table_text_size.setValue(int(typography.get('size_word_table', legacy_table)))
+        self.word_table_header_size.setValue(int(
+            typography.get('size_word_table_header', legacy_table_header)
+        ))
 
 
 def _shade(hex_color: str, factor: float) -> str:

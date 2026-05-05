@@ -22,7 +22,13 @@
     "size_small": 10,
     "size_text": 11,
     "size_table": 7,
-    "size_table_header": 8
+    "size_table_header": 8,
+    "size_app_text": 11,
+    "size_app_table": 7,
+    "size_app_table_header": 8,
+    "size_word_text": 11,
+    "size_word_table": 7,
+    "size_word_table_header": 8
   },
   "geometry": {
     "radius": 4,
