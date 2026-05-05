@@ -361,6 +361,7 @@ class MainWindow(QMainWindow):
         )
         self._tab_instellingen.theme_selected.connect(self._on_theme_selected)
         self._tab_instellingen.theme_created.connect(self._on_theme_created)
+        self._tab_instellingen.theme_updated.connect(self._on_theme_updated)
         self._tab_instellingen.theme_delete_requested.connect(self._on_theme_delete_requested)
         self._tab_instellingen.restart_requested.connect(self._on_restart_app)
         self._tab_report_select.preview_open_requested.connect(
@@ -939,6 +940,11 @@ class MainWindow(QMainWindow):
 
     def _on_theme_created(self, naam: str) -> None:
         """Laad de theme-dropdown opnieuw en pas het nieuwe template toe."""
+        self._tab_instellingen.set_themes(discover_themes(THEMES_DIR), naam)
+        self._on_theme_selected(naam)
+
+    def _on_theme_updated(self, naam: str) -> None:
+        """Laad de theme-dropdown opnieuw en pas het aangepaste template toe."""
         self._tab_instellingen.set_themes(discover_themes(THEMES_DIR), naam)
         self._on_theme_selected(naam)
 

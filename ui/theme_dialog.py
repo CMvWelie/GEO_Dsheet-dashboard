@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -51,6 +51,9 @@ class ColorField(QGroupBox):
             raise ValueError(f'Ongeldige kleur: {text}')
         return text.upper()
 
+    def set_value(self, value: str) -> None:
+        self.edit.setText(value)
+
     def _choose(self) -> None:
         color = QColorDialog.getColor(QColor(self.edit.text()), self, 'Kies kleur')
         if color.isValid():
@@ -64,13 +67,24 @@ class ColorField(QGroupBox):
 class ThemeTemplateDialog(QDialog):
     """Laat een gebruiker een themebestand invullen en opslaan."""
 
-    def __init__(self, themes_dir: Path, parent=None) -> None:
+    def __init__(
+        self,
+        themes_dir: Path,
+        parent=None,
+        theme_path: Path | None = None,
+    ) -> None:
         super().__init__(parent)
         self._themes_dir = themes_dir
+        self._theme_path = theme_path
+        self._edit_data: dict | None = None
+        self._original_font_family: str = ''
+        self._preserve_original_font: bool = False
         self.created_theme_name: str = ''
-        self.setWindowTitle('Eigen template maken')
+        self.setWindowTitle('Template tunen' if theme_path else 'Eigen template maken')
         self.setMinimumWidth(620)
         self._build()
+        if theme_path is not None:
+            self._load_existing(theme_path)
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
@@ -151,7 +165,8 @@ class ThemeTemplateDialog(QDialog):
         if not name:
             QMessageBox.warning(self, 'Eigen template', 'Vul een templatenaam in.')
             return
-        if name.lower() in {'dkib', 'sixgeoconsult', 'basic'}:
+        is_edit = self._theme_path is not None
+        if not is_edit and name.lower() in {'dkib', 'sixgeoconsult', 'basic'}:
             QMessageBox.warning(
                 self,
                 'Eigen template',
@@ -169,9 +184,12 @@ class ThemeTemplateDialog(QDialog):
             QMessageBox.warning(self, 'Eigen template', str(exc))
             return
 
-        slug = re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_') or 'custom'
-        path = self._themes_dir / f'{slug}.json'
-        if path.exists():
+        if is_edit:
+            path = self._theme_path
+        else:
+            slug = re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_') or 'custom'
+            path = self._themes_dir / f'{slug}.json'
+        if not is_edit and path.exists():
             QMessageBox.warning(
                 self,
                 'Eigen template',
@@ -179,68 +197,116 @@ class ThemeTemplateDialog(QDialog):
             )
             return
 
-        font = self.font_combo.currentFont().family()
-        data = {
-            'name': name,
-            'colors': {
-                'primary': primary,
-                'primary_hover': _shade(primary, 0.82),
-                'primary_pressed': _shade(primary, 0.64),
-                'text': text,
-                'text_muted': '#7A8794',
-                'border': _lighten(border, 0.82),
-                'border_strong': border,
-                'surface': '#FFFFFF',
-                'background': background,
-                'ok': '#309942',
-                'warning': '#FF5C00',
-                'danger': '#C0392B',
-            },
-            'typography': {
-                'family': font,
-                'fallback': 'Segoe UI',
-                'size_base': 11,
-                'size_title': self.h2_size.value(),
-                'size_small': 10,
-                'size_text': self.body_text_size.value(),
-                'size_table': self.table_text_size.value(),
-                'size_table_header': self.table_header_size.value(),
-            },
-            'geometry': {
-                'radius': 4,
-                'spacing': 8,
-                'padding_button': '7px 14px',
-            },
-            'table': {
-                'header_bg': primary,
-                'header_fg': '#FFFFFF',
-                'subheader_bg': primary,
-                'subheader_fg': '#FFFFFF',
-                'border': border,
-                'row_odd_bg': '#FFFFFF',
-                'row_even_bg': even_row,
-                'label_color': '#000000',
-                'value_color': '#000000',
-                'extra_color': '#000000',
-            },
-            'headings': {
-                'h1_size': self.h1_size.value(),
-                'h1_weight': 700 if self.h1_bold.isChecked() else 500,
-                'h1_color': primary,
-                'h2_size': self.h2_size.value(),
-                'h2_weight': 600 if self.h2_bold.isChecked() else 500,
-                'h2_color': text,
-            },
-            'assets': {
-                'font_files': [],
-                'app_logo': '',
-            },
-        }
+        if self._preserve_original_font and self._original_font_family:
+            font = self._original_font_family
+        else:
+            font = self.font_combo.currentFont().family()
+        data = self._edit_data.copy() if self._edit_data is not None else {}
+        data['name'] = name
+
+        colors = data.setdefault('colors', {})
+        colors.update({
+            'primary': primary,
+            'primary_hover': _shade(primary, 0.82),
+            'primary_pressed': _shade(primary, 0.64),
+            'text': text,
+            'text_muted': colors.get('text_muted', '#7A8794'),
+            'border': _lighten(border, 0.82),
+            'border_strong': border,
+            'surface': colors.get('surface', '#FFFFFF'),
+            'background': background,
+            'ok': colors.get('ok', '#309942'),
+            'warning': colors.get('warning', '#FF5C00'),
+            'danger': colors.get('danger', '#C0392B'),
+        })
+
+        typography = data.setdefault('typography', {})
+        typography.update({
+            'family': font,
+            'fallback': typography.get('fallback', 'Segoe UI'),
+            'size_base': typography.get('size_base', 11),
+            'size_title': self.h2_size.value(),
+            'size_small': typography.get('size_small', 10),
+            'size_text': self.body_text_size.value(),
+            'size_table': self.table_text_size.value(),
+            'size_table_header': self.table_header_size.value(),
+        })
+
+        data.setdefault('geometry', {
+            'radius': 4,
+            'spacing': 8,
+            'padding_button': '7px 14px',
+        })
+
+        table = data.setdefault('table', {})
+        table.update({
+            'header_bg': primary,
+            'header_fg': table.get('header_fg', '#FFFFFF'),
+            'subheader_bg': primary,
+            'subheader_fg': table.get('subheader_fg', '#FFFFFF'),
+            'border': border,
+            'row_odd_bg': table.get('row_odd_bg', '#FFFFFF'),
+            'row_even_bg': even_row,
+            'label_color': table.get('label_color', '#000000'),
+            'value_color': table.get('value_color', '#000000'),
+            'extra_color': table.get('extra_color', '#000000'),
+        })
+
+        headings = data.setdefault('headings', {})
+        headings.update({
+            'h1_size': self.h1_size.value(),
+            'h1_weight': 700 if self.h1_bold.isChecked() else 500,
+            'h1_color': primary,
+            'h2_size': self.h2_size.value(),
+            'h2_weight': 600 if self.h2_bold.isChecked() else 500,
+            'h2_color': text,
+        })
+
+        data.setdefault('assets', {
+            'font_files': [],
+            'app_logo': '',
+        })
 
         self._themes_dir.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2), encoding='utf-8')
         self.created_theme_name = name
         self.accept()
+
+    def _load_existing(self, path: Path) -> None:
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, json.JSONDecodeError) as exc:
+            QMessageBox.warning(self, 'Template tunen', f'Template laden mislukt:\n{exc}')
+            return
+
+        self._edit_data = data
+        self.name_edit.setText(str(data.get('name', path.stem)))
+        self.name_edit.setReadOnly(True)
+
+        colors = data.get('colors') or {}
+        table = data.get('table') or {}
+        typography = data.get('typography') or {}
+        headings = data.get('headings') or {}
+
+        self._original_font_family = str(typography.get('family', 'Segoe UI'))
+        self.font_combo.setCurrentFont(QFont(self._original_font_family))
+        self._preserve_original_font = (
+            self.font_combo.currentFont().family().lower()
+            != self._original_font_family.lower()
+        )
+        self.primary.set_value(str(colors.get('primary', '#147ACF')))
+        self.text.set_value(str(colors.get('text', '#44546A')))
+        self.border.set_value(str(table.get('border', colors.get('border_strong', '#000000'))))
+        self.even_row.set_value(str(table.get('row_even_bg', '#F2F2F2')))
+        self.background.set_value(str(colors.get('background', '#FAFBFC')))
+
+        self.h1_size.setValue(int(headings.get('h1_size', 14)))
+        self.h1_bold.setChecked(int(headings.get('h1_weight', 700)) >= 600)
+        self.h2_size.setValue(int(headings.get('h2_size', typography.get('size_title', 12))))
+        self.h2_bold.setChecked(int(headings.get('h2_weight', 600)) >= 600)
+        self.body_text_size.setValue(int(typography.get('size_text', typography.get('size_base', 11))))
+        self.table_text_size.setValue(int(typography.get('size_table', 7)))
+        self.table_header_size.setValue(int(typography.get('size_table_header', 8)))
 
 
 def _shade(hex_color: str, factor: float) -> str:

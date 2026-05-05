@@ -17,7 +17,7 @@ parsers en renderers blijven Qt-vrij.
 | `status_widget.py` | Gekleurde statusbadge (OK / WARN / ERR / idle) met detailregel. |
 | `preview_window.py` | Zwevend Word-preview venster dat HTML toont in een `QTextBrowser`. |
 | `table_styles.py` | Centrale tabelstijl-constanten en stylesheet, gevoed door het actieve thema. |
-| `theme_dialog.py` | Dialoog voor het aanmaken en opslaan van een eigen UI-template. |
+| `theme_dialog.py` | Dialoog voor het aanmaken, tunen en opslaan van UI-templates. |
 
 ## Conventies
 

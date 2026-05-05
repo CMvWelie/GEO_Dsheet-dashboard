@@ -28,6 +28,9 @@ class TabInstellingen(QWidget):
     theme_created = pyqtSignal(str)
     """Afgegeven zodra een eigen templatebestand is aangemaakt."""
 
+    theme_updated = pyqtSignal(str)
+    """Afgegeven zodra een bestaand templatebestand is aangepast."""
+
     theme_delete_requested = pyqtSignal(str)
     """Afgegeven zodra de gebruiker een custom template wil verwijderen."""
 
@@ -142,7 +145,7 @@ class TabInstellingen(QWidget):
         rij = QHBoxLayout()
         self._theme_combo = QComboBox()
         self._theme_combo.setMinimumWidth(220)
-        self._theme_combo.currentTextChanged.connect(lambda _text: self._update_delete_enabled())
+        self._theme_combo.currentTextChanged.connect(lambda _text: self._update_theme_buttons())
         rij.addWidget(self._theme_combo)
 
         self._theme_apply_btn = QPushButton('Toepassen')
@@ -154,6 +157,11 @@ class TabInstellingen(QWidget):
         self._theme_new_btn.setObjectName('btnNormal')
         self._theme_new_btn.clicked.connect(self._on_theme_new)
         rij.addWidget(self._theme_new_btn)
+
+        self._theme_tune_btn = QPushButton('Tunen...')
+        self._theme_tune_btn.setObjectName('btnNormal')
+        self._theme_tune_btn.clicked.connect(self._on_theme_tune)
+        rij.addWidget(self._theme_tune_btn)
 
         self._theme_delete_btn = QPushButton('Verwijderen')
         self._theme_delete_btn.setObjectName('btnDanger')
@@ -221,7 +229,7 @@ class TabInstellingen(QWidget):
         elif self._theme_combo.count() > 0:
             self._theme_combo.setCurrentIndex(0)
         self._theme_combo.blockSignals(False)
-        self._update_delete_enabled()
+        self._update_theme_buttons()
 
         self._herstart_label.setVisible(False)
 
@@ -266,6 +274,16 @@ class TabInstellingen(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted and dlg.created_theme_name:
             self.theme_created.emit(dlg.created_theme_name)
 
+    def _on_theme_tune(self) -> None:
+        """Open dialoog om het gekozen templatebestand te tunen."""
+        gekozen = self._theme_combo.currentText()
+        pad = self._theme_path_for_name(gekozen)
+        if not gekozen or pad is None:
+            return
+        dlg = ThemeTemplateDialog(THEMES_DIR, self, theme_path=pad)
+        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.created_theme_name:
+            self.theme_updated.emit(dlg.created_theme_name)
+
     def _on_theme_delete(self) -> None:
         """Vraag bevestiging en geef delete-request door aan het hoofdvenster."""
         gekozen = self._theme_combo.currentText()
@@ -281,10 +299,19 @@ class TabInstellingen(QWidget):
         if antwoord == QMessageBox.StandardButton.Yes:
             self.theme_delete_requested.emit(gekozen)
 
-    def _update_delete_enabled(self) -> None:
+    def _update_theme_buttons(self) -> None:
         gekozen = self._theme_combo.currentText()
         self._theme_delete_btn.setEnabled(self._is_custom_theme(gekozen))
+        self._theme_tune_btn.setEnabled(self._theme_path_for_name(gekozen) is not None)
+
+    def _theme_path_for_name(self, naam: str) -> Path | None:
+        for theme_name, pad in self._beschikbare_themas:
+            if theme_name == naam and pad:
+                return pad
+        return None
 
     @staticmethod
     def _is_custom_theme(naam: str) -> bool:
+        if not naam:
+            return False
         return naam.lower() not in {'dkib', 'sixgeoconsult', 'basic'}
