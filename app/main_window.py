@@ -48,11 +48,9 @@ from ui.tabs.tab_report_select import TabReportSelect
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
 from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
-from ui.preview_window import WordPreviewWindow
 from ui.word_pdf_preview_window import WordPdfPreviewWindow
 from app.docx_to_pdf_converter import DocxToPdfConverter
 from app.word_preview_worker import WordPreviewWorker
-from reporting.builders.html_preview_builder import HtmlPreviewBuilder
 from app import restart_session
 from app.theme import BASIC_THEME_NAME, Theme, discover_themes
 from app.theme_apply import THEMES_DIR, bootstrap_theme
@@ -97,9 +95,6 @@ class MainWindow(QMainWindow):
         self._report_controller = ReportController(self._state, self._report_state)
 
         self._controller.load_config()
-        self._preview_window = WordPreviewWindow()
-        self._html_builder = HtmlPreviewBuilder()
-
         self._word_pdf_preview_window = WordPdfPreviewWindow()
         self._docx_to_pdf = DocxToPdfConverter()
         self._word_preview_thread: QThread | None = None
@@ -364,10 +359,6 @@ class MainWindow(QMainWindow):
         self._tab_instellingen.theme_updated.connect(self._on_theme_updated)
         self._tab_instellingen.theme_delete_requested.connect(self._on_theme_delete_requested)
         self._tab_instellingen.restart_requested.connect(self._on_restart_app)
-        self._tab_report_select.preview_open_requested.connect(
-            self._on_preview_open
-        )
-        self._tab_report_select.selection_changed.connect(self._update_preview)
         self._tab_report_select.word_pdf_preview_open_requested.connect(
             self._on_word_pdf_preview_open
         )
@@ -717,7 +708,6 @@ class MainWindow(QMainWindow):
     def _update_all(self) -> None:
         self._update_render_views()
         self._refresh_active_report_tab()
-        self._update_preview()
         self._tab_aanvullende_berekeningen.update_project(
             self._state.get_active_project()
         )
@@ -851,59 +841,6 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.quit()
 
-    def _on_export_hoofdstuk(self) -> None:
-        """Exporteer het actieve project als Word-rapport."""
-        from reporting.builders.damwand_hoofdstuk_builder import DamwandHoofdstukBuilder
-        from reporting.builders.result_description_builder import (
-            is_bgt_step_key,
-            is_ugt_step_key,
-        )
-        from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
-        from reporting.models import ReportMetadata
-
-        project = self._state.get_active_project()
-        if not project:
-            QMessageBox.warning(self, 'Exporteer rapport', 'Geen actief project geladen.')
-            return
-
-        stap_sleutels = list(project.result_steps.keys())
-        governing_step_key = next((k for k in stap_sleutels if is_ugt_step_key(k)), None)
-        disp_step_key = next((k for k in stap_sleutels if is_bgt_step_key(k)), None)
-        if governing_step_key is None and stap_sleutels:
-            QMessageBox.warning(
-                self, 'Exporteer rapport',
-                'Geen UGT-resultaatstap gevonden. '
-                'Moment- en dwarskrachtgrafiek wordt weggelaten.',
-            )
-        if disp_step_key is None and stap_sleutels:
-            QMessageBox.warning(
-                self, 'Exporteer rapport',
-                'Geen BGT-resultaatstap 6.5 gevonden. '
-                'Vervormingsgrafiek wordt weggelaten.',
-            )
-
-        pad, _ = QFileDialog.getSaveFileName(
-            self, 'Sla rapport op', f'{project.base_name}_rapport.docx',
-            'Word-document (*.docx)',
-        )
-        if not pad:
-            return
-
-        secties = DamwandHoofdstukBuilder().build(project, governing_step_key, disp_step_key)
-        metadata = self._report_controller.build_metadata()
-        template_pad = self._state.app_settings.word_template_path or 'templates/damwand_stijlen.docx'
-        fout = WordHoofdstukExporter().export(
-            sections=secties,
-            metadata=metadata,
-            project=project,
-            template_path=template_pad,
-            output_path=pad,
-        )
-        if fout:
-            QMessageBox.warning(self, 'Exporteer rapport', f'Export mislukt:\n{fout}')
-        else:
-            QMessageBox.information(self, 'Exporteer rapport', f'Rapport opgeslagen:\n{pad}')
-
     def _on_template_path_changed(self, pad: str) -> None:
         """Sla gewijzigd template-pad op in state en config."""
         huidig = self._state.app_settings
@@ -1011,20 +948,6 @@ class MainWindow(QMainWindow):
             if preferred in available_names:
                 return preferred
         return available_names[0] if available_names else BASIC_THEME_NAME
-
-    def _on_preview_open(self) -> None:
-        """Open het preview-venster en render direct."""
-        self._preview_window.show()
-        self._preview_window.raise_()
-        self._update_preview()
-
-    def _update_preview(self) -> None:
-        """Herrender de HTML-preview als het venster zichtbaar is."""
-        if not self._preview_window.isVisible():
-            return
-        package = self._report_controller.build_package()
-        html = self._html_builder.build(package, self._state.get_active_project())
-        self._preview_window.set_html(html, len(package.selected_items))
 
     def _on_word_pdf_preview_open(self) -> None:
         """Open het Word-WYSIWYG preview-venster en start een conversie."""

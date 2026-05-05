@@ -19,7 +19,7 @@ from ui.table_styles import (
     TABLE_BORDER, TABLE_EXTRA_COLOR, TABLE_FONT, TABLE_HEADER_BG,
     TABLE_HEADER_FG, TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG,
     TABLE_LABEL_COLOR, TABLE_ROW_EVEN_BG, TABLE_ROW_ODD_BG, TABLE_ROW_SEP,
-    TABLE_VALUE_COLOR,
+    TABLE_HEADER_SIZE, TABLE_TEXT_SIZE, TABLE_VALUE_COLOR,
 )
 from utils.formatting import fmt_number
 
@@ -35,6 +35,20 @@ _LABEL_CLR  = TABLE_LABEL_COLOR
 _VALUE_CLR  = TABLE_VALUE_COLOR
 _EXTRA_CLR  = TABLE_EXTRA_COLOR
 _FONT       = TABLE_FONT
+_HDR_PT     = TABLE_HEADER_SIZE
+_DATA_PT    = TABLE_TEXT_SIZE
+_PARAM_STRETCH = 5
+_WAARDE_STRETCH = 3
+_EENHEID_STRETCH = 2
+_SPEC_TABLE_STRETCH = 10
+_SPEC_TABLE_REST_STRETCH = 6
+_SPEC_DATA_MIN_HEIGHT_PX = 27
+_REPORT_TABLE_STRETCH = 10
+_REPORT_TABLE_REST_STRETCH = 6
+_FIGURE_TABLE_IMAGE_MIN_W = 240
+_FIGURE_TABLE_IMAGE_MIN_H = 300
+_FIGURE_RENDER_W = 300
+_FIGURE_RENDER_H = 360
 
 
 class TabResultDesc(QWidget):
@@ -207,21 +221,22 @@ class TabResultDesc(QWidget):
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
             lbl.setWordWrap(True)
             border_r = f'border-right: 1px solid {_BORDER};' if col < n_cols - 1 else ''
+            lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
             lbl.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 11px; font-weight: 700; '
+                f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
                 f'color: {_HDR_FG}; background: {_HDR_BG}; '
-                f'padding: 7px 10px; {border_r}'
+                f'padding: 3px 6px; min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_r}'
             )
             grid.addWidget(lbl, 0, col)
 
         for col, img_req in enumerate(groep.images):
             img_lbl = QLabel('-')
             img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-            img_lbl.setMinimumSize(240, 300)
+            img_lbl.setMinimumSize(_FIGURE_TABLE_IMAGE_MIN_W, _FIGURE_TABLE_IMAGE_MIN_H)
             border_r = f'border-right: 1px solid {_ROW_SEP};' if col < n_cols - 1 else ''
             img_lbl.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 12px; color: {_EXTRA_CLR}; '
-                f'background: white; padding: 8px; '
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_EXTRA_CLR}; '
+                f'background: {_ROW_ODD_BG}; padding: 6px; '
                 f'border-bottom: 1px solid {_ROW_SEP}; {border_r}'
             )
             if img_req is not None and self._project is not None:
@@ -232,7 +247,7 @@ class TabResultDesc(QWidget):
                         img_lbl.setText('')
                         img_lbl.setPixmap(
                             pixmap.scaled(
-                                300, 360,
+                                _FIGURE_RENDER_W, _FIGURE_RENDER_H,
                                 Qt.AspectRatioMode.KeepAspectRatio,
                                 Qt.TransformationMode.SmoothTransformation,
                             )
@@ -244,9 +259,11 @@ class TabResultDesc(QWidget):
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
             lbl.setWordWrap(True)
             border_r = f'border-right: 1px solid {_ROW_SEP};' if col < n_cols - 1 else ''
+            lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
             lbl.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 11px; color: {_VALUE_CLR}; '
-                f'background: {_ROW_ODD_BG}; padding: 7px 10px; {border_r}'
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
+                f'background: {_ROW_EVN_BG}; padding: 2px 6px; '
+                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_r}'
             )
             grid.addWidget(lbl, 2, col)
 
@@ -266,9 +283,9 @@ class TabResultDesc(QWidget):
 
         frame = QFrame()
         frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')
-        frame.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum)
-        buitenste.addWidget(frame)
-        buitenste.addStretch()
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        buitenste.addWidget(frame, stretch=_REPORT_TABLE_STRETCH)
+        buitenste.addStretch(_REPORT_TABLE_REST_STRETCH)
 
         grid = QGridLayout(frame)
         grid.setContentsMargins(0, 0, 0, 0)
@@ -289,10 +306,11 @@ class TabResultDesc(QWidget):
                 groep_bg = _HDR_BG if not groep_label else _SUBHDR_BG
                 border_r = (f'border-right: 1px solid {_BORDER};'
                              if col_offset + colspan < n_cols else '')
+                lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
                 lbl.setStyleSheet(
-                    f'font-family: {_FONT}; font-size: 10px; font-weight: 700; '
+                    f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
                     f'color: {_HDR_FG}; background: {groep_bg}; '
-                    f'padding: 5px 10px; {border_r}'
+                    f'padding: 3px 6px; min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_r}'
                 )
                 grid.addWidget(lbl, 0, col_offset, 1, colspan)
                 col_offset += colspan
@@ -303,10 +321,11 @@ class TabResultDesc(QWidget):
             lbl.setAlignment(
                 Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
             border_r = f'border-right: 1px solid {_BORDER};' if col < n_cols - 1 else ''
+            lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
             lbl.setStyleSheet(
-                f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
+                f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
                 f'color: {_SUBHDR_FG}; background: {_HDR_BG}; '
-                f'padding: 6px 10px; {border_r}'
+                f'padding: 3px 6px; min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_r}'
             )
             grid.addWidget(lbl, kop_rij, col)
 
@@ -320,11 +339,13 @@ class TabResultDesc(QWidget):
                               else Qt.AlignmentFlag.AlignRight)
                 cel_lbl = QLabel(cel)
                 cel_lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+                cel_lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
                 border_r = (f'border-right: 1px solid {_ROW_SEP};'
                              if col < n_cols - 1 else '')
                 cel_lbl.setStyleSheet(
-                    f'font-family: {_FONT}; font-size: 12px; color: {_VALUE_CLR}; '
-                    f'background: {bg}; padding: 6px 10px; {border_r} {border_b}'
+                    f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
+                    f'background: {bg}; padding: 2px 6px; '
+                    f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_r} {border_b}'
                 )
                 grid.addWidget(cel_lbl, data_start + row_i, col)
 
@@ -432,6 +453,11 @@ class TabResultDesc(QWidget):
             'over de beschikbare fases en toetsstappen.'
         ))
 
+        tabel_rij = QWidget()
+        tabel_rij_layout = QHBoxLayout(tabel_rij)
+        tabel_rij_layout.setContentsMargins(0, 0, 0, 0)
+        tabel_rij_layout.setSpacing(0)
+
         frame = QFrame()
         frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')
         frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -441,46 +467,67 @@ class TabResultDesc(QWidget):
         lay.setSpacing(0)
 
         grid_w = QWidget()
+        grid_w.setStyleSheet('background: white; border: none;')
         grid = QGridLayout(grid_w)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
-        grid.setColumnMinimumWidth(0, 220)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnMinimumWidth(2, 100)
+        grid.setColumnStretch(0, _PARAM_STRETCH)
+        grid.setColumnStretch(1, _WAARDE_STRETCH)
+        grid.setColumnStretch(2, _EENHEID_STRETCH)
 
+        data_index = 0
         for i, (label, waarde, eenheid) in enumerate(rijen):
             is_sectie = waarde == '' and eenheid == ''
-            bg = _HDR_BG if is_sectie else (_ROW_ODD_BG if i % 2 == 0 else _ROW_EVN_BG)
             is_last = i == len(rijen) - 1
             border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
-            fg = _HDR_FG if is_sectie else _LABEL_CLR
+            bg = _HDR_BG if is_sectie else (
+                _ROW_ODD_BG if data_index % 2 == 0 else _ROW_EVN_BG
+            )
 
             lbl = QLabel(label)
+            lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+
+            if is_sectie:
+                lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                lbl.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+                    f'color: {_HDR_FG}; background: {bg}; padding: 3px 6px; '
+                    f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
+                )
+                grid.addWidget(lbl, i, 0, 1, 3)
+                continue
+
             lbl.setStyleSheet(
-                f'font-family: {_FONT}; font-size: {"12px" if not is_sectie else "11px"}; '
-                f'font-weight: {"700" if is_sectie else "500"}; color: {fg}; '
-                f'background: {bg}; padding: 6px 12px; '
-                f'border-right: 1px solid {_ROW_SEP if not is_sectie else _HDR_BG}; {border_b}'
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-weight: 400; '
+                f'color: {_LABEL_CLR}; background: {bg}; padding: 2px 6px; '
+                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; '
+                f'border-right: 1px solid {_ROW_SEP}; {border_b}'
             )
             grid.addWidget(lbl, i, 0)
 
-            if not is_sectie:
-                val = QLabel(waarde)
-                val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                val.setStyleSheet(
-                    f'font-family: {_FONT}; font-size: 12px; color: {_VALUE_CLR}; '
-                    f'background: {bg}; padding: 6px 14px; '
-                    f'border-right: 1px solid {_ROW_SEP}; {border_b}'
-                )
-                grid.addWidget(val, i, 1)
+            val = QLabel(waarde)
+            val.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+            val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            val.setStyleSheet(
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
+                f'background: {bg}; padding: 2px 6px; '
+                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; '
+                f'border-right: 1px solid {_ROW_SEP}; {border_b}'
+            )
+            grid.addWidget(val, i, 1)
 
-                ext = QLabel(eenheid)
-                ext.setStyleSheet(
-                    f'font-family: {_FONT}; font-size: 11px; font-style: italic; '
-                    f'color: {_EXTRA_CLR}; background: {bg}; padding: 6px 10px; {border_b}'
-                )
-                grid.addWidget(ext, i, 2)
+            ext = QLabel(eenheid)
+            ext.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+            ext.setStyleSheet(
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-style: italic; '
+                f'color: {_EXTRA_CLR}; background: {bg}; padding: 2px 6px; '
+                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
+            )
+            grid.addWidget(ext, i, 2)
+            data_index += 1
 
         lay.addWidget(grid_w)
-        wrapper_lay.addWidget(frame)
+        tabel_rij_layout.addWidget(frame, stretch=_SPEC_TABLE_STRETCH)
+        tabel_rij_layout.addStretch(_SPEC_TABLE_REST_STRETCH)
+        wrapper_lay.addWidget(tabel_rij)
         return wrapper

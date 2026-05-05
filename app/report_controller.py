@@ -14,7 +14,7 @@ from reporting.builders.input_description_builder import InputDescriptionBuilder
 from reporting.builders.result_description_builder import ResultDescriptionBuilder
 from reporting.builders.soil_table_builder import SoilTableBuilder
 from exporters.excel_exporter import ExcelExporter
-from exporters.word_exporter import WordExporter
+from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
 
 
 class ReportController:
@@ -28,7 +28,6 @@ class ReportController:
         self._result_builder = ResultDescriptionBuilder()
         self._soil_builder = SoilTableBuilder()
         self._excel = ExcelExporter()
-        self._word = WordExporter()
 
     # ------------------------------------------------------------------
     # Builders
@@ -126,45 +125,32 @@ class ReportController:
         return self._report.plan
 
     def auto_populate_plan(self) -> None:
-        """Vul het rapportplan automatisch in vaste rapportvolgorde.
-
-        Bestaande exportkeuzes blijven behouden; nieuwe of bestaande items
-        worden geordend als damwand/fases, grondsoorten en resultaten.
-        """
-        damwand_secs = self.build_damwand_sections()
-        soil_secs = self.build_soil_sections()
-        result_secs = self.build_result_descriptions()
-
+        """Vul het rapportplan automatisch met secties van DamwandHoofdstukBuilder."""
+        project = self._app.get_active_project()
+        if not project:
+            return
+        secties = self._damwand_builder.build(project, None, None)
         gewenste_ids: list[str] = []
-        for sec in damwand_secs:
-            item_id = f'damwand_{sec.id}'
-            gewenste_ids.append(item_id)
+        for sec in secties:
+            gewenste_ids.append(sec.id)
             self._report.plan.add_item(ReportItem(
-                id=item_id,
-                kind='invoer',
+                id=sec.id,
+                kind=self._sectie_kind(sec.id),
                 caption=sec.title,
                 source_ref=sec.id,
             ))
-        for sec in soil_secs:
-            item_id = f'grondsoorten_{sec.id}'
-            gewenste_ids.append(item_id)
-            self._report.plan.add_item(ReportItem(
-                id=item_id,
-                kind='grondsoorten',
-                caption=sec.title,
-                source_ref=sec.id,
-            ))
-        for sec in result_secs:
-            item_id = f'result_{sec.id}'
-            gewenste_ids.append(item_id)
-            self._report.plan.add_item(ReportItem(
-                id=item_id,
-                kind='resultaat',
-                caption=sec.title,
-                source_ref=sec.id,
-            ))
-
         self._orden_plan_items(gewenste_ids)
+
+    _RESULTAAT_IDS: frozenset[str] = frozenset({
+        'anchor_forces', 'per_phase_summary', 'extremen_overzicht',
+    })
+
+    def _sectie_kind(self, sec_id: str) -> str:
+        if sec_id in self._RESULTAAT_IDS:
+            return 'resultaat'
+        if sec_id.startswith('grondsoorten'):
+            return 'grondsoorten'
+        return 'invoer'
 
     def _orden_plan_items(self, gewenste_ids: list[str]) -> None:
         """Orden bestaande planitems volgens de opgegeven id-volgorde."""
@@ -217,24 +203,31 @@ class ReportController:
         return self._excel.export(package, self._report.template_excel, output_path)
 
     def export_word(self, output_path: str) -> str | None:
-        """Exporteer naar Word.
-
-        Gebruikt als template (in volgorde van prioriteit):
-        1. Het pad ingevuld in TabWordExport (ReportState.template_word)
-        2. Het persistente pad uit AppSettings (AppState.app_settings.word_template_path)
-        3. Geen template (leeg document)
+        """Exporteer naar Word via WordHoofdstukExporter.
 
         Returns
         -------
         str | None
             None bij succes, foutmelding bij een fout.
         """
-        package = self.build_package()
+        project = self._app.get_active_project()
+        if not project:
+            return 'Geen actief project geladen.'
+        alle_secties = self._damwand_builder.build(project, None, None)
+        geselecteerd = {
+            item.source_ref for item in self._report.plan.items if item.included_word
+        }
+        secties = [s for s in alle_secties if s.id in geselecteerd] if geselecteerd else alle_secties
+        metadata = self.build_metadata()
         template = (
             self._report.template_word
             or self._app.app_settings.word_template_path
-            or None
+            or 'templates/damwand_stijlen.docx'
         )
-        return self._word.export(
-            package, template, output_path, project=self._app.get_active_project()
+        return WordHoofdstukExporter().export(
+            sections=secties,
+            metadata=metadata,
+            project=project,
+            template_path=template,
+            output_path=output_path,
         )

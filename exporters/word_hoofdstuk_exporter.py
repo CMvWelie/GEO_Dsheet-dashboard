@@ -1,6 +1,7 @@
 """WordHoofdstukExporter — exporteert het damwand-hoofdstuk naar Word."""
 from __future__ import annotations
 import io
+import zipfile
 from pathlib import Path
 import re
 import struct
@@ -15,6 +16,7 @@ from docx.table import Table
 from reporting.models import (
     FaseInvoerSectie,
     ReportField,
+    ReportImageGroup,
     ReportImageRequest,
     ReportMetadata,
     ReportSection,
@@ -24,8 +26,17 @@ from reporting.figure_renderer import render_figuur
 
 _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
+_RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
 _DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
 _DAMWAND_SCHEIDING_TWIPS = 40
+_RESULTAAT_SECTIE_IDS = {
+    'conclusietabel',
+    'anchor_forces',
+    'per_phase_summary',
+    'extremen_overzicht',
+    'grafieken_moment_dwarskracht',
+    'grafieken_vervorming',
+}
 
 
 def _png_hoogte_cm(png_bytes: bytes, breedte_cm: float) -> float:
@@ -96,7 +107,15 @@ class WordHoofdstukExporter:
             doc = self._open_doc(template_path)
             self._pas_document_typografie_toe(doc)
             self._schrijf_titel(doc, metadata)
+            resultaat_specificaties_geschreven = False
             for sec in sections:
+                if (
+                    not resultaat_specificaties_geschreven
+                    and project is not None
+                    and sec.id in _RESULTAAT_SECTIE_IDS
+                ):
+                    self._schrijf_resultaat_specificaties_tabel(doc, project)
+                    resultaat_specificaties_geschreven = True
                 self._schrijf_sectie(doc, sec, project)
             doc.save(output_path)
             return None
@@ -108,9 +127,24 @@ class WordHoofdstukExporter:
     # ------------------------------------------------------------------
 
     def _open_doc(self, template_path: str | None) -> Document:
-        if template_path and Path(template_path).exists():
-            return Document(template_path)
-        return Document()
+        if not template_path or not Path(template_path).exists():
+            return Document()
+        # .dotx heeft ander content-type dan python-docx verwacht; patch naar .docx
+        if Path(template_path).suffix.lower() == '.dotx':
+            buf = io.BytesIO()
+            with zipfile.ZipFile(template_path, 'r') as zin, \
+                 zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+                for item in zin.infolist():
+                    data = zin.read(item.filename)
+                    if item.filename == '[Content_Types].xml':
+                        data = data.replace(
+                            b'wordprocessingml.template.main+xml',
+                            b'wordprocessingml.document.main+xml',
+                        )
+                    zout.writestr(item, data)
+            buf.seek(0)
+            return Document(buf)
+        return Document(template_path)
 
     # ------------------------------------------------------------------
     # Titel
@@ -155,6 +189,8 @@ class WordHoofdstukExporter:
             doc.add_paragraph(tb.effective_text)
         for img_req in sec.images:
             self._schrijf_figuur(doc, img_req, project)
+        for groep in sec.image_groups:
+            self._schrijf_figuurgroep(doc, groep, project)
 
     def _schrijf_damwandgegevens_sectie(
         self,
@@ -232,6 +268,181 @@ class WordHoofdstukExporter:
                 size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
             )
 
+    def _schrijf_resultaat_specificaties_tabel(
+        self,
+        doc: Document,
+        project: object,
+    ) -> None:
+        """Schrijf de eerste tabel van de Resultaatbeschrijving-tab naar Word."""
+        rijen = self._resultaat_specificatie_rijen(project)
+        if not rijen:
+            return
+
+        doc.add_heading('Specificaties', level=2)
+        doc.add_paragraph(
+            'In deze tabel zijn de belangrijkste damwandgegevens en maatgevende '
+            'projectresultaten samengevat. De resultaatwaarden betreffen de maxima '
+            'over de beschikbare fases en toetsstappen.'
+        )
+
+        tbl = doc.add_table(rows=len(rijen), cols=3)
+        tbl.autofit = False
+        try:
+            tbl.style = 'Table Grid'
+        except KeyError:
+            pass
+
+        kolom_breedtes = [
+            round(cm * 567) for cm in _RESULTAAT_SPEC_KOLOM_BREEDTES_CM
+        ]
+        self._stel_tabel_grid_in(tbl, _RESULTAAT_SPEC_KOLOM_BREEDTES_CM)
+        for row in tbl.rows:
+            for col_idx, cell in enumerate(row.cells[:3]):
+                self._stel_cel_breedte(cell, kolom_breedtes[col_idx])
+            self._stel_rijhoogte_exact_twips(row, _DAMWAND_RIJHOOGTE_TWIPS)
+
+        for row_idx, (label, waarde, eenheid) in enumerate(rijen):
+            is_koprij = waarde == '' and eenheid == ''
+            if is_koprij:
+                kopcel = tbl.rows[row_idx].cells[0].merge(
+                    tbl.rows[row_idx].cells[2]
+                )
+                self._stel_cel_breedte(kopcel, sum(kolom_breedtes))
+                kopcel.text = label
+                continue
+            tbl.rows[row_idx].cells[0].text = label
+            tbl.rows[row_idx].cells[1].text = waarde
+            tbl.rows[row_idx].cells[2].text = eenheid
+
+        self._pas_resultaat_specificaties_opmaak_toe(tbl)
+
+    def _resultaat_specificatie_rijen(
+        self,
+        project: object,
+    ) -> list[tuple[str, str, str]]:
+        """Bouw de rijen voor de projectbrede resultaat-specificatietabel."""
+        from reporting.builders.result_description_builder import (
+            is_bgt_step_key,
+            is_ugt_step_key,
+        )
+        from utils.formatting import fmt_number
+
+        sheet_piling = getattr(project, 'sheet_piling', None) or []
+        summaries = getattr(project, 'result_summaries', None) or []
+        el = sheet_piling[0] if sheet_piling else None
+
+        max_mob_mom = max((s.mob_moment_pct for s in summaries), default=0.0)
+        max_mob_grond = max((s.mob_grond_pct for s in summaries), default=0.0)
+        maatgevend = max(summaries, key=lambda s: s.mob_moment_pct, default=None)
+
+        msd, dsd, vervorming = self._maatgevende_resultaatwaarden(
+            project,
+            is_ugt_step_key,
+            is_bgt_step_key,
+        )
+
+        top = getattr(el, 'top', None) if el is not None else None
+        bottom = getattr(el, 'bottom', 0.0) if el is not None else 0.0
+        naam = getattr(el, 'name', '-') if el is not None else '-'
+        profiel = naam.split('(')[0].strip() if el is not None else '-'
+        lengte = abs((top or 0.0) - bottom) if el is not None else None
+
+        rijen = [
+            ('Damwand', '', ''),
+            ('Profiel', profiel, '[-]'),
+            ('Staalkwaliteit', getattr(el, 'steel_quality', '-') if el else '-', '[-]'),
+            (
+                'Opneembaar moment',
+                fmt_number(getattr(el, 'opneembaar_moment_knm', None)) if el else '-',
+                '[kNm/m]',
+            ),
+            ('Niveau damwand b.k.', fmt_number(top or 0.0) if el else '-', '[m NAP]'),
+            ('Niveau damwand o.k.', fmt_number(bottom) if el else '-', '[m NAP]'),
+            ('Damwandlengte', fmt_number(lengte) if el else '-', '[m]'),
+            ('Resultaten', '', ''),
+            ('Moment Msd', fmt_number(msd), '[kNm/m]'),
+            ('Dwarskracht Dsd', fmt_number(dsd), '[kN/m]'),
+            ('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]'),
+            ('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]'),
+            ('Verplaatsing urep BGT', fmt_number(vervorming), '[mm]'),
+        ]
+
+        if maatgevend is not None:
+            for naam, kracht, niveau in maatgevend.ondersteuningen[:4]:
+                rijen.append((naam, fmt_number(kracht), '[kN/m]'))
+                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]'))
+        return rijen
+
+    def _maatgevende_resultaatwaarden(
+        self,
+        project: object,
+        is_ugt_step_key,
+        is_bgt_step_key,
+    ) -> tuple[float | None, float | None, float | None]:
+        """Bereken projectbrede Msd, Dsd en BGT-vervorming voor Word."""
+        result_steps = getattr(project, 'result_steps', None) or {}
+        msd: float | None = None
+        dsd: float | None = None
+        vervorming: float | None = None
+
+        for stap_key, step in result_steps.items():
+            if not is_ugt_step_key(stap_key):
+                continue
+            for rs in step.stages.values():
+                for pt in rs.points:
+                    moment = abs(pt.moment)
+                    shear = abs(pt.shear)
+                    if msd is None or moment > msd:
+                        msd = moment
+                    if dsd is None or shear > dsd:
+                        dsd = shear
+
+        for stap_key, step in result_steps.items():
+            if not is_bgt_step_key(stap_key):
+                continue
+            for rs in step.stages.values():
+                for pt in rs.points:
+                    disp = abs(pt.disp)
+                    if vervorming is None or disp > vervorming:
+                        vervorming = disp
+        return msd, dsd, vervorming
+
+    def _pas_resultaat_specificaties_opmaak_toe(self, tbl: Table) -> None:
+        """Pas theme-opmaak toe op de resultaat-specificatietabel."""
+        from ui import table_styles
+
+        font = _eerste_fontfamilie(table_styles.TABLE_FONT)
+        label_kleur = _hex_zonder_hash(table_styles.TABLE_LABEL_COLOR)
+        waarde_kleur = _hex_zonder_hash(table_styles.TABLE_VALUE_COLOR)
+        extra_kleur = _hex_zonder_hash(table_styles.TABLE_EXTRA_COLOR)
+        header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
+        header_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_FG)
+        row_odd_bg = _hex_zonder_hash(table_styles.TABLE_ROW_ODD_BG)
+        row_even_bg = _hex_zonder_hash(table_styles.TABLE_ROW_EVEN_BG)
+
+        data_index = 0
+        for row in tbl.rows:
+            eerste_tekst = row.cells[0].text.strip() if row.cells else ''
+            is_koprij = eerste_tekst in {'Damwand', 'Resultaten'}
+            if is_koprij:
+                cell = row.cells[0]
+                self._stel_cel_vulling(cell, header_bg)
+                self._pas_cel_font_toe(
+                    cell, font, header_fg, bold=True,
+                    size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
+                )
+                continue
+
+            fill = row_odd_bg if data_index % 2 == 0 else row_even_bg
+            kleuren = [label_kleur, waarde_kleur, extra_kleur]
+            for col_idx, cell in enumerate(row.cells[:3]):
+                self._stel_cel_vulling(cell, fill)
+                self._pas_cel_font_toe(
+                    cell, font, kleuren[col_idx], bold=False,
+                    size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
+                )
+            data_index += 1
+
     def _schrijf_fase_sectie(
         self,
         doc: Document,
@@ -267,9 +478,15 @@ class WordHoofdstukExporter:
             png_bytes = render_figuur(img_req, project)
 
         n_data = sum(1 + len(rij.extra_lines) for rij in kaart.rows)
-        teksthoogte_cm = max(n_data, 1) * _FASE_RIJHOOGTE_CM
         afbeeldingshoogte_cm = _png_hoogte_cm(png_bytes, 6.0) if png_bytes else 0.0
-        n_padding = 1 if afbeeldingshoogte_cm > teksthoogte_cm else 0
+        # Bereken exacte tekst-twips zodat padding-berekening klopt met werkelijke rijhoogtes
+        tekst_twips = sum(
+            _DAMWAND_RIJHOOGTE_TWIPS if not rij.extra_lines
+            else 54 + 52 * len(rij.extra_lines)
+            for rij in kaart.rows
+        ) if kaart.rows else _DAMWAND_RIJHOOGTE_TWIPS
+        padding_twips = max(round(afbeeldingshoogte_cm * 1.05 * 567) - tekst_twips, 0)
+        n_padding = 1 if padding_twips > 0 else 0
         n_header = 2
         n_rows = n_header + max(n_data, 1) + n_padding
 
@@ -311,6 +528,8 @@ class WordHoofdstukExporter:
                 self._stel_rijhoogte_twips(tbl.rows[grid_row], 54)
                 for k in range(1, n_sub):
                     self._stel_rijhoogte_twips(tbl.rows[grid_row + k], 52)
+            else:
+                self._stel_rijhoogte_exact_twips(tbl.rows[grid_row], _DAMWAND_RIJHOOGTE_TWIPS)
 
             tbl.rows[grid_row].cells[0].text = rij.label
             tbl.rows[grid_row].cells[1].text = rij.value
@@ -319,13 +538,18 @@ class WordHoofdstukExporter:
                 tbl.rows[grid_row + k + 1].cells[2].text = extra_tekst
             grid_row += n_sub
 
+        if n_data == 0:
+            self._stel_rijhoogte_exact_twips(tbl.rows[n_header], _DAMWAND_RIJHOOGTE_TWIPS)
+
         if n_padding:
             pad_start = n_header + max(n_data, 1)
             pad_cel = tbl.rows[pad_start].cells[0].merge(tbl.rows[n_rows - 1].cells[2])
             self._stel_cel_breedte(pad_cel, sum(kolom_breedtes[:3]))
-            self._stel_rijhoogte_twips(tbl.rows[pad_start], 52)
+            self._stel_rijhoogte_exact_twips(tbl.rows[pad_start], padding_twips)
 
         self._pas_fase_tabel_opmaak_toe(tbl)
+        for row in tbl.rows:
+            self._stel_cant_split(row)
 
         img_cel = tbl.rows[n_header].cells[3]
         for rij_idx in range(n_header + 1, n_rows):
@@ -334,6 +558,8 @@ class WordHoofdstukExporter:
 
         para = img_cel.paragraphs[0]
         para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        para.paragraph_format.space_before = Pt(0)
+        para.paragraph_format.space_after = Pt(0)
         if png_bytes:
             run = para.add_run()
             run.add_picture(io.BytesIO(png_bytes), width=Cm(6))
@@ -416,6 +642,13 @@ class WordHoofdstukExporter:
         tc_w.set(qn('w:w'), str(breedte_dxa))
         tc_w.set(qn('w:type'), 'dxa')
 
+    def _stel_cant_split(self, row) -> None:
+        """Voorkom dat Word deze rij over een pagina-einde breekt."""
+        tr_pr = row._tr.get_or_add_trPr()
+        if tr_pr.find(qn('w:cantSplit')) is None:
+            cant_split = OxmlElement('w:cantSplit')
+            tr_pr.append(cant_split)
+
     def _stel_rijhoogte_twips(self, row, hoogte_twips: int) -> None:
         """Zet een compacte rijhoogte in Word-twips zonder exact-height regel."""
         tr_pr = row._tr.get_or_add_trPr()
@@ -455,21 +688,145 @@ class WordHoofdstukExporter:
             return
         if tabel.title:
             doc.add_paragraph(tabel.title)
-        t = doc.add_table(rows=1, cols=len(tabel.columns))
+        heeft_groepen = bool(tabel.column_groups)
+        extra_rij = 1 if heeft_groepen else 0
+        n_cols = len(tabel.columns)
+        t = doc.add_table(rows=1 + extra_rij + len(tabel.rows), cols=n_cols)
         try:
             t.style = 'Table Grid'
         except KeyError:
             pass
+        t.autofit = True
+
+        if heeft_groepen:
+            col_offset = 0
+            for groep_label, colspan in tabel.column_groups:
+                start = t.rows[0].cells[col_offset]
+                if colspan > 1:
+                    eind = t.rows[0].cells[col_offset + colspan - 1]
+                    start = start.merge(eind)
+                start.text = groep_label
+                col_offset += colspan
+
+        kop_rij = extra_rij
         for col, header in enumerate(tabel.columns):
-            t.rows[0].cells[col].text = header
-        for data_rij in tabel.rows:
-            rij = t.add_row()
+            t.rows[kop_rij].cells[col].text = header
+
+        for row_i, data_rij in enumerate(tabel.rows):
+            rij = t.rows[kop_rij + 1 + row_i]
             for col, cel in enumerate(data_rij):
                 if col < len(rij.cells):
                     rij.cells[col].text = str(cel)
 
+        self._pas_report_tabel_opmaak_toe(t, heeft_groepen)
+
+    def _pas_report_tabel_opmaak_toe(self, tbl: Table, heeft_groepen: bool = False) -> None:
+        """Pas themakleuren toe op een generieke rapport-tabel."""
+        from ui import table_styles
+
+        font = _eerste_fontfamilie(table_styles.TABLE_FONT)
+        header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
+        header_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_FG)
+        subhdr_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_SUB_BG)
+        subhdr_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_SUB_FG)
+        value_kleur = _hex_zonder_hash(table_styles.TABLE_VALUE_COLOR)
+        row_odd_bg = _hex_zonder_hash(table_styles.TABLE_ROW_ODD_BG)
+        row_even_bg = _hex_zonder_hash(table_styles.TABLE_ROW_EVEN_BG)
+        kop_rij = 1 if heeft_groepen else 0
+
+        if heeft_groepen:
+            for cell in tbl.rows[0].cells:
+                self._stel_cel_vulling(cell, subhdr_bg)
+                self._pas_cel_font_toe(
+                    cell, font, subhdr_fg, bold=True,
+                    size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
+                )
+
+        for cell in tbl.rows[kop_rij].cells:
+            self._stel_cel_vulling(cell, header_bg)
+            self._pas_cel_font_toe(
+                cell, font, header_fg, bold=True,
+                size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
+            )
+
+        for row_i, row in enumerate(tbl.rows[kop_rij + 1:]):
+            fill = row_odd_bg if row_i % 2 == 0 else row_even_bg
+            for cell in row.cells:
+                self._stel_cel_vulling(cell, fill)
+                self._pas_cel_font_toe(
+                    cell, font, value_kleur, bold=False,
+                    size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
+                )
+
+    def _schrijf_figuurgroep(
+        self,
+        doc: Document,
+        groep: ReportImageGroup,
+        project: object | None,
+    ) -> None:
+        """Schrijf een ReportImageGroup als 3-rijen Word-tabel (kop, figuur, voet)."""
+        if not groep.images:
+            return
+        n_cols = len(groep.images)
+        breedte_per_col = 16.0 / n_cols
+        breedte_dxa = round(breedte_per_col * 567)
+
+        tbl = doc.add_table(rows=3, cols=n_cols)
+        try:
+            tbl.style = 'Table Grid'
+        except KeyError:
+            pass
+        self._stel_tabel_grid_in(tbl, [breedte_per_col] * n_cols)
+
+        for col, tekst in enumerate(groep.headers):
+            cell = tbl.rows[0].cells[col]
+            self._stel_cel_breedte(cell, breedte_dxa)
+            cell.text = tekst
+
+        for col, img_req in enumerate(groep.images):
+            cell = tbl.rows[1].cells[col]
+            self._stel_cel_breedte(cell, breedte_dxa)
+            if img_req is not None and project is not None:
+                png = self._render_figuur(img_req, project)
+                if png:
+                    para = cell.paragraphs[0]
+                    run = para.add_run()
+                    run.add_picture(io.BytesIO(png), width=Cm(breedte_per_col - 0.4))
+
+        for col, tekst in enumerate(groep.footers):
+            cell = tbl.rows[2].cells[col]
+            self._stel_cel_breedte(cell, breedte_dxa)
+            cell.text = tekst
+
+        self._pas_figuurgroep_opmaak_toe(tbl)
+
+    def _pas_figuurgroep_opmaak_toe(self, tbl: Table) -> None:
+        """Pas themakleuren toe op een figuurgroep-tabel."""
+        from ui import table_styles
+
+        font = _eerste_fontfamilie(table_styles.TABLE_FONT)
+        header_bg = _hex_zonder_hash(table_styles.TABLE_HEADER_BG)
+        header_fg = _hex_zonder_hash(table_styles.TABLE_HEADER_FG)
+        row_odd_bg = _hex_zonder_hash(table_styles.TABLE_ROW_ODD_BG)
+        extra_kleur = _hex_zonder_hash(table_styles.TABLE_EXTRA_COLOR)
+
+        for cell in tbl.rows[0].cells:
+            self._stel_cel_vulling(cell, header_bg)
+            self._pas_cel_font_toe(
+                cell, font, header_fg, bold=True,
+                size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
+            )
+        for cell in tbl.rows[1].cells:
+            self._stel_cel_vulling(cell, row_odd_bg)
+        for cell in tbl.rows[2].cells:
+            self._stel_cel_vulling(cell, row_odd_bg)
+            self._pas_cel_font_toe(
+                cell, font, extra_kleur, bold=False,
+                size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
+            )
+
     # ------------------------------------------------------------------
-    # Figuren (placeholder — wordt ingevuld in Task 6)
+    # Figuren
     # ------------------------------------------------------------------
 
     def _schrijf_figuur(self, doc: Document, img_req, project) -> None:

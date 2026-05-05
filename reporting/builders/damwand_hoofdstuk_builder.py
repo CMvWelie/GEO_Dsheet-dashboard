@@ -13,6 +13,7 @@ from reporting.models import (
 )
 from reporting.builders.soil_table_builder import SoilTableBuilder
 from reporting.builders.input_description_builder import InputDescriptionBuilder
+from reporting.builders.result_description_builder import ResultDescriptionBuilder
 from utils.formatting import fmt_number
 
 
@@ -291,8 +292,5 @@ class DamwandHoofdstukBuilder:
         secties += SoilTableBuilder().build(project)             # 1. Grondlagen
         secties.append(self._bouw_damwand_sectie(project))       # 2. Damwandgegevens
         secties += self._bouw_fase_secties(project)              # 3. Invoer per fase
-        secties.append(self._bouw_conclusietabel(project))       # 4. Conclusietabel
-        secties += self._bouw_grafiek_secties(                   # 5. Grafieken
-            project, governing_step_key, disp_step_key
-        )
+        secties += ResultDescriptionBuilder().build(project, 0, None)  # 4. Resultaatbeschrijving
         return secties

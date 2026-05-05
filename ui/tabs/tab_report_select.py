@@ -15,8 +15,6 @@ class TabReportSelect(QWidget):
     """Rapportage-item selectietab (Tab 4A)."""
 
     selection_changed = pyqtSignal()
-    preview_open_requested = pyqtSignal()
-    """Afgegeven als de gebruiker op 'Preview openen' klikt."""
     word_pdf_preview_open_requested = pyqtSignal()
     """Afgegeven als de gebruiker op 'Word preview (WYSIWYG)' klikt."""
     export_word_requested = pyqtSignal(str)
@@ -94,17 +92,6 @@ class TabReportSelect(QWidget):
         root.addWidget(word_box)
 
         # ── Preview-vensters ──────────────────────────────────────────
-        prev_rij = QHBoxLayout()
-        open_btn = QPushButton('↗ Preview openen')
-        open_btn.setObjectName('btnPrimary')
-        open_btn.clicked.connect(self.preview_open_requested)
-        prev_hint = QLabel('Snelle HTML-preview naast de applicatie')
-        prev_hint.setObjectName('hintLabel')
-        prev_rij.addWidget(open_btn)
-        prev_rij.addWidget(prev_hint)
-        prev_rij.addStretch()
-        root.addLayout(prev_rij)
-
         wysiwyg_rij = QHBoxLayout()
         self._word_preview_btn = QPushButton('📄 Word preview (WYSIWYG)')
         self._word_preview_btn.setObjectName('btnPrimary')

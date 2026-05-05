@@ -247,6 +247,97 @@ def test_fase_sectie_gebruikt_theme_fontgroottes(monkeypatch) -> None:
     assert tbl.rows[2].cells[0].paragraphs[0].runs[0].font.size.pt == 6
 
 
+def test_resultaatbeschrijving_specificaties_tabel_in_word() -> None:
+    from docx.oxml.ns import qn
+    from parsers.models import (
+        FileBundle,
+        Project,
+        ResultPoint,
+        ResultStage,
+        ResultStep,
+        ResultSummary,
+        SheetPilingElement,
+    )
+
+    project = Project(
+        base_name='t',
+        project_name='T',
+        file_bundle=FileBundle(),
+        sheet_piling=[
+            SheetPilingElement(
+                name='AZ 18 (S240GP)',
+                x=0.0,
+                bottom=-12.0,
+                top=1.0,
+                width=1.0,
+                opneembaar_moment_knm=250.0,
+                steel_quality='S240GP',
+            )
+        ],
+        result_summaries=[
+            ResultSummary(
+                stage_number=1,
+                max_moment_knm=100.0,
+                max_shear_kn=50.0,
+                max_disp_mm=10.0,
+                mob_moment_pct=60.0,
+                mob_grond_pct=70.0,
+            )
+        ],
+        result_steps={
+            'CUR 166 6.4': ResultStep(
+                raw_step='CUR 166 6.4',
+                stages={
+                    1: ResultStage(
+                        stage_number=1,
+                        points=[ResultPoint(depth=-2.0, moment=-123.0, shear=45.0, disp=4.0)],
+                    )
+                },
+            ),
+            'CUR 166 6.5': ResultStep(
+                raw_step='CUR 166 6.5',
+                stages={
+                    1: ResultStage(
+                        stage_number=1,
+                        points=[ResultPoint(depth=-1.0, moment=10.0, shear=5.0, disp=-9.0)],
+                    )
+                },
+            ),
+        },
+    )
+    sec = ReportSection(id='conclusietabel', title='Resultaten per fase')
+
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as f:
+        pad = f.name
+    fout = WordHoofdstukExporter().export(
+        sections=[sec],
+        metadata=ReportMetadata(project_name='Test'),
+        project=project,
+        template_path=None,
+        output_path=pad,
+    )
+    assert fout is None
+    doc = Document(pad)
+    os.unlink(pad)
+
+    tbl = doc.tables[0]
+    assert [col.get(qn('w:w')) for col in tbl._tbl.tblGrid.gridCol_lst] == [
+        '2835', '1701', '1134',
+    ]
+    assert tbl.rows[0].cells[0].text == 'Damwand'
+    assert tbl.rows[0].cells[0]._tc.tcPr.tcW.w == 5670
+    assert tbl.rows[0].cells[0]._tc.tcPr.find(qn('w:shd')).get(qn('w:fill')) == '147ACF'
+    assert [cell.text for cell in tbl.rows[1].cells] == ['Profiel', 'AZ 18', '[-]']
+    assert tbl.rows[7].cells[0].text == 'Resultaten'
+    assert tbl.rows[7].cells[0]._tc.tcPr.find(qn('w:shd')).get(qn('w:fill')) == '147ACF'
+    assert [cell.text for cell in tbl.rows[8].cells] == [
+        'Moment Msd', '123,0', '[kNm/m]',
+    ]
+    assert [cell.text for cell in tbl.rows[10].cells] == [
+        'Gemobiliseerd Moment', '60,0', '[%]',
+    ]
+
+
 def test_fase_sectie_voegt_geen_paddingrij_toe_zonder_afbeelding() -> None:
     from reporting.builders.input_description_builder import FaseCard, FaseRow
     from reporting.models import FaseInvoerSectie
