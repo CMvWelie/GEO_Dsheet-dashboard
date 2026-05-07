@@ -9,7 +9,7 @@ concrete opbouw uit parserdata gebeurt in submap `builders/`.
 | Bestand | Doel |
 |---|---|
 | `models.py` | Dataclasses voor velden, tabellen, tekstblokken, secties en het volledige rapportpakket. |
-| `selection.py` | `ReportPlan`-klasse die selectie, volgorde en exportdoelen (Excel/Word) per item beheert en een `ReportPackage` opbouwt. |
+| `selection.py` | `ReportPlan`-klasse die selectie, volgorde en exportdoelen per item beheert. |
 
 ## Modellen
 
@@ -24,8 +24,7 @@ Gedefinieerd in `models.py`:
 - `ReportSection` — bundelt `ReportField`s, `ReportTable`s, `TextBlock`s en
   `ReportImageRequest`s onder één titel.
 - `ReportPackage` — eindcontainer met `ReportMetadata`, invoer-, resultaat- en
-  extra-secties, geselecteerde items en optionele templatepaden voor Excel en
-  Word.
+  extra-secties, geselecteerde items en een optioneel Word-templatepad.
 
 Aanvullend: `ReportImageRequest` (figuurverzoek per fase/stap), `ReportItem`
 (selecteerbaar item met volgorde en exportvlaggen) en `ReportMetadata`
@@ -34,13 +33,12 @@ Aanvullend: `ReportImageRequest` (figuurverzoek per fase/stap), `ReportItem`
 ## Pijplijn
 
 ```
-Builder  ->  ReportSection  ->  Exporter (Excel / Word)
+Builder  ->  ReportSection  ->  WordHoofdstukExporter
 ```
 
 De builders in `builders/` lezen `Project`/`Stage` uit en produceren
-`ReportSection`s. `ReportPlan.build_package()` voegt deze samen met metadata en
-de geselecteerde items tot een `ReportPackage`, dat door `ExcelExporter` of
-`WordExporter` wordt verwerkt.
+`ReportSection`s. `ReportController` selecteert de gewenste secties uit het plan
+en geeft die rechtstreeks door aan `WordHoofdstukExporter`.
 
 ## TextBlock-overrides
 

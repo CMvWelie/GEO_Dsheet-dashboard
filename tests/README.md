@@ -26,7 +26,6 @@ pip install -r requirements-dev.txt
 | `test_app_settings_theme.py` | Opslaan en laden van `active_theme_name` in `AppSettings`. |
 | `test_theme.py` | `Theme`-dataclass, JSON-loader, `discover_themes()` en `Theme.build_stylesheet()`. |
 | `test_damwand_hoofdstuk_builder.py` | Bouw van het complete damwand-hoofdstuk uit project + grondprofielen. |
-| `test_html_preview_builder.py` | HTML-rendering van een `ReportPackage` voor de preview-tab. |
 | `test_soil_table_builder.py` | Grondsoortentabel-builder: rijen, kolommen, sortering. |
 | `test_result_description_builder.py` | Resultaatbeschrijving (CUR 166-stappen 6.1 t/m 6.5) en `TextBlock`-overrides. |
 | `test_word_hoofdstuk_exporter.py` | Word-hoofdstuk-export: paragraafstijlen, tabellen, afbeeldingen. |

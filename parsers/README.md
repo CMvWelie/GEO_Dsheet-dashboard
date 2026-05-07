@@ -1,14 +1,13 @@
 # Parsers
 
-Parsen van D-Sheet bestandsformaten (`.shi`, `.shd`, `.shs`) naar domein-dataclasses
-in `models.py`. Een lichte plugin-registry koppelt extensies aan een parser-callable,
-zodat extra formaten zonder aanpassing van de aanroeplogica toegevoegd kunnen worden.
+Parsen van D-Sheet bestandsformaten (`.shi`, `.shd`, `.shs`) naar
+domein-dataclasses in `models.py`.
 
 ## Bestanden
 
 | Bestand | Doel |
 |---|---|
-| `__init__.py` | Plugin-registry (`register_parser`, `get_parser`) en registratie van de ingebouwde D-Sheet parser. |
+| `__init__.py` | Pakketmarkering, geen re-exports. |
 | `models.py` | Dataclasses voor alle domeinobjecten (project, geometrie, belastingen, resultaten). |
 | `base_parser.py` | Gedeelde regex-helpers `extract_section()` en `find_line_value()`. |
 | `shi_parser.py` | Volledige D-Sheet parser; bouwt een `Project` uit een `FileBundle` met `.shi`/`.shd`/`.shs` tekst. |
@@ -27,24 +26,6 @@ Centraal staat `Project`, dat alle domeinlijsten bundelt. Per categorie:
 
 Alle modellen zijn `@dataclass` met `field(default_factory=list)` voor lijsten;
 geen Qt-imports en geen ruwe dicts in publieke API's.
-
-## Nieuwe parser toevoegen
-
-Een nieuw formaat registreer je vanuit het pakket-init of een extra module:
-
-```python
-from parsers import register_parser
-from parsers.models import FileBundle, Project
-
-def parse_plaxis(file_bundle: FileBundle, base_name: str) -> Project:
-    # Lees file_bundle.shi/.shd/.shs of voeg eigen velden toe via een wrapper.
-    ...
-
-register_parser('plx', parse_plaxis)
-```
-
-De callable krijgt `(file_bundle, base_name)` en moet een `Project` teruggeven.
-`AppController` haalt de juiste parser op via `get_parser(extensie)`.
 
 ## Conventies
 

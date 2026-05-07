@@ -1,6 +1,6 @@
 # Templates
 
-Word-templates die door `exporters/word_exporter.py` en `exporters/word_hoofdstuk_exporter.py` als basis worden gebruikt voor rapportage-export. Het pad naar het actieve template wordt ingesteld in de **Rapportage**-tab en bewaard in de gebruikersconfiguratie.
+Word-templates die door `exporters/word_hoofdstuk_exporter.py` als basis worden gebruikt voor rapportage-export. Het pad naar het actieve template wordt ingesteld in de **Rapportage**-tab en bewaard in de gebruikersconfiguratie.
 
 ## Bestanden
 

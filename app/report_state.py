@@ -11,6 +11,5 @@ from reporting.selection import ReportPlan
 class ReportState:
     metadata: ReportMetadata = field(default_factory=ReportMetadata)
     plan: ReportPlan = field(default_factory=ReportPlan)
-    template_excel: str | None = None
     template_word: str | None = None
     overrides: dict[str, str] = field(default_factory=dict)  # text_block_id → override_text

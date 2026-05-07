@@ -6,6 +6,7 @@ from app.report_controller import ReportController
 from app.report_state import ReportState
 from app.state import AppState
 from parsers.models import FileBundle, Project, SoilLayer, SoilProfile, Stage
+from reporting.models import ReportMetadata
 
 
 def _project() -> Project:
@@ -28,7 +29,7 @@ def _project() -> Project:
 
 
 def test_auto_populate_plan_hanteert_vaste_rapportvolgorde() -> None:
-    """Rapportplan start met damwand/fase, daarna grondsoorten en resultaten."""
+    """Rapportplan volgt de volgorde van de hoofdstukbuilder."""
     app_state = AppState(projects={'p': _project()}, active_project='p')
     report_state = ReportState()
     controller = ReportController(app_state, report_state)
@@ -37,32 +38,28 @@ def test_auto_populate_plan_hanteert_vaste_rapportvolgorde() -> None:
 
     ids = [item.id for item in report_state.plan.items]
     assert ids[:4] == [
-        'damwand_damwand_gegevens',
-        'damwand_fase_1_invoer',
-        'grondsoorten_soil_table_links',
-        'result_anchor_forces',
+        'soil_table_links',
+        'damwand_gegevens',
+        'fase_1_invoer',
+        'anchor_forces',
     ]
 
 
-def test_build_package_gebruikt_damwandsecties_als_input() -> None:
-    """Algemene rapportpackage bevat damwand/fase-secties als input_sections."""
-    app_state = AppState(projects={'p': _project()}, active_project='p')
-    report_state = ReportState()
-    controller = ReportController(app_state, report_state)
-
-    pakket = controller.build_package()
-
-    ids = [sec.id for sec in pakket.input_sections]
-    assert ids == ['damwand_gegevens', 'fase_1_invoer']
-
-
-def test_set_template_word_zet_template_in_package() -> None:
-    """Een vooraf ingesteld Word-templatepad komt direct in het package terecht."""
+def test_set_template_word_slaat_template_op() -> None:
+    """Een vooraf ingesteld Word-templatepad wordt in ReportState bewaard."""
     app_state = AppState(projects={'p': _project()}, active_project='p')
     report_state = ReportState()
     controller = ReportController(app_state, report_state)
 
     controller.set_template_word('C:/templates/rapport.dotx')
-    pakket = controller.build_package()
 
-    assert pakket.template_word == 'C:/templates/rapport.dotx'
+    assert report_state.template_word == 'C:/templates/rapport.dotx'
+
+
+def test_build_metadata_gebruikt_report_state_metadata() -> None:
+    """Metadata voor Word-export komt uit ReportState.metadata."""
+    app_state = AppState(projects={'p': _project()}, active_project='p')
+    report_state = ReportState(metadata=ReportMetadata(project_name='Project X'))
+    controller = ReportController(app_state, report_state)
+
+    assert controller.build_metadata().project_name == 'Project X'

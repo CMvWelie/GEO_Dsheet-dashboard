@@ -1,4 +1,4 @@
-# D-Sheet Dashboard
+﻿# D-Sheet Dashboard
 
 PyQt6 desktop applicatie voor het visualiseren en analyseren van **D-Sheet damwand (sheet pile wall) geotechnische berekeningen**. Leest `.shi`/`.shd`/`.shs` bestandsformaten (Deltares D-Sheet uitvoer) en biedt doorsnede-visualisatie, resultaatgrafieken, invoerbeschrijvingen en export naar Excel en Word.
 
@@ -9,7 +9,7 @@ Ontwikkeld door **DKIB Geotechniek**.
 ## Inhoud
 
 - [Functionaliteit](#functionaliteit)
-- [Technologieën](#technologieën)
+- [TechnologieÃ«n](#technologieÃ«n)
 - [Vereisten](#vereisten)
 - [Installatie en opstarten](#installatie-en-opstarten)
 - [Gebruik](#gebruik)
@@ -27,9 +27,9 @@ Ontwikkeld door **DKIB Geotechniek**.
 ## Functionaliteit
 
 - Importeren en parsen van `.shi`/`.shd`/`.shs` D-Sheet bestanden (drag-and-drop of bestandsdialoog)
-- Beheer van meerdere projecten tegelijk binnen één sessie
-- Fase-afhankelijke doorsnede-visualisatie — grondlagen, waterpeilen, ankers, stempels, veren, belastingen en normaalkrachten
-- Resultaatgrafieken — moment, dwarskracht en verplaatsing per fase en VERIFY STEP
+- Beheer van meerdere projecten tegelijk binnen Ã©Ã©n sessie
+- Fase-afhankelijke doorsnede-visualisatie â€” grondlagen, waterpeilen, ankers, stempels, veren, belastingen en normaalkrachten
+- Resultaatgrafieken â€” moment, dwarskracht en verplaatsing per fase en VERIFY STEP
 - Invoerbeschrijving en resultaatbeschrijving als gestructureerde tekst met handmatige tekstoverrides
 - Rapportage-export naar Excel (`.xlsx`) en Word (`.docx`) via optionele templates met JSON-sidecar mapping
 - Pre-export validatie van rapportmetadata, geselecteerde items en templatepaden
@@ -38,17 +38,17 @@ Ontwikkeld door **DKIB Geotechniek**.
 
 ---
 
-## Technologieën
+## TechnologieÃ«n
 
 | Pakket | Versie | Gebruik |
 |---|---|---|
 | Python | **3.10+** | Taal (vereist voor `str \| None` union-syntax) |
-| PyQt6 | ≥ 6.4 | GUI framework (fallback: PySide6) |
-| matplotlib | ≥ 3.7 | Doorsnede- en resultaatgrafieken |
-| numpy | ≥ 1.24 | Numerieke berekeningen |
-| openpyxl | ≥ 3.1 | Excel export (optioneel, alleen nodig bij Excel-export) |
-| python-docx | ≥ 1.0 | Word export (optioneel, alleen nodig bij Word-export) |
-| pytest | ≥ 7.0 | Unit tests |
+| PyQt6 | â‰¥ 6.4 | GUI framework (fallback: PySide6) |
+| matplotlib | â‰¥ 3.7 | Doorsnede- en resultaatgrafieken |
+| numpy | â‰¥ 1.24 | Numerieke berekeningen |
+| openpyxl | â‰¥ 3.1 | Excel export (optioneel, alleen nodig bij Excel-export) |
+| python-docx | â‰¥ 1.0 | Word export (optioneel, alleen nodig bij Word-export) |
+| pytest | â‰¥ 7.0 | Unit tests |
 
 ---
 
@@ -70,7 +70,7 @@ pip install -r requirements-dev.txt       # incl. tests
 python run.pyw
 ```
 
-Bij het opstarten wordt automatisch gecontroleerd of PyQt6 beschikbaar is. Als PyQt6 niet aanwezig is, valt de applicatie terug op PySide6. Als geen van beide geïnstalleerd is, verschijnt een duidelijke foutmelding met het installatiecommando.
+Bij het opstarten wordt automatisch gecontroleerd of PyQt6 beschikbaar is. Als PyQt6 niet aanwezig is, valt de applicatie terug op PySide6. Als geen van beide geÃ¯nstalleerd is, verschijnt een duidelijke foutmelding met het installatiecommando.
 
 ---
 
@@ -78,9 +78,9 @@ Bij het opstarten wordt automatisch gecontroleerd of PyQt6 beschikbaar is. Als P
 
 ### Bestanden importeren
 
-1. Open de tab **Rapportcontext** — dit is de gecombineerde import- en metadata-tab.
-2. Sleep `.shi`/`.shd`/`.shs` bestanden naar het dropgebied, of klik op **Importeer…** om een bestandsdialoog te openen.
-3. Klik op **Verwerk** om de bestanden te parsen. Bestanden met dezelfde basisnaam (bijv. `project.shi`, `project.shd`, `project.shs`) worden automatisch als één project gegroepeerd in een `FileBundle`.
+1. Open de tab **Rapportcontext** â€” dit is de gecombineerde import- en metadata-tab.
+2. Sleep `.shi`/`.shd`/`.shs` bestanden naar het dropgebied, of klik op **Importeerâ€¦** om een bestandsdialoog te openen.
+3. Klik op **Verwerk** om de bestanden te parsen. Bestanden met dezelfde basisnaam (bijv. `project.shi`, `project.shd`, `project.shs`) worden automatisch als Ã©Ã©n project gegroepeerd in een `FileBundle`.
 4. Geslaagde projecten verschijnen in de lijst **Ingeladen projecten**. Klik op een project om het te selecteren.
 
 ### Doorsnede en grondsoorten
@@ -123,12 +123,12 @@ Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je rend
 
 ```
 .shi/.shd/.shs bestanden
-  → AppController.ingest_paths()     (tekst inlezen → AppState.raw_files)
-  → AppController.process_files()    (groeperen → FileBundle → parse_project → AppState.projects)
-  → AppController.render_section()   (SectionRenderer → matplotlib doorsnede figuur)
-  → AppController.render_results()   (render_output_charts → moment/kracht/verplaatsingsgrafieken)
-  → ReportController.build_package() (ReportPlan + builders → ReportPackage)
-  → ExcelExporter / WordExporter     (ReportPackage → .xlsx / .docx)
+  â†’ AppController.ingest_paths()     (tekst inlezen â†’ AppState.raw_files)
+  â†’ AppController.process_files()    (groeperen â†’ FileBundle â†’ parse_project â†’ AppState.projects)
+  â†’ AppController.render_section()   (SectionRenderer â†’ matplotlib doorsnede figuur)
+  â†’ AppController.render_results()   (render_output_charts â†’ moment/kracht/verplaatsingsgrafieken)
+  → ReportController.export_word()   (ReportPlan + builders → geselecteerde secties)
+  → WordHoofdstukExporter            (ReportSection-lijst → .docx)
 ```
 
 ### Lagen
@@ -139,7 +139,7 @@ Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je rend
 | Parsers | `parsers/` | Bestandsparsing en domain dataclasses |
 | Renderers | `renderers/` | matplotlib figuur-generatie; geen Qt imports |
 | Rapportage | `reporting/` | Rapportmodellen, builders, plan, validatie; geen Qt imports |
-| Exporters | `exporters/` | Excel en Word serialisatie |
+| Exporters | `exporters/` | Word serialisatie |
 | UI | `ui/` | PyQt6 widgets; alle Qt imports uitsluitend hier |
 | Utils | `utils/` | Hulpfuncties; geen Qt imports |
 
@@ -149,11 +149,11 @@ Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je rend
 
 - **Gecentraliseerde state**: alle state-mutaties gaan via `AppController` of `ReportController`; de view schrijft nooit rechtstreeks naar `AppState`.
 - **Geen Qt in controllers**: `AppController`, `ReportController`, `ConfigManager` en `ViewportService` hebben nul Qt-imports.
-- **Qt Signals/Slots**: UI-events zijn losjes gekoppeld — widgets emitteren named signals die `main_window.py` verbindt met controller-methoden.
+- **Qt Signals/Slots**: UI-events zijn losjes gekoppeld â€” widgets emitteren named signals die `main_window.py` verbindt met controller-methoden.
 - **BaseRenderer ABC**: nieuwe renderers moeten `renderers.BaseRenderer` subclassen en `render(ax, project, stage, settings, viewport)` implementeren.
-- **Parser-registry**: nieuw bestandsformaat ondersteunen = `register_parser(ext, fn)` aanroepen in `parsers/__init__.py`.
-- **Rapportagepijplijn**: `ReportController` (geen Qt) zit tussen UI-tabs en exporters; bouwt een `ReportPackage` uit `ReportPlan` + builders, dan doorgegeven aan `ExcelExporter` of `WordExporter`.
-- **TextBlock overrides**: `ReportState.overrides` dict koppelt `block_id → override_text`; `TextBlock.effective_text` geeft de override terug als die is ingesteld, anders de gegenereerde tekst.
+- **Parsing**: D-Sheet `.shi/.shd/.shs` bundles worden direct via `parsers.shi_parser.parse_project()` verwerkt.
+- **Rapportagepijplijn**: `ReportController` (geen Qt) zit tussen UI-tabs en exporters; selecteert secties uit `ReportPlan` en geeft ze door aan `WordHoofdstukExporter`.
+- **TextBlock overrides**: `ReportState.overrides` dict koppelt `block_id â†’ override_text`; `TextBlock.effective_text` geeft de override terug als die is ingesteld, anders de gegenereerde tekst.
 - **Viewport service**: zoom- en auto-boundslogica zit in `ViewportService`, niet in het venster of de renderer.
 - **Configuratiepersistentie**: `ConfigManager` centraliseert alle config I/O op `~/.dsheet_dashboard/config.json`.
 
@@ -163,95 +163,87 @@ Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je rend
 
 ```
 Dsheet_dashboard/
-├── run.pyw                            Applicatie-entrypoint
-├── requirements.txt                   Runtime-afhankelijkheden
-├── requirements-dev.txt               Dev/test-afhankelijkheden
-├── app/
-│   ├── main_window.py                 QMainWindow: layout en signal-verbindingen
-│   ├── state.py                       AppState dataclass (single source of truth)
-│   ├── settings.py                    RenderSettings, ViewportSettings, AppSettings
-│   ├── controller.py                  AppController: ingest/parse/render/export orkestratie
-│   ├── report_controller.py           ReportController: rapportagepijplijn
-│   ├── report_state.py                ReportState: actief plan, metadata en overrides
-│   ├── config_manager.py              ConfigManager: lees/schrijf ~/.dsheet_dashboard/config.json
-│   ├── viewport_service.py            ViewportService: zoom en auto-bounds berekening
-│   ├── theme.py                       Theme-dataclass + JSON-loader + QSS-builder
-│   └── theme_apply.py                 bootstrap_theme() en thema-toepassing op QApplication
-├── parsers/
-│   ├── models.py                      Domain dataclasses (Project, Stage, Soil, etc.)
-│   ├── shi_parser.py                  Hoofdparser: parse_project → Project
-│   ├── base_parser.py                 Hulpfuncties: extract_section, find_line_value
-│   └── __init__.py                    Parser plugin registry: register_parser(ext, fn)
-├── renderers/
-│   ├── __init__.py                    BaseRenderer ABC
-│   ├── section_renderer.py            Doorsnede-visualisatie
-│   ├── output_renderer.py             Moment/kracht/verplaatsingsgrafieken
-│   ├── vertical_equilibrium_renderer.py  Verticaal-evenwicht visualisatie
-│   └── draw_helpers.py                matplotlib tekenprimitieven
-├── reporting/
-│   ├── models.py                      ReportField, ReportTable, TextBlock, ReportSection, etc.
-│   ├── selection.py                   ReportPlan + build_package()
-│   └── builders/
-│       ├── input_description_builder.py
-│       ├── result_description_builder.py
-│       ├── soil_table_builder.py            Grondsoorten-tabelopbouw
-│       ├── damwand_hoofdstuk_builder.py     Damwand-hoofdstuk samensteller
-│       └── html_preview_builder.py          HTML-preview voor Word-export
-├── exporters/
-│   ├── excel_exporter.py              ExcelExporter (openpyxl)
-│   ├── word_exporter.py               WordExporter (python-docx)
-│   └── word_hoofdstuk_exporter.py     Hoofdstuk-gewijze Word-export
-├── ui/
-│   ├── sidebar.py
-│   ├── controls_panel.py
-│   ├── info_panel.py
-│   ├── layer_table.py
-│   ├── file_list_widget.py
-│   ├── scale_slider.py                ScaleSlider widget (API-compatibel met QDoubleSpinBox)
-│   ├── status_widget.py               StatusWidget: gekleurde statusbadge (ok/warn/err/idle)
-│   ├── preview_window.py              WordPreviewWindow: HTML-preview voor rapportage
-│   ├── table_styles.py                Centrale tabelopmaak gedreven door thema
-│   ├── theme_dialog.py                Dialog voor thema-bewerking
-│   └── tabs/
-│       ├── tab_report_context.py            Rapportmetadata + bestandsimport (gecombineerd)
-│       ├── tab_input_view.py                Doorsnede-weergave (matplotlib canvas)
-│       ├── tab_input_desc.py                Invoerbeschrijving als gestructureerde tekst
-│       ├── tab_grondsoorten.py              Grondsoortentabel met selectie
-│       ├── tab_result_view.py               Resultaatgrafieken (matplotlib canvas)
-│       ├── tab_result_desc.py               Resultaatbeschrijving als gestructureerde tekst
-│       ├── tab_aanvullende_berekeningen.py  Container voor extra controles
-│       ├── tab_hydraulische_grondbreuk.py   Subtab: hydraulische grondbreuk
-│       ├── tab_verticaal_evenwicht.py       Subtab: verticaal evenwicht
-│       ├── tab_report_select.py             Rapportage-itemselectie + Word/Excel export
-│       ├── tab_instellingen.py              Render-, viewport- en thema-instellingen
-│       ├── tab_debug.py                     Debug-container (subtabs Invoer/Uitvoer)
-│       ├── tab_debug_invoer.py              Debug: ruwe invoerdata-inspectie
-│       └── tab_debug_uitvoer.py             Debug: ruwe uitvoerdata-inspectie
-├── utils/
-│   ├── color_utils.py                 D-Sheet BGR-integer → RGB kleurconversie
-│   ├── geometry.py                    Oppervlak-interpolatie, clipping
-│   ├── formatting.py                  Nederlandse getalopmaak (komma als decimaalscheidingsteken)
-│   └── export_manager.py              PNG/PDF figuur-export
-├── themes/
-│   ├── dkib.json                      DKIB-thema (huiskleuren, logo, tabelstijlen)
-│   └── sixgeoconsult.json             SIX Geoconsult-thema
-├── templates/
-│   └── damwand_stijlen.docx           Word-template voor rapportage
-└── tests/
-    ├── conftest.py                    Gedeelde pytest-fixtures
-    ├── test_parsers.py                Parser-tests met embedded SAMPLE_SHI
-    ├── test_app_settings.py           AppSettings persistentie
-    ├── test_app_settings_theme.py     Thema-instellingen
-    ├── test_theme.py                  Theme dataclass + JSON-loader
-    ├── test_damwand_hoofdstuk_builder.py
-    ├── test_html_preview_builder.py
-    ├── test_soil_table_builder.py
-    ├── test_result_description_builder.py
-    ├── test_word_hoofdstuk_exporter.py
-    ├── test_hydraulische_grondbreuk.py
-    ├── test_verticaal_evenwicht.py
-    ├── test_tab_result_desc.py
-    └── test_debug_tab.py
+â”œâ”€â”€ run.pyw                            Applicatie-entrypoint
+â”œâ”€â”€ requirements.txt                   Runtime-afhankelijkheden
+â”œâ”€â”€ requirements-dev.txt               Dev/test-afhankelijkheden
+â”œâ”€â”€ app/
+â”‚   â”œâ”€â”€ main_window.py                 QMainWindow: layout en signal-verbindingen
+â”‚   â”œâ”€â”€ state.py                       AppState dataclass (single source of truth)
+â”‚   â”œâ”€â”€ settings.py                    RenderSettings, ViewportSettings, AppSettings
+â”‚   â”œâ”€â”€ controller.py                  AppController: ingest/parse/render/export orkestratie
+â”‚   â”œâ”€â”€ report_controller.py           ReportController: rapportagepijplijn
+â”‚   â”œâ”€â”€ report_state.py                ReportState: actief plan, metadata en overrides
+â”‚   â”œâ”€â”€ config_manager.py              ConfigManager: lees/schrijf ~/.dsheet_dashboard/config.json
+â”‚   â”œâ”€â”€ viewport_service.py            ViewportService: zoom en auto-bounds berekening
+â”‚   â”œâ”€â”€ theme.py                       Theme-dataclass + JSON-loader + QSS-builder
+â”‚   â””â”€â”€ theme_apply.py                 bootstrap_theme() en thema-toepassing op QApplication
+â”œâ”€â”€ parsers/
+â”‚   â”œâ”€â”€ models.py                      Domain dataclasses (Project, Stage, Soil, etc.)
+â”‚   â”œâ”€â”€ shi_parser.py                  Hoofdparser: parse_project â†’ Project
+â”‚   â”œâ”€â”€ base_parser.py                 Hulpfuncties: extract_section, find_line_value
+│   └── __init__.py                    Pakketmarkering
+â”œâ”€â”€ renderers/
+â”‚   â”œâ”€â”€ __init__.py                    BaseRenderer ABC
+â”‚   â”œâ”€â”€ section_renderer.py            Doorsnede-visualisatie
+â”‚   â”œâ”€â”€ output_renderer.py             Moment/kracht/verplaatsingsgrafieken
+â”‚   â”œâ”€â”€ vertical_equilibrium_renderer.py  Verticaal-evenwicht visualisatie
+â”‚   â””â”€â”€ draw_helpers.py                matplotlib tekenprimitieven
+â”œâ”€â”€ reporting/
+â”‚   â”œâ”€â”€ models.py                      ReportField, ReportTable, TextBlock, ReportSection, etc.
+│   ├── selection.py                   ReportPlan en rapportitemselectie
+â”‚   â””â”€â”€ builders/
+â”‚       â”œâ”€â”€ input_description_builder.py
+â”‚       â”œâ”€â”€ result_description_builder.py
+â”‚       â”œâ”€â”€ soil_table_builder.py            Grondsoorten-tabelopbouw
+â”‚       â”œâ”€â”€ damwand_hoofdstuk_builder.py     Damwand-hoofdstuk samensteller
+â”œâ”€â”€ exporters/
+â”‚   â””â”€â”€ word_hoofdstuk_exporter.py     Hoofdstuk-gewijze Word-export
+â”œâ”€â”€ ui/
+â”‚   â”œâ”€â”€ info_panel.py
+â”‚   â”œâ”€â”€ scale_slider.py                ScaleSlider widget (API-compatibel met QDoubleSpinBox)
+â”‚   â”œâ”€â”€ status_widget.py               StatusWidget: gekleurde statusbadge (ok/warn/err/idle)
+│   ├── word_pdf_preview_window.py      Word/PDF-preview voor rapportage
+â”‚   â”œâ”€â”€ table_styles.py                Centrale tabelopmaak gedreven door thema
+â”‚   â”œâ”€â”€ theme_dialog.py                Dialog voor thema-bewerking
+â”‚   â””â”€â”€ tabs/
+â”‚       â”œâ”€â”€ tab_report_context.py            Rapportmetadata + bestandsimport (gecombineerd)
+â”‚       â”œâ”€â”€ tab_input_view.py                Doorsnede-weergave (matplotlib canvas)
+â”‚       â”œâ”€â”€ tab_input_desc.py                Invoerbeschrijving als gestructureerde tekst
+â”‚       â”œâ”€â”€ tab_grondsoorten.py              Grondsoortentabel met selectie
+â”‚       â”œâ”€â”€ tab_result_view.py               Resultaatgrafieken (matplotlib canvas)
+â”‚       â”œâ”€â”€ tab_result_desc.py               Resultaatbeschrijving als gestructureerde tekst
+â”‚       â”œâ”€â”€ tab_aanvullende_berekeningen.py  Container voor extra controles
+â”‚       â”œâ”€â”€ tab_hydraulische_grondbreuk.py   Subtab: hydraulische grondbreuk
+â”‚       â”œâ”€â”€ tab_verticaal_evenwicht.py       Subtab: verticaal evenwicht
+â”‚       â”œâ”€â”€ tab_report_select.py             Rapportage-itemselectie + Word/Excel export
+â”‚       â”œâ”€â”€ tab_instellingen.py              Render-, viewport- en thema-instellingen
+â”‚       â”œâ”€â”€ tab_debug.py                     Debug-container (subtabs Invoer/Uitvoer)
+â”‚       â”œâ”€â”€ tab_debug_invoer.py              Debug: ruwe invoerdata-inspectie
+â”‚       â””â”€â”€ tab_debug_uitvoer.py             Debug: ruwe uitvoerdata-inspectie
+â”œâ”€â”€ utils/
+â”‚   â”œâ”€â”€ color_utils.py                 D-Sheet BGR-integer â†’ RGB kleurconversie
+â”‚   â”œâ”€â”€ geometry.py                    Oppervlak-interpolatie, clipping
+â”‚   â”œâ”€â”€ formatting.py                  Nederlandse getalopmaak (komma als decimaalscheidingsteken)
+â”‚   â””â”€â”€ export_manager.py              PNG/PDF figuur-export
+â”œâ”€â”€ themes/
+â”‚   â”œâ”€â”€ dkib.json                      DKIB-thema (huiskleuren, logo, tabelstijlen)
+â”‚   â””â”€â”€ sixgeoconsult.json             SIX Geoconsult-thema
+â”œâ”€â”€ templates/
+â”‚   â””â”€â”€ damwand_stijlen.docx           Word-template voor rapportage
+â””â”€â”€ tests/
+    â”œâ”€â”€ conftest.py                    Gedeelde pytest-fixtures
+    â”œâ”€â”€ test_parsers.py                Parser-tests met embedded SAMPLE_SHI
+    â”œâ”€â”€ test_app_settings.py           AppSettings persistentie
+    â”œâ”€â”€ test_app_settings_theme.py     Thema-instellingen
+    â”œâ”€â”€ test_theme.py                  Theme dataclass + JSON-loader
+    â”œâ”€â”€ test_damwand_hoofdstuk_builder.py
+    â”œâ”€â”€ test_soil_table_builder.py
+    â”œâ”€â”€ test_result_description_builder.py
+    â”œâ”€â”€ test_word_hoofdstuk_exporter.py
+    â”œâ”€â”€ test_hydraulische_grondbreuk.py
+    â”œâ”€â”€ test_verticaal_evenwicht.py
+    â”œâ”€â”€ test_tab_result_desc.py
+    â””â”€â”€ test_debug_tab.py
 ```
 
 ---
@@ -356,7 +348,7 @@ Een enkel testgeval:
 pytest tests/test_parsers.py::test_parse_soils -v
 ```
 
-De suite dekt parsers (embedded `SAMPLE_SHI` strings — geen externe testbestanden nodig), de rapportage-builders (`damwand_hoofdstuk`, `html_preview`, `soil_table`, `result_description`), de Word-hoofdstuk-exporter, app-instellingen en thema's, en de aanvullende-berekeningen-tabs. Gedeelde fixtures staan in `tests/conftest.py`.
+De suite dekt parsers (embedded `SAMPLE_SHI` strings â€” geen externe testbestanden nodig), de rapportage-builders (`damwand_hoofdstuk`, `html_preview`, `soil_table`, `result_description`), de Word-hoofdstuk-exporter, app-instellingen en thema's, en de aanvullende-berekeningen-tabs. Gedeelde fixtures staan in `tests/conftest.py`.
 
 ---
 
@@ -372,29 +364,19 @@ def parse_mijn_format(file_bundle: FileBundle, base_name: str) -> Project:
     ...
 ```
 
-Registreer de parser in `parsers/__init__.py`:
-
-```python
-from parsers.mijn_parser import parse_mijn_format
-
-register_parser(".xyz", parse_mijn_format)
-```
-
----
-
 ## Ontwikkelen
 
 Codeconventies, naamgeving, PyQt6-patronen, foutafhandeling en terugkerende ontwerppatronen staan gedocumenteerd in [`CLAUDE.md`](CLAUDE.md). Dit bestand is de leidraad voor consistente codebijdragen.
 
 ### Kernregels samengevat
 
-- **Geen Qt buiten `ui/`** — controllers, renderers, parsers en utils importeren geen PyQt6
-- **State-mutaties via controllers** — de view schrijft nooit rechtstreeks naar `AppState`
-- **Type hints verplicht** — elke functie volledig geannoteerd, gebruik `str | None` (niet `Optional`)
-- **Nederlands als voertaal** — variabelenamen, commentaar, docstrings en UI-teksten in het Nederlands
-- **Dataclasses voor domeinmodellen** — `Project`, `Stage`, `SoilLayer`, instellingen (`RenderSettings`, `ViewportSettings`) etc.
-- **Foutafhandeling via returntuples** — `(bool, str)` in controllers, geen exceptions voor herstelbare fouten
-- **F-strings altijd** — geen `.format()` of `%`-opmaak
+- **Geen Qt buiten `ui/`** â€” controllers, renderers, parsers en utils importeren geen PyQt6
+- **State-mutaties via controllers** â€” de view schrijft nooit rechtstreeks naar `AppState`
+- **Type hints verplicht** â€” elke functie volledig geannoteerd, gebruik `str | None` (niet `Optional`)
+- **Nederlands als voertaal** â€” variabelenamen, commentaar, docstrings en UI-teksten in het Nederlands
+- **Dataclasses voor domeinmodellen** â€” `Project`, `Stage`, `SoilLayer`, instellingen (`RenderSettings`, `ViewportSettings`) etc.
+- **Foutafhandeling via returntuples** â€” `(bool, str)` in controllers, geen exceptions voor herstelbare fouten
+- **F-strings altijd** â€” geen `.format()` of `%`-opmaak
 
 ### Nieuwe tab toevoegen
 
@@ -416,4 +398,5 @@ Codeconventies, naamgeving, PyQt6-patronen, foutafhandeling en terugkerende ontw
 | VERIFY STEP | D-Sheet uitvoerblok met per-fase constructieve resultaten (moment, dwarskracht, verplaatsing) |
 | FileBundle | Groepering van `.shi`, `.shd` en `.shs` bestanden met dezelfde basisnaam |
 | BGR integer | Windows COLORREF kleurformaat dat D-Sheet gebruikt; `parse_color_int()` converteert naar `rgb(r, g, b)` |
-| TextBlock override | Handmatige tekstvervanger; `ReportState.overrides` koppelt `block_id → override_text`; `TextBlock.effective_text` retourneert de override of de gegenereerde tekst |
+| TextBlock override | Handmatige tekstvervanger; `ReportState.overrides` koppelt `block_id â†’ override_text`; `TextBlock.effective_text` retourneert de override of de gegenereerde tekst |
+

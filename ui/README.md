@@ -8,21 +8,17 @@ parsers en renderers blijven Qt-vrij.
 
 | Bestand | Doel |
 | --- | --- |
-| `sidebar.py` | Linker zijbalk met bestandsimport, projectkeuze en fase-selectie. |
-| `controls_panel.py` | Paneel voor viewport- en renderinstellingen plus zoomknoppen. |
 | `info_panel.py` | Informatiekaarten (projectgegevens, elementen, legenda, laagopbouw) als popups en inline-secties. |
-| `layer_table.py` | `QTableWidget` voor het tonen van grondlagen per profiel. |
-| `file_list_widget.py` | Compacte lijst van geimporteerde D-Sheet bestanden met tooltip. |
 | `scale_slider.py` | Slider met instelbare min/max en spinbox-display voor verschaalwaarden. |
 | `status_widget.py` | Gekleurde statusbadge (OK / WARN / ERR / idle) met detailregel. |
-| `preview_window.py` | Zwevend Word-preview venster dat HTML toont in een `QTextBrowser`. |
+| `word_pdf_preview_window.py` | Zwevend Word/PDF-previewvenster voor rapportage. |
 | `table_styles.py` | Centrale tabelstijl-constanten en stylesheet, gevoed door het actieve thema. |
 | `theme_dialog.py` | Dialoog voor het aanmaken, tunen en opslaan van UI-templates. |
 
 ## Conventies
 
-- Widgets als instantievariabelen met onderstreep-prefix: `self._sidebar`,
-  `self._badge`, `self._table`.
+- Widgets als instantievariabelen met onderstreep-prefix: `self._badge`,
+  `self._table`.
 - Constructor delegeert opbouw aan een aparte `_build()`-methode; layouts
   krijgen expliciet `setContentsMargins()` (4-12 px) en `setSpacing()`
   (4-8 px) mee.

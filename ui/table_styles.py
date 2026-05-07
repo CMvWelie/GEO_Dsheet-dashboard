@@ -150,7 +150,6 @@ def _sync_loaded_legacy_aliases() -> None:
     }
     for module_name in (
         'ui.info_panel',
-        'ui.layer_table',
         'ui.tabs.tab_debug_invoer',
         'ui.tabs.tab_debug_uitvoer',
         'ui.tabs.tab_grondsoorten',

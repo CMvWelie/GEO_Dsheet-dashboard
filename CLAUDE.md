@@ -43,7 +43,7 @@ The application follows a **data → parse → visualize → interact** pipeline
 | `renderers/` | Matplotlib renderers: cross-section, results charts, vertical equilibrium |
 | `ui/` | PyQt6 widgets, theme dialog, table styles, and 14 tab modules under `ui/tabs/` |
 | `reporting/` | Report models, `ReportPlan`, and builders (input/result description, soil table, damwand chapter, HTML preview) |
-| `exporters/` | `ExcelExporter`, `WordExporter`, and `WordHoofdstukExporter` |
+| `exporters/` | `WordHoofdstukExporter` |
 | `utils/` | Color conversion, geometry helpers, Dutch number formatting, PNG/PDF export |
 | `themes/` | JSON-defined themes (DKIB, SIX Geoconsult) loaded by `app/theme.py` |
 | `templates/` | Word templates for export (`damwand_stijlen.docx`) |
@@ -54,7 +54,7 @@ The application follows a **data → parse → visualize → interact** pipeline
 - **No Qt in controllers**: `AppController`, `ReportController`, `ConfigManager`, `ViewportService` have zero Qt imports
 - **No widget aliases**: In `main_window.py` all tab widgets are accessed directly via `self._tab_<name>.<widget>` — do not introduce aliases
 - **BaseRenderer ABC**: New renderers must subclass `renderers.BaseRenderer` and implement `render(ax, project, stage, settings, viewport)`
-- **Parser registry**: New file format support = call `register_parser(ext, fn)` in `parsers/__init__.py`
+- **Parsing**: D-Sheet `.shi/.shd/.shs` bundles are parsed directly via `parsers.shi_parser.parse_project`.
 - **Text overrides**: `ReportState.overrides` maps `block_id → override_text`; `TextBlock.effective_text` returns override if set, else generated text
 - **Render settings always passed**: `AppController.render_results()` always passes `self._state.render_settings` to `render_output_charts()`
 - **ViewportService dependencies**: `y_range_for_project()`, `x_range_for_project()`, `get_stage_profile()` are module-level exports from `section_renderer.py` used by `ViewportService`
