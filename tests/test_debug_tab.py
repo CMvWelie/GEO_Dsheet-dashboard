@@ -10,7 +10,7 @@ from parsers.models import (
     SheetPilingElement, Anchor, Strut, SpringSupport, RigidSupport,
     UniformLoad, SurchargeLoad, HorizontalLineLoad, Moment, NormalForce,
     Stage, ResultSummary, ResultStep, ResultStage, ResultPoint,
-    AnchorStrutResumeItem, SupportResumeItem,
+    AnchorStrutResumeItem, SupportResumeItem, VerifyStepSummary,
 )
 
 
@@ -176,6 +176,28 @@ def test_tab_debug_uitvoer_geen_project(qapp):
 def test_tab_debug_uitvoer_met_project(qapp):
     from ui.tabs.tab_debug_uitvoer import TabDebugUitvoer
     TabDebugUitvoer().update_project(_maak_sample_project())
+
+
+def test_tab_debug_uitvoer_sorteert_overzicht_op_fase_en_stap(qapp):
+    from PyQt6.QtWidgets import QTableWidget
+    from ui.tabs.tab_debug_uitvoer import TabDebugUitvoer
+
+    project = _maak_sample_project()
+    project.verify_step_summaries = [
+        VerifyStepSummary(2, '6.5', False, 20.0, 2.0, 0.2, None, None),
+        VerifyStepSummary(1, '6.5', False, 10.0, 1.0, 0.1, None, None),
+        VerifyStepSummary(1, '6.1', True, 11.0, 1.1, 0.11, None, None),
+        VerifyStepSummary(2, '6.1', True, 21.0, 2.1, 0.21, None, None),
+    ]
+
+    tab = TabDebugUitvoer()
+    tab.update_project(project)
+
+    tabel = tab.findChildren(QTableWidget)[0]
+    assert [
+        (tabel.item(r, 0).text(), tabel.item(r, 1).text())
+        for r in range(tabel.rowCount())
+    ] == [('1', '6.1'), ('1', '6.5'), ('2', '6.1'), ('2', '6.5')]
 
 
 def test_tab_debug_aanmaken(qapp):

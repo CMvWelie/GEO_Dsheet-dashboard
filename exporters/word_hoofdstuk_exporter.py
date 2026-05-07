@@ -21,12 +21,22 @@ from reporting.models import (
     ReportMetadata,
     ReportSection,
 )
+from reporting.builders.damwand_tekst import (
+    FASERING_INTRO_TEKST,
+    FASERING_TABEL_INTRO_TEKST,
+    FASERING_TITEL,
+    RESULTATEN_GRAFIEK_INTRO_TEKST,
+    RESULTATEN_INTRO_TEKST,
+    RESULTATEN_TITEL,
+    faseringsregels,
+    project_fase_namen,
+)
 from reporting.figure_renderer import render_figuur
 
 
 _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
-_RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
+_RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0, 3.0]
 _DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
 _DAMWAND_SCHEIDING_TWIPS = 40
 _RESULTAAT_SECTIE_IDS = {
@@ -108,6 +118,11 @@ class WordHoofdstukExporter:
             self._pas_document_typografie_toe(doc)
             self._schrijf_titel(doc, metadata)
             resultaat_specificaties_geschreven = False
+            faserings_intro_geschreven = False
+            self._fase_tabel_teller = 0
+            fase_secties = [
+                sec for sec in sections if isinstance(sec, FaseInvoerSectie)
+            ]
             for sec in sections:
                 if (
                     not resultaat_specificaties_geschreven
@@ -116,6 +131,12 @@ class WordHoofdstukExporter:
                 ):
                     self._schrijf_resultaat_specificaties_tabel(doc, project)
                     resultaat_specificaties_geschreven = True
+                if (
+                    isinstance(sec, FaseInvoerSectie)
+                    and not faserings_intro_geschreven
+                ):
+                    self._schrijf_fasering_intro(doc, project, fase_secties)
+                    faserings_intro_geschreven = True
                 self._schrijf_sectie(doc, sec, project)
             doc.save(output_path)
             return None
@@ -178,6 +199,11 @@ class WordHoofdstukExporter:
         if sec.id == 'damwand_gegevens':
             self._schrijf_damwandgegevens_sectie(doc, sec)
             return
+        if sec.id in {'anchor_forces', 'per_phase_summary'}:
+            return
+        if sec.id == 'extremen_overzicht':
+            self._schrijf_extremen_overzicht_sectie(doc, sec, project)
+            return
 
         doc.add_heading(sec.title, level=2)
         for veld in sec.fields:
@@ -199,7 +225,11 @@ class WordHoofdstukExporter:
     ) -> None:
         """Schrijf damwandgegevens als compacte 3-koloms Word-tabel."""
         doc.add_heading(sec.title, level=2)
+        for tb in sec.text_blocks[:1]:
+            self._schrijf_textblock(doc, tb.effective_text)
         if not sec.fields:
+            for tb in sec.text_blocks[1:]:
+                self._schrijf_textblock(doc, tb.effective_text)
             return
 
         velden: list[ReportField | None] = []
@@ -237,6 +267,32 @@ class WordHoofdstukExporter:
             tbl.rows[row_idx].cells[2].text = self._formatteer_eenheid(veld.unit)
 
         self._pas_damwand_tabel_opmaak_toe(tbl)
+        for tb in sec.text_blocks[1:]:
+            self._schrijf_textblock(doc, tb.effective_text)
+
+    def _schrijf_textblock(self, doc: Document, tekst: str) -> None:
+        """Schrijf een tekstblok als een of meer Word-paragrafen."""
+        for regel in (tekst or '').splitlines():
+            doc.add_paragraph(regel)
+
+    def _schrijf_fasering_intro(
+        self,
+        doc: Document,
+        project: object | None,
+        fase_secties: list[FaseInvoerSectie],
+    ) -> None:
+        """Schrijf de gezamenlijke inleiding voor alle faseringstabellen."""
+        kop = doc.add_heading(FASERING_TITEL, level=2)
+        kop.paragraph_format.page_break_before = True
+        doc.add_paragraph(FASERING_INTRO_TEKST)
+        fase_namen = project_fase_namen(project) or [
+            sec.fase_card.stage_name
+            for sec in fase_secties
+            if sec.fase_card is not None
+        ]
+        for regel in faseringsregels(fase_namen):
+            doc.add_paragraph(regel)
+        doc.add_paragraph(FASERING_TABEL_INTRO_TEKST)
 
     def _formatteer_eenheid(self, eenheid: str) -> str:
         """Geef een Word-eenheid terug met blokhaken, indien aanwezig."""
@@ -278,14 +334,11 @@ class WordHoofdstukExporter:
         if not rijen:
             return
 
-        doc.add_heading('Specificaties', level=2)
-        doc.add_paragraph(
-            'In deze tabel zijn de belangrijkste damwandgegevens en maatgevende '
-            'projectresultaten samengevat. De resultaatwaarden betreffen de maxima '
-            'over de beschikbare fases en toetsstappen.'
-        )
+        kop = doc.add_heading(RESULTATEN_TITEL, level=2)
+        kop.paragraph_format.page_break_before = True
+        doc.add_paragraph(RESULTATEN_INTRO_TEKST)
 
-        tbl = doc.add_table(rows=len(rijen), cols=3)
+        tbl = doc.add_table(rows=len(rijen), cols=4)
         tbl.autofit = False
         try:
             tbl.style = 'Table Grid'
@@ -297,31 +350,34 @@ class WordHoofdstukExporter:
         ]
         self._stel_tabel_grid_in(tbl, _RESULTAAT_SPEC_KOLOM_BREEDTES_CM)
         for row in tbl.rows:
-            for col_idx, cell in enumerate(row.cells[:3]):
+            for col_idx, cell in enumerate(row.cells[:4]):
                 self._stel_cel_breedte(cell, kolom_breedtes[col_idx])
             self._stel_rijhoogte_exact_twips(row, _DAMWAND_RIJHOOGTE_TWIPS)
 
-        for row_idx, (label, waarde, eenheid) in enumerate(rijen):
+        for row_idx, (label, waarde, eenheid, stap) in enumerate(rijen):
             is_koprij = waarde == '' and eenheid == ''
             if is_koprij:
                 kopcel = tbl.rows[row_idx].cells[0].merge(
                     tbl.rows[row_idx].cells[2]
                 )
-                self._stel_cel_breedte(kopcel, sum(kolom_breedtes))
+                self._stel_cel_breedte(kopcel, sum(kolom_breedtes[:3]))
                 kopcel.text = label
+                tbl.rows[row_idx].cells[3].text = stap
                 continue
             tbl.rows[row_idx].cells[0].text = label
             tbl.rows[row_idx].cells[1].text = waarde
             tbl.rows[row_idx].cells[2].text = eenheid
+            tbl.rows[row_idx].cells[3].text = stap
 
         self._pas_resultaat_specificaties_opmaak_toe(tbl)
 
     def _resultaat_specificatie_rijen(
         self,
         project: object,
-    ) -> list[tuple[str, str, str]]:
+    ) -> list[tuple[str, str, str, str]]:
         """Bouw de rijen voor de projectbrede resultaat-specificatietabel."""
         from reporting.builders.result_description_builder import (
+            _step_short_label,
             is_bgt_step_key,
             is_ugt_step_key,
         )
@@ -335,7 +391,7 @@ class WordHoofdstukExporter:
         max_mob_grond = max((s.mob_grond_pct for s in summaries), default=0.0)
         maatgevend = max(summaries, key=lambda s: s.mob_moment_pct, default=None)
 
-        msd, dsd, vervorming = self._maatgevende_resultaatwaarden(
+        msd, dsd, vervorming = self._maatgevende_resultaatwaarden_en_stappen(
             project,
             is_ugt_step_key,
             is_bgt_step_key,
@@ -348,30 +404,50 @@ class WordHoofdstukExporter:
         lengte = abs((top or 0.0) - bottom) if el is not None else None
 
         rijen = [
-            ('Damwand', '', ''),
-            ('Profiel', profiel, '[-]'),
-            ('Staalkwaliteit', getattr(el, 'steel_quality', '-') if el else '-', '[-]'),
+            ('Grondkering', '', '', ''),
+            ('Profiel', profiel, '[-]', ''),
+            ('Staalkwaliteit', getattr(el, 'steel_quality', '-') if el else '-', '[-]', ''),
             (
                 'Opneembaar moment',
                 fmt_number(getattr(el, 'opneembaar_moment_knm', None)) if el else '-',
                 '[kNm/m]',
+                '',
             ),
-            ('Niveau damwand b.k.', fmt_number(top or 0.0) if el else '-', '[m NAP]'),
-            ('Niveau damwand o.k.', fmt_number(bottom) if el else '-', '[m NAP]'),
-            ('Damwandlengte', fmt_number(lengte) if el else '-', '[m]'),
-            ('Resultaten', '', ''),
-            ('Moment Msd', fmt_number(msd), '[kNm/m]'),
-            ('Dwarskracht Dsd', fmt_number(dsd), '[kN/m]'),
-            ('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]'),
-            ('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]'),
-            ('Verplaatsing urep BGT', fmt_number(vervorming), '[mm]'),
+            ('Niveau b.k.', fmt_number(top or 0.0) if el else '-', '[m NAP]', ''),
+            ('Niveau o.k.', fmt_number(bottom) if el else '-', '[m NAP]', ''),
+            ('Lengte', fmt_number(lengte) if el else '-', '[m]', ''),
+            ('Resultaten', '', '', 'Verificatiestap'),
+            (
+                'Moment Msd UGT',
+                fmt_number(msd[0]),
+                '[kNm/m]',
+                self._formatteer_stap(msd[1], _step_short_label),
+            ),
+            (
+                'Dwarskracht Dsd UGT',
+                fmt_number(dsd[0]),
+                '[kN/m]',
+                self._formatteer_stap(dsd[1], _step_short_label),
+            ),
+            (
+                'Verplaatsing urep BGT',
+                fmt_number(vervorming[0]),
+                '[mm]',
+                self._formatteer_stap(vervorming[1], _step_short_label),
+            ),
+            ('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]', ''),
+            ('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]', ''),
         ]
 
         if maatgevend is not None:
             for naam, kracht, niveau in maatgevend.ondersteuningen[:4]:
-                rijen.append((naam, fmt_number(kracht), '[kN/m]'))
-                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]'))
+                rijen.append((naam, fmt_number(kracht), '[kN/m]', ''))
+                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]', ''))
         return rijen
+
+    def _formatteer_stap(self, stap_key: str | None, label_fn) -> str:
+        """Formatteer een verificatiestap voor de resultaat-specificatietabel."""
+        return f'stap {label_fn(stap_key)}' if stap_key else ''
 
     def _maatgevende_resultaatwaarden(
         self,
@@ -380,10 +456,31 @@ class WordHoofdstukExporter:
         is_bgt_step_key,
     ) -> tuple[float | None, float | None, float | None]:
         """Bereken projectbrede Msd, Dsd en BGT-vervorming voor Word."""
+        msd, dsd, vervorming = self._maatgevende_resultaatwaarden_en_stappen(
+            project,
+            is_ugt_step_key,
+            is_bgt_step_key,
+        )
+        return msd[0], dsd[0], vervorming[0]
+
+    def _maatgevende_resultaatwaarden_en_stappen(
+        self,
+        project: object,
+        is_ugt_step_key,
+        is_bgt_step_key,
+    ) -> tuple[
+        tuple[float | None, str | None],
+        tuple[float | None, str | None],
+        tuple[float | None, str | None],
+    ]:
+        """Bereken projectbrede resultaatwaarden inclusief stap-sleutel."""
         result_steps = getattr(project, 'result_steps', None) or {}
         msd: float | None = None
         dsd: float | None = None
+        msd_stap: str | None = None
+        dsd_stap: str | None = None
         vervorming: float | None = None
+        vervorming_stap: str | None = None
 
         for stap_key, step in result_steps.items():
             if not is_ugt_step_key(stap_key):
@@ -394,8 +491,10 @@ class WordHoofdstukExporter:
                     shear = abs(pt.shear)
                     if msd is None or moment > msd:
                         msd = moment
+                        msd_stap = stap_key
                     if dsd is None or shear > dsd:
                         dsd = shear
+                        dsd_stap = stap_key
 
         for stap_key, step in result_steps.items():
             if not is_bgt_step_key(stap_key):
@@ -405,7 +504,8 @@ class WordHoofdstukExporter:
                     disp = abs(pt.disp)
                     if vervorming is None or disp > vervorming:
                         vervorming = disp
-        return msd, dsd, vervorming
+                        vervorming_stap = stap_key
+        return (msd, msd_stap), (dsd, dsd_stap), (vervorming, vervorming_stap)
 
     def _pas_resultaat_specificaties_opmaak_toe(self, tbl: Table) -> None:
         """Pas theme-opmaak toe op de resultaat-specificatietabel."""
@@ -423,25 +523,68 @@ class WordHoofdstukExporter:
         data_index = 0
         for row in tbl.rows:
             eerste_tekst = row.cells[0].text.strip() if row.cells else ''
-            is_koprij = eerste_tekst in {'Damwand', 'Resultaten'}
+            is_koprij = eerste_tekst in {'Grondkering', 'Damwand', 'Resultaten'}
             if is_koprij:
-                cell = row.cells[0]
-                self._stel_cel_vulling(cell, header_bg)
-                self._pas_cel_font_toe(
-                    cell, font, header_fg, bold=True,
-                    size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
-                )
+                for cell in row.cells:
+                    self._stel_cel_vulling(cell, header_bg)
+                    self._pas_cel_font_toe(
+                        cell, font, header_fg, bold=True,
+                        size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
+                    )
                 continue
 
             fill = row_odd_bg if data_index % 2 == 0 else row_even_bg
-            kleuren = [label_kleur, waarde_kleur, extra_kleur]
-            for col_idx, cell in enumerate(row.cells[:3]):
+            kleuren = [label_kleur, waarde_kleur, extra_kleur, extra_kleur]
+            for col_idx, cell in enumerate(row.cells[:4]):
                 self._stel_cel_vulling(cell, fill)
                 self._pas_cel_font_toe(
                     cell, font, kleuren[col_idx], bold=False,
                     size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
                 )
             data_index += 1
+
+    def _schrijf_extremen_overzicht_sectie(
+        self,
+        doc: Document,
+        sec: ReportSection,
+        project: object | None,
+    ) -> None:
+        """Schrijf de grafische maatgevende resultaten volgens het moederbestand."""
+        doc.add_paragraph(RESULTATEN_GRAFIEK_INTRO_TEKST)
+        for groep in sec.image_groups:
+            self._schrijf_figuurgroep(doc, groep, project)
+        if project is not None:
+            doc.add_paragraph(self._resultaat_conclusie_tekst(project))
+
+    def _resultaat_conclusie_tekst(self, project: object) -> str:
+        """Bouw de conclusie onder de maatgevende-resultatenfiguur."""
+        from reporting.builders.result_description_builder import (
+            is_bgt_step_key,
+            is_ugt_step_key,
+        )
+        from utils.formatting import fmt_number
+
+        msd, _dsd, vervorming = self._maatgevende_resultaatwaarden(
+            project,
+            is_ugt_step_key,
+            is_bgt_step_key,
+        )
+        sheet_piling = getattr(project, 'sheet_piling', None) or []
+        opneembaar = (
+            getattr(sheet_piling[0], 'opneembaar_moment_knm', None)
+            if sheet_piling else None
+        )
+        moment_zin = (
+            'de berekende momenten opneembaar zijn'
+            if msd is None or opneembaar is None or abs(msd) <= opneembaar
+            else 'de opneembaarheid van de berekende momenten nader beoordeeld moet worden'
+        )
+        return (
+            'Op basis van bovenstaande resultaten kan worden geconcludeerd dat '
+            f'{moment_zin}. De berekende topverplaatsing bij de doorsnede is '
+            f'{fmt_number(vervorming)}mm. Op basis hiervan wordt voldaan aan de '
+            'verplaatsingseis.'
+        )
 
     def _schrijf_fase_sectie(
         self,
@@ -462,10 +605,9 @@ class WordHoofdstukExporter:
         """
         kaart = sec.fase_card
         if kaart is None:
-            doc.add_heading(sec.title, level=2)
             return
 
-        doc.add_heading(sec.title, level=2)
+        # Render afbeelding en bereken tabelinhoud vóór pagineringsbeslissing
         png_bytes: bytes | None = None
         if project is not None:
             img_req = ReportImageRequest(
@@ -479,14 +621,18 @@ class WordHoofdstukExporter:
 
         n_data = sum(1 + len(rij.extra_lines) for rij in kaart.rows)
         afbeeldingshoogte_cm = _png_hoogte_cm(png_bytes, 6.0) if png_bytes else 0.0
-        # Bereken exacte tekst-twips zodat padding-berekening klopt met werkelijke rijhoogtes
-        tekst_twips = sum(
-            _DAMWAND_RIJHOOGTE_TWIPS if not rij.extra_lines
-            else 54 + 52 * len(rij.extra_lines)
+        tekst_cm = sum(
+            _FASE_RIJHOOGTE_CM * (1 + len(rij.extra_lines))
             for rij in kaart.rows
-        ) if kaart.rows else _DAMWAND_RIJHOOGTE_TWIPS
-        padding_twips = max(round(afbeeldingshoogte_cm * 1.05 * 567) - tekst_twips, 0)
-        n_padding = 1 if padding_twips > 0 else 0
+        ) if kaart.rows else _FASE_RIJHOOGTE_CM
+        padding_cm = max(afbeeldingshoogte_cm * 1.05 - tekst_cm, 0)
+
+        if self._fase_tabel_teller > 0:
+            spacer = doc.add_paragraph()
+            spacer.paragraph_format.space_before = Pt(0)
+            spacer.paragraph_format.space_after = Pt(6)
+            spacer.paragraph_format.keep_with_next = True
+        n_padding = 1 if padding_cm > 0 else 0
         n_header = 2
         n_rows = n_header + max(n_data, 1) + n_padding
 
@@ -545,7 +691,7 @@ class WordHoofdstukExporter:
             pad_start = n_header + max(n_data, 1)
             pad_cel = tbl.rows[pad_start].cells[0].merge(tbl.rows[n_rows - 1].cells[2])
             self._stel_cel_breedte(pad_cel, sum(kolom_breedtes[:3]))
-            self._stel_rijhoogte_exact_twips(tbl.rows[pad_start], padding_twips)
+            self._stel_rijhoogte_exact_twips(tbl.rows[pad_start], round(padding_cm * 567))
 
         self._pas_fase_tabel_opmaak_toe(tbl)
         for row in tbl.rows:
@@ -568,6 +714,8 @@ class WordHoofdstukExporter:
         v_align = OxmlElement('w:vAlign')
         v_align.set(qn('w:val'), 'center')
         tc_pr.append(v_align)
+        self._houd_tabel_bij_elkaar(tbl)
+        self._fase_tabel_teller = getattr(self, '_fase_tabel_teller', 0) + 1
 
     def _pas_fase_tabel_opmaak_toe(self, tbl: Table) -> None:
         """Pas thema-font en headerkleuren toe op de fase-invoertabel."""
@@ -597,6 +745,30 @@ class WordHoofdstukExporter:
                 cell, font, subheader_fg, bold=True,
                 size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
             )
+
+    def _houd_tabel_bij_elkaar(self, tbl: Table) -> None:
+        """Laat Word een fasetabel zoveel mogelijk als één blok pagineren.
+
+        Itereert via raw XML zodat ook vMerge-stub cellen worden meegenomen;
+        python-docx ``row.cells`` geeft bij verticale celfusies alleen de
+        restart-cel terug en slaat de stubs over.
+        """
+        laatste_rij_idx = len(tbl.rows) - 1
+        for row_idx, row in enumerate(tbl.rows):
+            kwn = row_idx < laatste_rij_idx
+            for tc in row._tr.findall(qn('w:tc')):
+                for p in tc.findall(qn('w:p')):
+                    p_pr = p.find(qn('w:pPr'))
+                    if p_pr is None:
+                        p_pr = OxmlElement('w:pPr')
+                        p.insert(0, p_pr)
+                    if p_pr.find(qn('w:keepLines')) is None:
+                        p_pr.append(OxmlElement('w:keepLines'))
+                    keep_next = p_pr.find(qn('w:keepNext'))
+                    if kwn and keep_next is None:
+                        p_pr.append(OxmlElement('w:keepNext'))
+                    elif not kwn and keep_next is not None:
+                        p_pr.remove(keep_next)
 
     def _pas_cel_font_toe(
         self,

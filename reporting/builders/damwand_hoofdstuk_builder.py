@@ -10,12 +10,16 @@ from reporting.models import (
     ReportImageRequest,
     ReportSection,
     ReportTable,
+    TextBlock,
+)
+from reporting.builders.damwand_tekst import (
+    DAMWAND_INTRO_TEKST,
+    damwand_toelichting_tekst,
 )
 from reporting.builders.soil_table_builder import SoilTableBuilder
 from reporting.builders.input_description_builder import InputDescriptionBuilder
 from reporting.builders.result_description_builder import ResultDescriptionBuilder
 from utils.formatting import fmt_number
-
 
 
 class DamwandHoofdstukBuilder:
@@ -57,19 +61,29 @@ class DamwandHoofdstukBuilder:
             geen damwand aanwezig is.
         """
         sec = ReportSection(id='damwand_gegevens', title='Damwandgegevens')
+        sec.text_blocks.append(TextBlock(
+            id='damwand_gegevens_intro',
+            section=sec.id,
+            generated_text=DAMWAND_INTRO_TEKST,
+        ))
+        sec.text_blocks.append(TextBlock(
+            id='damwand_gegevens_toelichting',
+            section=sec.id,
+            generated_text=damwand_toelichting_tekst(),
+        ))
         if not project.sheet_piling:
             return sec
         w = project.sheet_piling[0]
         profiel_naam = re.sub(r'\s*\([^)]+\)\s*$', '', w.name).strip()
         lengte_str = fmt_number(abs(w.top - w.bottom)) if w.top is not None else '-'
         sec.fields = [
-            ReportField('profiel',           'Profiel',                    profiel_naam),
-            ReportField('staalkwaliteit',    'Staalkwaliteit',              w.steel_quality),
+            ReportField('profiel',           'Profiel',                    profiel_naam,                       '-'),
+            ReportField('staalkwaliteit',    'Staalkwaliteit',              w.steel_quality,                    '-'),
             ReportField('hoogte_mm',         'Hoogte',                      fmt_number(w.height_mm),             'mm'),
             ReportField('breedte_mm',        'Breedte',                     fmt_number(w.pile_width_mm),         'mm'),
             ReportField('ei_knm2',           'Buigstijfheid EI',            fmt_number(w.ei_knm2_per_m),        'kNm²/m'),
             ReportField('wel_cm3',           'Weerstandsmoment Wy;el',      fmt_number(w.resisting_moment_cm3), 'cm³/m'),
-            ReportField('opneembaar_moment', 'Opneembaar moment',           fmt_number(w.opneembaar_moment_knm), 'kNm/m'),
+            ReportField('opneembaar_moment', 'Opneembaar moment M',         fmt_number(w.opneembaar_moment_knm), 'kNm/m'),
             ReportField('kopniveau',         'Kopniveau',                   fmt_number(w.top) if w.top is not None else '-', 'm NAP'),
             ReportField('teenniveau',        'Teenniveau',                  fmt_number(w.bottom),               'm NAP'),
             ReportField('lengte',            'Lengte',                      lengte_str,                         'm'),

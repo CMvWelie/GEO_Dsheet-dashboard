@@ -6,7 +6,15 @@ from PyQt6.QtWidgets import QGridLayout, QLabel
 from PyQt6.QtCore import Qt
 
 from ui.tabs.tab_result_desc import TabResultDesc
-from parsers.models import FileBundle, Project, ResultSummary, SheetPilingElement
+from parsers.models import (
+    FileBundle,
+    Project,
+    ResultPoint,
+    ResultStage,
+    ResultStep,
+    ResultSummary,
+    SheetPilingElement,
+)
 from reporting.models import (
     ReportImageGroup,
     ReportImageRequest,
@@ -35,6 +43,24 @@ def _tabel_zonder_groepen() -> ReportTable:
 
 
 def _project_met_resultaten() -> Project:
+    stap_64 = ResultStep(
+        raw_step='CUR 166 6.4',
+        stages={
+            1: ResultStage(
+                stage_number=1,
+                points=[ResultPoint(depth=-1.0, moment=100.0, shear=50.0, disp=2.0)],
+            )
+        },
+    )
+    stap_65 = ResultStep(
+        raw_step='CUR 166 6.5',
+        stages={
+            1: ResultStage(
+                stage_number=1,
+                points=[ResultPoint(depth=-1.0, moment=10.0, shear=5.0, disp=8.0)],
+            )
+        },
+    )
     return Project(
         base_name='test',
         project_name='Test',
@@ -60,6 +86,10 @@ def _project_met_resultaten() -> Project:
                 mob_grond_pct=70.0,
             )
         ],
+        result_steps={
+            'CUR 166 6.4': stap_64,
+            'CUR 166 6.5': stap_65,
+        },
     )
 
 
@@ -111,8 +141,20 @@ def test_specificatietabel_koprijen_spannen_volledige_breedte(qapp) -> None:
     tab = TabResultDesc()
     tab.populate_resultaat_tabel(_project_met_resultaten())
 
-    assert _gridpositie_voor_label(tab, 'Damwand') == (0, 0, 1, 3)
+    assert _gridpositie_voor_label(tab, 'Grondkering') == (0, 0, 1, 3)
     assert _gridpositie_voor_label(tab, 'Resultaten') == (7, 0, 1, 3)
+    assert _gridpositie_voor_label(tab, 'Verificatiestap') == (7, 3, 1, 1)
+    assert _gridpositie_voor_label(tab, 'stap 6.4') == (8, 3, 1, 1)
+
+
+def test_resultaattab_toont_moederbestand_resultaten_intro(qapp) -> None:
+    """De resultaat-tab start met de hoofdstuktitel en intro uit het moederbestand."""
+    tab = TabResultDesc()
+    tab.populate_resultaat_tabel(_project_met_resultaten())
+
+    labels = [w.text() for w in tab.findChildren(QLabel)]
+    assert 'Resultaten' in labels
+    assert any('verificatiestappen volgens de CUR166' in tekst for tekst in labels)
 
 
 def test_reporttabel_gebruikt_theme_fontgroottes(qapp) -> None:
@@ -170,7 +212,8 @@ def test_populate_toont_extremen_figuurgroep_onderaan(qapp) -> None:
     tab.populate([sec])
 
     labels = [w.text() for w in tab.findChildren(QLabel)]
-    assert 'Maatgevende resultaten' in labels
+    assert 'Maatgevende resultaten' not in labels
+    assert any('grafische weergave van de maatgevende resultaten' in tekst for tekst in labels)
     assert 'Msd = 210 kNm/m' in labels
     assert 'Urep BGT = 12 mm' in labels
     assert 'Fase 1 - Start' in labels

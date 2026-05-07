@@ -915,7 +915,7 @@ class SectionRenderer(BaseRenderer):
         # ── Momenten ─────────────────────────────────────────────────
         for m_obj in act_moments:
             value = float(m_obj.value) or 0.0
-            clockwise = value < 0
+            clockwise = value > 0
             radius = max(settings.moment_radius_meters * 0.5, y_span * 0.04)
             _draw_moment_symbol(ax, wall_x + wall_half_w_data, m_obj.level,
                                  clockwise, '#111', radius)

@@ -13,7 +13,7 @@ from matplotlib.axes import Axes
 
 from parsers.models import Project, Stage, ResultStep
 from app.settings import RenderSettings, ViewportSettings
-from utils.geometry import surface_y_at, clip_surface_points, build_layer_polygon
+from utils.geometry import surface_y_at, clip_surface_points, build_layer_polygons
 from utils.color_utils import color_for_matplotlib
 from utils.formatting import fmt_number
 from renderers import BaseRenderer
@@ -61,9 +61,15 @@ def draw_result_chart(
     ax.set_facecolor('white')
 
     # ── Damwandgrenzen (basis voor y-bereik) ────────────────────────────
-    wall = project.sheet_piling[0] if project.sheet_piling else None
-    wall_top = wall.top if wall and wall.top is not None else 0.0
-    wall_bottom = wall.bottom if wall and math.isfinite(wall.bottom) else -10.0
+    # Bij gestapeld profiel: bovenkant = hoogste top, onderkant = diepste bottom
+    wall_top = (max(
+        (s.top for s in project.sheet_piling if s.top is not None),
+        default=0.0,
+    ) if project.sheet_piling else 0.0)
+    wall_bottom = (min(
+        (s.bottom for s in project.sheet_piling if math.isfinite(s.bottom)),
+        default=-10.0,
+    ) if project.sheet_piling else -10.0)
 
     wall_height = wall_top - wall_bottom
     marge = wall_height * 0.10
@@ -122,14 +128,12 @@ def draw_result_chart(
             layer_top = layer.level
             layer_bottom = (profile.layers[i + 1].level
                             if i + 1 < len(profile.layers) else y_lo)
-            poly = build_layer_polygon(pts_side, layer_top, layer_bottom)
-            if not poly:
-                continue
             color = color_for_matplotlib(
                 project.soil_color_map.get(layer.material, 'rgb(220,220,220)')
             )
-            draw_polygon_on_ax(ax, poly, face_color=color, edge_color='#aaa',
-                               line_width=0.6)
+            for poly in build_layer_polygons(pts_side, layer_top, layer_bottom):
+                draw_polygon_on_ax(ax, poly, face_color=color, edge_color='#aaa',
+                                   line_width=0.6)
 
     for pts_side in [left_pts, right_pts]:
         if pts_side:

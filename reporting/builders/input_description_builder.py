@@ -5,6 +5,10 @@ import re
 from dataclasses import dataclass, field
 
 from parsers.models import Project, Stage
+from reporting.builders.damwand_tekst import (
+    DAMWAND_INTRO_TEKST,
+    DAMWAND_TOELICHTING_REGELS,
+)
 from reporting.models import ReportSection, ReportField, ReportTable, TextBlock
 from utils.formatting import fmt_number
 
@@ -46,6 +50,10 @@ class DamwandCard:
     teenniveau: float
     lengte: float
     ondersteuningen: list[tuple[str, float]]  # (naam, niveau [m NAP])
+    intro_tekst: str = DAMWAND_INTRO_TEKST
+    toelichting_regels: list[tuple[str, str]] = field(
+        default_factory=lambda: list(DAMWAND_TOELICHTING_REGELS)
+    )
 
 
 class InputDescriptionBuilder:

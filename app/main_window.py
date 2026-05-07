@@ -54,6 +54,7 @@ from app.word_preview_worker import WordPreviewWorker
 from app import restart_session
 from app.theme import BASIC_THEME_NAME, Theme, discover_themes
 from app.theme_apply import THEMES_DIR, bootstrap_theme
+from reporting.builders.damwand_tekst import project_fase_namen
 import ui.table_styles as table_styles
 
 
@@ -799,7 +800,10 @@ class MainWindow(QMainWindow):
             for card, stage in zip(cards, project.stages):
                 card.image_bytes = self._controller.render_stage_png(
                     project, stage, width_px=800, height_px=560)
-        self._tab_input_desc.populate_fase_cards(cards)
+        self._tab_input_desc.populate_fase_cards(
+            cards,
+            project_fase_namen(project),
+        )
         damwand_card = self._report_controller.build_damwand_card()
         self._tab_input_desc.populate_damwand_card(damwand_card)
 

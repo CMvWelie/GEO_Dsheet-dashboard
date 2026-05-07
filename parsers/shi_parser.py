@@ -15,7 +15,7 @@ from parsers.models import (
     FileBundle, Project,
     ResultStep, ResultStage, ResultPoint,
     AnchorStrutResumeItem, SupportResumeItem,
-    ResultSummary,
+    ResultSummary, VerifyStepSummary,
 )
 from utils.color_utils import parse_color_int
 
@@ -1049,10 +1049,22 @@ def _float_pattern(tekst: str, patroon: str) -> float | None:
     return None
 
 
+def _is_ugt_verify_step_header(header: str) -> bool:
+    """True als het VERIFY STEP-opschrift een UGT-stap aangeeft.
+
+    BGT-stap 6.5 bevat 'SERVICEABILITY' in de header; alle andere stappen
+    (6.1, 6.2, 6.3, 6.4 en 6.5 × factor) zijn UGT.
+    """
+    return not bool(re.search(r'SERVICEABILITY', header, re.IGNORECASE))
+
+
 def parse_result_summaries(shd_text: str) -> list[ResultSummary]:
     """Parseer CONSTRUCTION STAGE blokken uit .shd voor resultaatsamenvatting.
 
-    Parseert alleen de constructiefasen uit de eerste VERIFY STEP sectie.
+    Parseert de constructiefasen uit de eerste VERIFY STEP sectie voor de
+    basisstructuur. Daarna worden mob%-waarden bijgewerkt vanuit alle UGT-stappen
+    (ULTIMATE LIMIT STATE) zodat de maatgevende mobilisatiepercentages worden
+    gerapporteerd in plaats van de BGT-waarden.
     Als er geen VERIFY STEP aanwezig is, wordt de volledige tekst doorzocht.
     Verplaatsingswaarden in het .shd-bestand zijn al in mm.
 
@@ -1066,7 +1078,7 @@ def parse_result_summaries(shd_text: str) -> list[ResultSummary]:
     list[ResultSummary]
         Eén samenvatting per constructiefase.
     """
-    # Beperk tot de eerste VERIFY STEP sectie zodat we niet alle herhalingen parsen
+    # Pass 1: beperk tot de eerste VERIFY STEP sectie voor basisstructuur
     vs_m = re.search(
         r'\[VERIFY STEP[^\]]*\]([\s\S]*?)\[END OF VERIFY STEP',
         shd_text, re.IGNORECASE
@@ -1147,6 +1159,136 @@ def parse_result_summaries(shd_text: str) -> list[ResultSummary]:
             mob_grond_pct=mob_grond,
             ondersteuningen=ondersteuningen,
         ))
+
+    # Pass 2: overschrijf mob% met het maximum uit alle UGT VERIFY STEPs.
+    # De eerste stap in het bestand is vaak BGT (6.5 SLS); UGT-stappen geven
+    # de maatgevende mobilisatiepercentages.
+    summary_by_stage: dict[int, ResultSummary] = {s.stage_number: s for s in out}
+    for ugt_m in re.finditer(
+        r'\[(VERIFY STEP[^\]]*)\]([\s\S]*?)\[END OF VERIFY STEP[^\]]*\]',
+        shd_text, re.IGNORECASE
+    ):
+        if not _is_ugt_verify_step_header(ugt_m.group(1)):
+            continue
+        vs_tekst = ugt_m.group(2)
+        for cs_m in re.finditer(
+            r'\[CONSTRUCTION STAGE\]([\s\S]*?)\[END OF CONSTRUCTION STAGE\]',
+            vs_tekst, re.IGNORECASE
+        ):
+            blok = cs_m.group(1)
+            sn_m = re.search(r'^StageNumber\s*=\s*(\d+)', blok, re.MULTILINE)
+            if not sn_m:
+                continue
+            summary = summary_by_stage.get(int(sn_m.group(1)))
+            if summary is None:
+                continue
+            mob_grond_l = _float_pattern(blok, r'([\d.]+)\s*:\s*Percentage mobilized resistance left')
+            mob_grond_r = _float_pattern(blok, r'([\d.]+)\s*:\s*Percentage mobilized resistance right')
+            mob_mom_l   = _float_pattern(blok, r'([\d.]+)\s*:\s*Max mobilized moment percentage left')
+            mob_mom_r   = _float_pattern(blok, r'([\d.]+)\s*:\s*Max mobilized moment percentage right')
+            summary.mob_grond_pct = max(
+                summary.mob_grond_pct,
+                mob_grond_l or 0.0,
+                mob_grond_r or 0.0,
+            )
+            summary.mob_moment_pct = max(
+                summary.mob_moment_pct,
+                mob_mom_l or 0.0,
+                mob_mom_r or 0.0,
+            )
+
+    return out
+
+
+def _verify_step_label(header: str) -> str:
+    """Extraheer een kort staplabel uit een VERIFY STEP-header."""
+    if re.search(r'MULTIPLIED\s+BY\s+FACTOR', header, re.IGNORECASE):
+        return '6.5 × factor'
+    m = re.search(r'(\d+\.\d+)', header)
+    return m.group(1) if m else header.strip()
+
+
+def parse_verify_step_summaries(shd_text: str) -> list[VerifyStepSummary]:
+    """Parseer per verificatiestap én constructiefase de rekenresultaten.
+
+    Bouwt een tabel vergelijkbaar met 'Overview per Stage and Test' in het
+    D-Sheet rapport: één rij per combinatie van fase en verificatiestap.
+
+    Parameters
+    ----------
+    shd_text:
+        Volledige inhoud van het .shd bestand.
+
+    Returns
+    -------
+    list[VerifyStepSummary]
+        Gesorteerd op verificatiestapvolgorde, dan op fasenum mer.
+    """
+    out: list[VerifyStepSummary] = []
+
+    for vs_m in re.finditer(
+        r'\[(VERIFY STEP[^\]]*)\]([\s\S]*?)\[END OF VERIFY STEP[^\]]*\]',
+        shd_text, re.IGNORECASE
+    ):
+        header = vs_m.group(1)
+        stap_label = _verify_step_label(header)
+        is_ugt = _is_ugt_verify_step_header(header)
+        vs_tekst = vs_m.group(2)
+
+        for cs_m in re.finditer(
+            r'\[CONSTRUCTION STAGE\]([\s\S]*?)\[END OF CONSTRUCTION STAGE\]',
+            vs_tekst, re.IGNORECASE
+        ):
+            blok = cs_m.group(1)
+            sn_m = re.search(r'^StageNumber\s*=\s*(\d+)', blok, re.MULTILINE)
+            if not sn_m:
+                continue
+            stage_nr = int(sn_m.group(1))
+
+            # Moment / kracht / verplaatsing
+            mfd_m = re.search(
+                r'\[MOMENTS FORCES DISPLACEMENTS\][\s\S]*?\[DATA\]([\s\S]*?)\[END OF DATA\]',
+                blok, re.IGNORECASE
+            )
+            max_mom = 0.0
+            max_shear = 0.0
+            max_disp_mm: float | None = None
+            if mfd_m:
+                for rij in mfd_m.group(1).split('\n'):
+                    delen = rij.strip().split()
+                    if len(delen) >= 3:
+                        try:
+                            mom, shear, disp = float(delen[0]), float(delen[1]), float(delen[2])
+                            max_mom = max(max_mom, abs(mom))
+                            max_shear = max(max_shear, abs(shear))
+                            if max_disp_mm is None:
+                                max_disp_mm = abs(disp)
+                            else:
+                                max_disp_mm = max(max_disp_mm, abs(disp))
+                        except ValueError:
+                            pass
+
+            # Mobilisatiepercentages (niet aanwezig in 6.5 × factor)
+            mob_grond_l = _float_pattern(blok, r'([\d.]+)\s*:\s*Percentage mobilized resistance left')
+            mob_grond_r = _float_pattern(blok, r'([\d.]+)\s*:\s*Percentage mobilized resistance right')
+            mob_mom_l   = _float_pattern(blok, r'([\d.]+)\s*:\s*Max mobilized moment percentage left')
+            mob_mom_r   = _float_pattern(blok, r'([\d.]+)\s*:\s*Max mobilized moment percentage right')
+
+            has_mob = any(v is not None for v in [mob_grond_l, mob_grond_r, mob_mom_l, mob_mom_r])
+            mob_grond = max(mob_grond_l or 0.0, mob_grond_r or 0.0) if has_mob else None
+            mob_mom   = max(mob_mom_l or 0.0,   mob_mom_r or 0.0)   if has_mob else None
+
+            out.append(VerifyStepSummary(
+                stage_number=stage_nr,
+                step_label=stap_label,
+                is_ugt=is_ugt,
+                max_moment_knm=max_mom,
+                max_shear_kn=max_shear,
+                max_disp_mm=max_disp_mm,
+                mob_moment_pct=mob_mom,
+                mob_grond_pct=mob_grond,
+            ))
+
     return out
 
 
@@ -1189,6 +1331,7 @@ def parse_project(file_bundle: FileBundle, base_name: str) -> Project:
     stages = parse_stages(combined)
 
     result_summaries = parse_result_summaries(shd)
+    verify_step_summaries = parse_verify_step_summaries(shd)
 
     return Project(
         base_name=base_name,
@@ -1214,4 +1357,5 @@ def parse_project(file_bundle: FileBundle, base_name: str) -> Project:
         anchor_strut_resume=parse_anchors_and_struts_resume(shd),
         supports_resume=parse_supports_resume(shd),
         result_summaries=result_summaries,
+        verify_step_summaries=verify_step_summaries,
     )

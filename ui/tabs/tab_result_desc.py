@@ -9,7 +9,13 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 
 from parsers.models import Project
+from reporting.builders.damwand_tekst import (
+    RESULTATEN_GRAFIEK_INTRO_TEKST,
+    RESULTATEN_INTRO_TEKST,
+    RESULTATEN_TITEL,
+)
 from reporting.builders.result_description_builder import (
+    _step_short_label,
     is_bgt_step_key,
     is_ugt_step_key,
 )
@@ -40,6 +46,7 @@ _DATA_PT    = TABLE_TEXT_SIZE
 _PARAM_STRETCH = 5
 _WAARDE_STRETCH = 3
 _EENHEID_STRETCH = 2
+_STAP_STRETCH = 3
 _SPEC_TABLE_STRETCH = 10
 _SPEC_TABLE_REST_STRETCH = 6
 _SPEC_DATA_MIN_HEIGHT_PX = 27
@@ -138,10 +145,9 @@ class TabResultDesc(QWidget):
             toelichting = self._maak_tabel_toelichting(sec.id) if sec.tables else None
             if sec.image_groups and toelichting is None:
                 toelichting = self._maak_tabel_toelichting(sec.id)
-            titel = (
-                self._maak_sectie_titel_label(sec.title)
-                if sec.tables or sec.image_groups else None
-            )
+            titel = None
+            if sec.tables:
+                titel = self._maak_sectie_titel_label(sec.title)
             if titel is not None:
                 titel.setProperty('resultDescDynamic', True)
                 self._main_layout.insertWidget(self._main_layout.count() - 1, titel)
@@ -150,6 +156,12 @@ class TabResultDesc(QWidget):
                 self._main_layout.insertWidget(self._main_layout.count() - 1, toelichting)
             if sec.fields or sec.tables or sec.text_blocks or sec.image_groups:
                 self._main_layout.insertWidget(self._main_layout.count() - 1, box)
+                if sec.id == 'extremen_overzicht':
+                    conclusie = self._maak_resultaat_conclusie_label()
+                    conclusie.setProperty('resultDescDynamic', True)
+                    self._main_layout.insertWidget(
+                        self._main_layout.count() - 1, conclusie
+                    )
 
     # ------------------------------------------------------------------
     # Intern
@@ -187,13 +199,38 @@ class TabResultDesc(QWidget):
                 'per resultaatsoort en uitgesplitst naar de beschikbare toetsstappen.'
             ),
             'extremen_overzicht': (
-                'Deze figuurtabel toont de maatgevende UGT-waarden voor Msd en Dsd '
-                '(CUR 166 6.1 t/m 6.4 plus 6.5 x factor) en de maatgevende BGT-'
-                'verplaatsing Urep uit CUR 166 6.5.'
+                RESULTATEN_GRAFIEK_INTRO_TEKST
             ),
         }
         tekst = teksten.get(section_id)
         return self._maak_toelichting_label(tekst) if tekst else None
+
+    def _maak_resultaat_conclusie_label(self) -> QLabel:
+        """Maak de conclusie onder de maatgevende-resultatenfiguren."""
+        return self._maak_toelichting_label(self._resultaat_conclusie_tekst())
+
+    def _resultaat_conclusie_tekst(self) -> str:
+        """Geef een korte conclusie op basis van de maatgevende resultaten."""
+        msd, _dsd, vervorming = self._maatgevende_waarden()
+        moment_zin = (
+            'de berekende momenten opneembaar zijn'
+            if self._moment_is_opneembaar(msd)
+            else 'de opneembaarheid van de berekende momenten nader beoordeeld moet worden'
+        )
+        verplaatsing = fmt_number(vervorming)
+        return (
+            'Op basis van bovenstaande resultaten kan worden geconcludeerd dat '
+            f'{moment_zin}. De berekende topverplaatsing bij de doorsnede is '
+            f'{verplaatsing}mm. Op basis hiervan wordt voldaan aan de '
+            'verplaatsingseis.'
+        )
+
+    def _moment_is_opneembaar(self, msd: float | None) -> bool:
+        """Geef True als Msd niet groter is dan het opneembare moment."""
+        if not self._project or not self._project.sheet_piling or msd is None:
+            return True
+        opneembaar = self._project.sheet_piling[0].opneembaar_moment_knm
+        return abs(msd) <= opneembaar
 
     def _maak_figuurgroep_widget(self, groep: ReportImageGroup) -> QWidget:
         """Rendert een ReportImageGroup als 3x3 figuurtabel in de UI."""
@@ -374,11 +411,24 @@ class TabResultDesc(QWidget):
             Msd/Dsd: maximum over UGT-stappen 6.1 t/m 6.4 plus 6.5 x factor.
             Vervorming: maximum over alle fases, uitsluitend uit BGT-stap 6.5.
         """
+        msd, dsd, vervorming = self._maatgevende_waarden_met_stappen()
+        return msd[0], dsd[0], vervorming[0]
+
+    def _maatgevende_waarden_met_stappen(
+        self,
+    ) -> tuple[
+        tuple[float | None, str | None],
+        tuple[float | None, str | None],
+        tuple[float | None, str | None],
+    ]:
+        """Bereken maatgevende waarden inclusief verificatiestap."""
         if not self._project or not self._project.result_steps:
-            return None, None, None
+            return (None, None), (None, None), (None, None)
 
         msd: float | None = None
         dsd: float | None = None
+        msd_stap: str | None = None
+        dsd_stap: str | None = None
 
         for stap_key, step in self._project.result_steps.items():
             if not is_ugt_step_key(stap_key):
@@ -388,11 +438,14 @@ class TabResultDesc(QWidget):
                     v = abs(pt.moment)
                     if msd is None or v > msd:
                         msd = v
+                        msd_stap = stap_key
                     v = abs(pt.shear)
                     if dsd is None or v > dsd:
                         dsd = v
+                        dsd_stap = stap_key
 
         vervorming: float | None = None
+        vervorming_stap: str | None = None
         for stap_key, step in self._project.result_steps.items():
             if not is_bgt_step_key(stap_key):
                 continue
@@ -401,8 +454,13 @@ class TabResultDesc(QWidget):
                     v = abs(pt.disp)
                     if vervorming is None or v > vervorming:
                         vervorming = v
+                        vervorming_stap = stap_key
 
-        return msd, dsd, vervorming
+        return (msd, msd_stap), (dsd, dsd_stap), (vervorming, vervorming_stap)
+
+    def _formatteer_stap(self, stap_key: str | None) -> str:
+        """Formatteer een verificatiestap voor de app-tabel."""
+        return f'stap {_step_short_label(stap_key)}' if stap_key else ''
 
     def _maak_tabel(self) -> QWidget:
         """Bouw de resultaattabel met projectbrede maatgevende waarden."""
@@ -415,30 +473,30 @@ class TabResultDesc(QWidget):
         max_mob_mom = max((s.mob_moment_pct for s in summaries), default=0.0)
         max_mob_grond = max((s.mob_grond_pct for s in summaries), default=0.0)
 
-        rijen: list[tuple[str, str, str]] = []
+        rijen: list[tuple[str, str, str, str]] = []
 
         # Damwandsectie
-        rijen.append(('Damwand', '', ''))
-        rijen.append(('Profiel', el.name.split('(')[0].strip() if el else '-', '[-]'))
-        rijen.append(('Staalkwaliteit', el.steel_quality if el else '-', '[-]'))
-        rijen.append(('Opneembaar moment', fmt_number(el.opneembaar_moment_knm) if el else '-', '[kNm/m]'))
-        rijen.append(('Niveau damwand b.k.', fmt_number(el.top or 0.0) if el else '-', '[m NAP]'))
-        rijen.append(('Niveau damwand o.k.', fmt_number(el.bottom) if el else '-', '[m NAP]'))
-        rijen.append(('Damwandlengte', fmt_number(abs((el.top or 0.0) - el.bottom)) if el else '-', '[m]'))
+        rijen.append(('Grondkering', '', '', ''))
+        rijen.append(('Profiel', el.name.split('(')[0].strip() if el else '-', '[-]', ''))
+        rijen.append(('Staalkwaliteit', el.steel_quality if el else '-', '[-]', ''))
+        rijen.append(('Opneembaar moment', fmt_number(el.opneembaar_moment_knm) if el else '-', '[kNm/m]', ''))
+        rijen.append(('Niveau b.k.', fmt_number(el.top or 0.0) if el else '-', '[m NAP]', ''))
+        rijen.append(('Niveau o.k.', fmt_number(el.bottom) if el else '-', '[m NAP]', ''))
+        rijen.append(('Lengte', fmt_number(abs((el.top or 0.0) - el.bottom)) if el else '-', '[m]', ''))
 
         # Resultaten (projectbreed)
-        msd, dsd, vervorming = self._maatgevende_waarden()
-        rijen.append(('Resultaten', '', ''))
-        rijen.append(('Moment Msd', fmt_number(msd), '[kNm/m]'))
-        rijen.append(('Dwarskracht Dsd', fmt_number(dsd), '[kN/m]'))
-        rijen.append(('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]'))
-        rijen.append(('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]'))
-        rijen.append(('Verplaatsing urep BGT', fmt_number(vervorming), '[mm]'))
+        msd, dsd, vervorming = self._maatgevende_waarden_met_stappen()
+        rijen.append(('Resultaten', '', '', 'Verificatiestap'))
+        rijen.append(('Moment Msd UGT', fmt_number(msd[0]), '[kNm/m]', self._formatteer_stap(msd[1])))
+        rijen.append(('Dwarskracht Dsd UGT', fmt_number(dsd[0]), '[kN/m]', self._formatteer_stap(dsd[1])))
+        rijen.append(('Verplaatsing urep BGT', fmt_number(vervorming[0]), '[mm]', self._formatteer_stap(vervorming[1])))
+        rijen.append(('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]', ''))
+        rijen.append(('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]', ''))
 
         if maatgevend:
             for naam, kracht, niveau in maatgevend.ondersteuningen[:4]:
-                rijen.append((naam, fmt_number(kracht), '[kN/m]'))
-                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]'))
+                rijen.append((naam, fmt_number(kracht), '[kN/m]', ''))
+                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]', ''))
 
         wrapper = QWidget()
         wrapper.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -446,12 +504,8 @@ class TabResultDesc(QWidget):
         wrapper_lay.setContentsMargins(0, 0, 0, 0)
         wrapper_lay.setSpacing(0)
 
-        wrapper_lay.addWidget(self._maak_sectie_titel_label('Specificaties'))
-        wrapper_lay.addWidget(self._maak_toelichting_label(
-            'In deze tabel zijn de belangrijkste damwandgegevens en maatgevende '
-            'projectresultaten samengevat. De resultaatwaarden betreffen de maxima '
-            'over de beschikbare fases en toetsstappen.'
-        ))
+        wrapper_lay.addWidget(self._maak_sectie_titel_label(RESULTATEN_TITEL))
+        wrapper_lay.addWidget(self._maak_toelichting_label(RESULTATEN_INTRO_TEKST))
 
         tabel_rij = QWidget()
         tabel_rij_layout = QHBoxLayout(tabel_rij)
@@ -474,9 +528,10 @@ class TabResultDesc(QWidget):
         grid.setColumnStretch(0, _PARAM_STRETCH)
         grid.setColumnStretch(1, _WAARDE_STRETCH)
         grid.setColumnStretch(2, _EENHEID_STRETCH)
+        grid.setColumnStretch(3, _STAP_STRETCH)
 
         data_index = 0
-        for i, (label, waarde, eenheid) in enumerate(rijen):
+        for i, (label, waarde, eenheid, stap) in enumerate(rijen):
             is_sectie = waarde == '' and eenheid == ''
             is_last = i == len(rijen) - 1
             border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
@@ -495,6 +550,15 @@ class TabResultDesc(QWidget):
                     f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
                 )
                 grid.addWidget(lbl, i, 0, 1, 3)
+                if stap:
+                    stap_lbl = QLabel(stap)
+                    stap_lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+                    stap_lbl.setStyleSheet(
+                        f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+                        f'color: {_HDR_FG}; background: {bg}; padding: 3px 6px; '
+                        f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
+                    )
+                    grid.addWidget(stap_lbl, i, 3)
                 continue
 
             lbl.setStyleSheet(
@@ -524,6 +588,15 @@ class TabResultDesc(QWidget):
                 f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
             )
             grid.addWidget(ext, i, 2)
+
+            stap_lbl = QLabel(stap)
+            stap_lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+            stap_lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-style: italic; '
+                f'color: {_EXTRA_CLR}; background: {bg}; padding: 2px 6px; '
+                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
+            )
+            grid.addWidget(stap_lbl, i, 3)
             data_index += 1
 
         lay.addWidget(grid_w)

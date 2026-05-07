@@ -59,6 +59,19 @@ def test_damwand_sectie_bevat_ei_en_opneembaar_moment() -> None:
     assert 'opneembaar_moment' in sleutels
 
 
+def test_damwand_sectie_bevat_moederbestand_toelichting() -> None:
+    project = _basis_project(sheet_piling=[_wall()])
+    sec = DamwandHoofdstukBuilder()._bouw_damwand_sectie(project)
+    teksten = [tb.effective_text for tb in sec.text_blocks]
+    profiel = next(f for f in sec.fields if f.key == 'profiel')
+    moment = next(f for f in sec.fields if f.key == 'opneembaar_moment')
+
+    assert 'Voor de grondkering zijn de volgende eigenschappen aangehouden.' in teksten
+    assert any('Wy;el' in tekst for tekst in teksten)
+    assert profiel.unit == '-'
+    assert moment.label == 'Opneembaar moment M'
+
+
 def test_damwand_sectie_lengte_correct() -> None:
     project = _basis_project(sheet_piling=[_wall()])
     sec = DamwandHoofdstukBuilder()._bouw_damwand_sectie(project)

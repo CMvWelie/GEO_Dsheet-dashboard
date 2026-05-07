@@ -4,7 +4,7 @@ import sys, os, tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from docx import Document
-from reporting.models import ReportSection, ReportField, ReportTable, ReportImageRequest, ReportMetadata
+from reporting.models import ReportSection, ReportField, ReportTable, ReportImageRequest, ReportMetadata, TextBlock
 from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
 
 
@@ -120,6 +120,118 @@ def test_fase_invoer_sectie_maakt_tabel_in_word() -> None:
     assert len(doc.tables) >= 1
 
 
+def test_fase_invoer_secties_krijgen_gezamenlijke_fasering_intro() -> None:
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    kaart_1 = FaseCard(fase_num=1, stage_name='Initieel')
+    kaart_1.rows.append(FaseRow('Maaiveld Links', '0,0 [m NAP]'))
+    kaart_2 = FaseCard(fase_num=2, stage_name='Maatgevende fase')
+    kaart_2.rows.append(FaseRow('Water Rechts', '-1,0 [m NAP]'))
+    secties = [
+        FaseInvoerSectie(id='fase_1', title='Fase 1', fase_card=kaart_1),
+        FaseInvoerSectie(id='fase_2', title='Fase 2', fase_card=kaart_2),
+    ]
+
+    doc = _export(secties, metadata=ReportMetadata(project_name='Test'))
+    teksten = [p.text for p in doc.paragraphs if p.text.strip()]
+
+    assert 'Fasering' in teksten
+    assert 'De onderstaande fasering is als volgt toegepast.' in teksten
+    assert '- Fase 1: Initieel' in teksten
+    assert '- Fase 2: Maatgevende fase' in teksten
+    assert 'Voor de grafisch weergegeven bouwfasering(en) zie de onderstaande tabel.' in teksten
+    assert 'Fase 1' not in teksten
+    assert len(doc.tables) == 2
+
+
+def test_fasering_intro_noemt_alle_projectfases_ook_bij_deelselectie() -> None:
+    from parsers.models import FileBundle, Project, ResultSummary, Stage
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    secties = []
+    for nr, naam in enumerate(['Initieel', 'Ontgraven'], start=1):
+        kaart = FaseCard(fase_num=nr, stage_name=naam)
+        kaart.rows.append(FaseRow('Maaiveld Links', '0,0 [m NAP]'))
+        secties.append(FaseInvoerSectie(
+            id=f'fase_{nr}',
+            title=f'Fase {nr}',
+            fase_card=kaart,
+        ))
+
+    project = Project(
+        base_name='t',
+        project_name='T',
+        file_bundle=FileBundle(),
+        stages=[
+            Stage(name='Initieel'),
+            Stage(name='Ontgraven'),
+            Stage(name='Stempel plaatsen'),
+            Stage(name='Eindsituatie'),
+        ],
+        result_summaries=[
+            ResultSummary(
+                stage_number=5,
+                max_moment_knm=0.0,
+                max_shear_kn=0.0,
+                max_disp_mm=0.0,
+                mob_moment_pct=0.0,
+                mob_grond_pct=0.0,
+            )
+        ],
+    )
+
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as f:
+        pad = f.name
+    fout = WordHoofdstukExporter().export(
+        sections=secties,
+        metadata=ReportMetadata(project_name='Test'),
+        project=project,
+        template_path=None,
+        output_path=pad,
+    )
+    assert fout is None
+    doc = Document(pad)
+    os.unlink(pad)
+    teksten = [p.text for p in doc.paragraphs if p.text.strip()]
+
+    assert '- Fase 1: Initieel' in teksten
+    assert '- Fase 2: Ontgraven' in teksten
+    assert '- Fase 3: Stempel plaatsen' in teksten
+    assert '- Fase 4: Eindsituatie' in teksten
+    assert '- Fase 5: Fase 5' in teksten
+    assert len(doc.tables) == 2
+
+
+def test_fase_invoer_secties_houden_witregel_en_tabel_bij_elkaar() -> None:
+    from docx.oxml.ns import qn
+    from reporting.builders.input_description_builder import FaseCard, FaseRow
+    from reporting.models import FaseInvoerSectie
+
+    secties = []
+    for nr, naam in enumerate(['Initieel', 'Maatgevende fase'], start=1):
+        kaart = FaseCard(fase_num=nr, stage_name=naam)
+        kaart.rows.append(FaseRow('Maaiveld Links', '0,0 [m NAP]'))
+        secties.append(FaseInvoerSectie(
+            id=f'fase_{nr}',
+            title=f'Fase {nr}',
+            fase_card=kaart,
+        ))
+
+    doc = _export(secties, metadata=ReportMetadata(project_name='Test'))
+
+    assert any(
+        p.text == '' and p.paragraph_format.keep_with_next
+        for p in doc.paragraphs
+    )
+    eerste_paragraaf = doc.tables[0].rows[0].cells[0].paragraphs[0]
+    keep_together = eerste_paragraaf._p.pPr.find(qn('w:keepLines'))
+    keep_with_next = eerste_paragraaf._p.pPr.find(qn('w:keepNext'))
+    assert keep_together is not None
+    assert keep_with_next is not None
+
+
 def test_damwandgegevens_sectie_wordt_voorbeeldtabel() -> None:
     from docx.oxml.ns import qn
 
@@ -153,6 +265,29 @@ def test_damwandgegevens_sectie_wordt_voorbeeldtabel() -> None:
     assert tbl.rows[0]._tr.trPr.trHeight.get(qn('w:val')) == '255'
     assert tbl.rows[0]._tr.trPr.trHeight.get(qn('w:hRule')) == 'exact'
     assert tbl.rows[4]._tr.trPr.trHeight.get(qn('w:val')) == '40'
+
+
+def test_damwandgegevens_sectie_schrijft_toelichting_rond_tabel() -> None:
+    sec = ReportSection(id='damwand_gegevens', title='Damwandgegevens')
+    sec.text_blocks.append(TextBlock(
+        id='intro',
+        section='damwand_gegevens',
+        generated_text='Voor de grondkering zijn de volgende eigenschappen aangehouden.',
+    ))
+    sec.text_blocks.append(TextBlock(
+        id='toelichting',
+        section='damwand_gegevens',
+        generated_text='Hierin is:\nEI\tde ongereduceerde buigstijfheid',
+    ))
+    sec.fields.append(ReportField('profiel', 'Profiel', 'AZ 18-700', '-'))
+
+    doc = _export([sec], metadata=ReportMetadata(project_name='Test'))
+    teksten = [p.text for p in doc.paragraphs]
+
+    assert 'Voor de grondkering zijn de volgende eigenschappen aangehouden.' in teksten
+    assert 'Hierin is:' in teksten
+    assert 'EI\tde ongereduceerde buigstijfheid' in teksten
+    assert doc.tables[0].rows[1].cells[2].text == '[-]'
 
 
 def test_fase_sectie_tabel_bevat_kolomhoofden() -> None:
@@ -322,19 +457,23 @@ def test_resultaatbeschrijving_specificaties_tabel_in_word() -> None:
 
     tbl = doc.tables[0]
     assert [col.get(qn('w:w')) for col in tbl._tbl.tblGrid.gridCol_lst] == [
-        '2835', '1701', '1134',
+        '2835', '1701', '1134', '1701',
     ]
-    assert tbl.rows[0].cells[0].text == 'Damwand'
+    assert tbl.rows[0].cells[0].text == 'Grondkering'
     assert tbl.rows[0].cells[0]._tc.tcPr.tcW.w == 5670
     assert tbl.rows[0].cells[0]._tc.tcPr.find(qn('w:shd')).get(qn('w:fill')) == '147ACF'
-    assert [cell.text for cell in tbl.rows[1].cells] == ['Profiel', 'AZ 18', '[-]']
+    assert [cell.text for cell in tbl.rows[1].cells] == ['Profiel', 'AZ 18', '[-]', '']
     assert tbl.rows[7].cells[0].text == 'Resultaten'
     assert tbl.rows[7].cells[0]._tc.tcPr.find(qn('w:shd')).get(qn('w:fill')) == '147ACF'
+    assert tbl.rows[7].cells[3].text == 'Verificatiestap'
     assert [cell.text for cell in tbl.rows[8].cells] == [
-        'Moment Msd', '123,0', '[kNm/m]',
+        'Moment Msd UGT', '123,0', '[kNm/m]', 'stap 6.4',
     ]
     assert [cell.text for cell in tbl.rows[10].cells] == [
-        'Gemobiliseerd Moment', '60,0', '[%]',
+        'Verplaatsing urep BGT', '9,0', '[mm]', 'stap 6.5',
+    ]
+    assert [cell.text for cell in tbl.rows[11].cells] == [
+        'Gemobiliseerd Moment', '60,0', '[%]', '',
     ]
 
 

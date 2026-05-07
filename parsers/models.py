@@ -253,6 +253,19 @@ class ResultSummary:
 
 
 @dataclass
+class VerifyStepSummary:
+    """Resultaat per constructiefase én verificatiestap (vergelijkbaar met D-Sheet overzichtstabel)."""
+    stage_number: int
+    step_label: str             # bijv. '6.1', '6.5', '6.5 × factor'
+    is_ugt: bool
+    max_moment_knm: float
+    max_shear_kn: float
+    max_disp_mm: float | None   # alleen aanwezig als het bestand de waarde bevat
+    mob_moment_pct: float | None
+    mob_grond_pct: float | None
+
+
+@dataclass
 class FileBundle:
     shi: str = ""
     shd: str = ""
@@ -284,3 +297,4 @@ class Project:
     anchor_strut_resume: list[AnchorStrutResumeItem] = field(default_factory=list)
     supports_resume: list[SupportResumeItem] = field(default_factory=list)
     result_summaries: list[ResultSummary] = field(default_factory=list)
+    verify_step_summaries: list[VerifyStepSummary] = field(default_factory=list)

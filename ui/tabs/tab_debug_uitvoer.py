@@ -158,8 +158,34 @@ class TabDebugUitvoer(QWidget):
 
         p = self._project
 
-        # 1 – RESULTAATSAMENVATTING
-        self._voeg_in(_maak_header('RESULTAATSAMENVATTING'))
+        # 1 – OVERZICHT PER FASE EN STAP
+        self._voeg_in(_maak_header('OVERZICHT PER FASE EN STAP'))
+        if p.verify_step_summaries:
+            hdrs = [
+                'fase', 'stap', 'type',
+                'max moment [kNm/m]', 'max dwarskracht [kN/m]',
+                'max verplaatsing [mm]', 'mob. moment [%]', 'mob. grond [%]',
+            ]
+            gesorteerde_samenvattingen = sorted(
+                p.verify_step_summaries,
+                key=lambda vs: (vs.stage_number, _natural_sort_key(vs.step_label)),
+            )
+            rijen = [[
+                str(vs.stage_number),
+                vs.step_label,
+                'UGT' if vs.is_ugt else 'BGT',
+                str(vs.max_moment_knm),
+                str(vs.max_shear_kn),
+                '' if vs.max_disp_mm is None else str(vs.max_disp_mm),
+                '' if vs.mob_moment_pct is None else str(vs.mob_moment_pct),
+                '' if vs.mob_grond_pct is None else str(vs.mob_grond_pct),
+            ] for vs in gesorteerde_samenvattingen]
+            self._voeg_in(_maak_tabel(hdrs, rijen))
+        else:
+            self._voeg_in(_geen_data_label())
+
+        # 2 – RESULTAATSAMENVATTING (max per fase)
+        self._voeg_in(_maak_header('RESULTAATSAMENVATTING (max per fase)'))
         if p.result_summaries:
             hdrs = ['fase', 'max moment [kNm/m]', 'max dwarskracht [kN/m]',
                     'max verplaatsing [mm]', 'mob. moment [%]', 'mob. grond [%]']
@@ -171,7 +197,7 @@ class TabDebugUitvoer(QWidget):
         else:
             self._voeg_in(_geen_data_label())
 
-        # 2 – ONDERSTEUNINGSKRACHTEN
+        # 3 – ONDERSTEUNINGSKRACHTEN
         self._voeg_in(_maak_header('ONDERSTEUNINGSKRACHTEN'))
         ond_rijen: list[list[str]] = []
         for rs in p.result_summaries:
@@ -185,7 +211,7 @@ class TabDebugUitvoer(QWidget):
         else:
             self._voeg_in(_geen_data_label())
 
-        # 3 – ANKER/STEMPEL RESUMÉ
+        # 4 – ANKER/STEMPEL RESUMÉ
         self._voeg_in(_maak_header('ANKER/STEMPEL RESUMÉ'))
         if p.anchor_strut_resume:
             hdrs = ['fase', 'naam', 'verificatietype', 'basis_cur_step',
@@ -202,7 +228,7 @@ class TabDebugUitvoer(QWidget):
         else:
             self._voeg_in(_geen_data_label())
 
-        # 4 – STEUNEN RESUMÉ
+        # 5 – STEUNEN RESUMÉ
         self._voeg_in(_maak_header('STEUNEN RESUMÉ'))
         if p.supports_resume:
             hdrs = ['fase', 'naam', 'verificatietype', 'basis_cur_step',
@@ -218,7 +244,7 @@ class TabDebugUitvoer(QWidget):
         else:
             self._voeg_in(_geen_data_label())
 
-        # 5+ – GRAFIEKPUNTEN per rekenstap (collapsible, standaard ingeklapt)
+        # 6+ – GRAFIEKPUNTEN per rekenstap (collapsible, standaard ingeklapt)
         if p.result_steps:
             for stap_label, result_step in sorted(
                 p.result_steps.items(), key=lambda kv: _natural_sort_key(kv[0])

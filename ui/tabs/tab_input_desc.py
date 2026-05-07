@@ -9,6 +9,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap, QColor
 
+from reporting.builders.damwand_tekst import (
+    FASERING_INTRO_TEKST,
+    FASERING_TABEL_INTRO_TEKST,
+    FASERING_TITEL,
+    faseringsregels,
+)
 from reporting.builders.input_description_builder import FaseCard, DamwandCard
 from ui.table_styles import (
     TABLE_BORDER, TABLE_EXTRA_COLOR, TABLE_FONT, TABLE_HEADER_BG,
@@ -82,7 +88,11 @@ class TabInputDesc(QWidget):
     # Publieke API
     # ------------------------------------------------------------------
 
-    def populate_fase_cards(self, cards: list[FaseCard]) -> None:
+    def populate_fase_cards(
+        self,
+        cards: list[FaseCard],
+        fase_namen: list[str] | None = None,
+    ) -> None:
         """Vervang de inhoud door een kaart per fase."""
         while self._layout.count() > 1:
             item = self._layout.takeAt(0)
@@ -98,6 +108,10 @@ class TabInputDesc(QWidget):
             self._layout.insertWidget(0, lbl)
             return
 
+        self._layout.insertWidget(
+            self._layout.count() - 1,
+            self._maak_fasering_intro(cards, fase_namen),
+        )
         for card in cards:
             self._layout.insertWidget(self._layout.count() - 1,
                                        self._make_card(card))
@@ -196,14 +210,22 @@ class TabInputDesc(QWidget):
         )
         lay.addWidget(titel)
 
+        intro = QLabel(card.intro_tekst)
+        intro.setWordWrap(True)
+        intro.setStyleSheet(
+            f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
+            f'background: transparent; padding: 0 0 8px 0; border: none;'
+        )
+        lay.addWidget(intro)
+
         rijen: list[tuple[str, str, str] | None] = [
-            ('Profiel', card.profiel, ''),
-            ('Staalkwaliteit', card.staalkwaliteit, ''),
+            ('Profiel', card.profiel, '[-]'),
+            ('Staalkwaliteit', card.staalkwaliteit, '[-]'),
             ('Hoogte', fmt_number(card.hoogte_mm), '[mm]'),
             ('Breedte', fmt_number(card.breedte_mm), '[mm]'),
             ('Buigstijfheid EI', fmt_number(card.ei_knm2), '[kNm²/m]'),
             ('Weerstandsmoment Wy;el', fmt_number(card.weerstandsmoment_cm3), '[cm³/m]'),
-            ('Opneembaar moment', fmt_number(card.opneembaar_moment_knm), '[kNm/m]'),
+            ('Opneembaar moment M', fmt_number(card.opneembaar_moment_knm), '[kNm/m]'),
             ('Kopniveau', fmt_number(card.kopniveau), '[m NAP]'),
             ('Teenniveau', fmt_number(card.teenniveau), '[m NAP]'),
             ('Lengte', fmt_number(card.lengte), '[m]'),
@@ -301,6 +323,73 @@ class TabInputDesc(QWidget):
         tabel_rij_layout.addWidget(grid_w, stretch=16)
         tabel_rij_layout.addStretch(10)
         lay.addWidget(tabel_rij)
+
+        toelichting = QLabel(
+            'Hierin is:\n' + '\n'.join(
+                f'{symbool}\t{omschrijving}'
+                for symbool, omschrijving in card.toelichting_regels
+            )
+        )
+        toelichting.setWordWrap(True)
+        toelichting.setStyleSheet(
+            f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
+            f'background: transparent; padding: 8px 0 0 0; border: none;'
+        )
+        lay.addWidget(toelichting)
+        return wrapper
+
+    def _maak_fasering_intro(
+        self,
+        cards: list[FaseCard],
+        fase_namen: list[str] | None = None,
+    ) -> QWidget:
+        """Bouw de tekstuele inleiding voor de fasering."""
+        wrapper = QWidget()
+        wrapper.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        frame = QFrame()
+        frame.setStyleSheet(f'QFrame {{ background: {_CARD_BG}; border: none; }}')
+
+        outer = QVBoxLayout(wrapper)
+        outer.setContentsMargins(4, 0, 4, 0)
+        outer.setSpacing(0)
+        outer.addWidget(frame)
+
+        lay = QVBoxLayout(frame)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+
+        titel = QLabel(FASERING_TITEL)
+        titel.setStyleSheet(
+            f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+            f'color: {_LABEL_CLR}; background: transparent; padding: 0 0 4px 0; '
+            f'border: none;'
+        )
+        lay.addWidget(titel)
+
+        intro = QLabel(FASERING_INTRO_TEKST)
+        intro.setStyleSheet(
+            f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
+            f'background: transparent; border: none;'
+        )
+        lay.addWidget(intro)
+
+        namen = fase_namen or [card.stage_name for card in cards]
+        for regel in faseringsregels(namen):
+            fase = QLabel(regel)
+            fase.setStyleSheet(
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
+                f'background: transparent; border: none; padding-left: 12px;'
+            )
+            lay.addWidget(fase)
+
+        tabel_intro = QLabel(FASERING_TABEL_INTRO_TEKST)
+        tabel_intro.setWordWrap(True)
+        tabel_intro.setStyleSheet(
+            f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
+            f'background: transparent; border: none; padding: 4px 0 0 0;'
+        )
+        lay.addWidget(tabel_intro)
         return wrapper
 
     def _make_header(self, stage_name: str) -> QWidget:

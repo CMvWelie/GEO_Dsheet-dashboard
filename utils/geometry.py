@@ -130,12 +130,16 @@ def actual_surface_points(
     return out
 
 
-def build_layer_polygon(
+def build_layer_polygons(
     points: list[dict],
     layer_top: float,
     layer_bottom: float,
-) -> list[tuple[float, float]]:
-    """Bouw een polygoon (in data-coördinaten) voor één grondlaag.
+) -> list[list[tuple[float, float]]]:
+    """Bouw polygonen voor één grondlaag, gesplitst bij openingen in het oppervlak.
+
+    Wanneer het oppervlak daalt tot onder ``layer_bottom`` en later weer stijgt,
+    ontstaan meerdere losse polygonen. Zonder splitsing zou één polygoon een
+    degenerate horizontale brug bevatten op y = layer_bottom.
 
     Parameters
     ----------
@@ -145,7 +149,7 @@ def build_layer_polygon(
 
     Returns
     -------
-    list[tuple[float,float]]  Polygoon als (x, y) tuples in datacoördinaten.
+    list[list[tuple[float,float]]]  Lijst van gesloten polygonen als (x, y) tuples.
     """
     if not points or len(points) < 2:
         return []
@@ -154,17 +158,44 @@ def build_layer_polygon(
     span = max(1e-6, x_max - x_min)
     sample_count = max(90, min(260, round(span * 16)))
 
-    top_pts: list[tuple[float, float]] = []
-    bot_pts: list[tuple[float, float]] = []
+    polygons: list[list[tuple[float, float]]] = []
+    seg_top: list[tuple[float, float]] = []
 
     for i in range(sample_count + 1):
         x = x_min + span * i / sample_count
         surface_y = surface_y_at(points, x)
         top_y = min(surface_y, layer_top)
         if top_y > layer_bottom + 1e-9:
-            top_pts.append((x, top_y))
-            bot_pts.append((x, layer_bottom))
+            seg_top.append((x, top_y))
+        else:
+            if len(seg_top) >= 2:
+                bot = [(xt, layer_bottom) for xt, _ in seg_top]
+                polygons.append(seg_top + list(reversed(bot)))
+            seg_top = []
 
-    if len(top_pts) < 2:
-        return []
-    return top_pts + list(reversed(bot_pts))
+    if len(seg_top) >= 2:
+        bot = [(xt, layer_bottom) for xt, _ in seg_top]
+        polygons.append(seg_top + list(reversed(bot)))
+
+    return polygons
+
+
+def build_layer_polygon(
+    points: list[dict],
+    layer_top: float,
+    layer_bottom: float,
+) -> list[tuple[float, float]]:
+    """Bouw één polygoon voor één grondlaag (enkelvoudige terugvalvariant).
+
+    Parameters
+    ----------
+    points:       Oppervlakpunten als {'x', 'y'} dicts.
+    layer_top:    Bovenzijde van de laag in m NAP.
+    layer_bottom: Onderzijde van de laag in m NAP.
+
+    Returns
+    -------
+    list[tuple[float,float]]  Eerste polygoon als (x, y) tuples, of lege lijst.
+    """
+    polys = build_layer_polygons(points, layer_top, layer_bottom)
+    return polys[0] if polys else []
