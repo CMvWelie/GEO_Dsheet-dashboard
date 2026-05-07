@@ -125,10 +125,16 @@ class ReportController:
         return self._report.plan
 
     def auto_populate_plan(self) -> None:
-        """Vul het rapportplan automatisch met secties van DamwandHoofdstukBuilder."""
+        """Vul het rapportplan automatisch met secties van DamwandHoofdstukBuilder.
+
+        Het bestaande plan wordt eerst leeggemaakt zodat de lijst altijd het
+        actieve project weerspiegelt.
+        """
         project = self._app.get_active_project()
         if not project:
+            self._report.plan.items.clear()
             return
+        self._report.plan.items.clear()
         secties = self._damwand_builder.build(project, None, None)
         gewenste_ids: list[str] = []
         for sec in secties:

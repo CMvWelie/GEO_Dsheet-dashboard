@@ -2,6 +2,7 @@
 
 import sys
 import os
+from pathlib import Path
 
 # Zorg dat het projectpakket vindbaar is
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -29,7 +30,7 @@ if _ontbrekend:
 
 try:
     from PyQt6.QtWidgets import QApplication
-    from PyQt6.QtCore import Qt
+    from PyQt6.QtCore import Qt, QTimer
 except ImportError:
     try:
         from PySide6.QtWidgets import QApplication   # type: ignore
@@ -56,6 +57,12 @@ def main() -> None:
 
     window = MainWindow(thema=thema)
     window.show()
+
+    # Bestanden meegegeven via commandoregel (bijv. dubbelklik vanuit Verkenner)
+    cli_paden = [p for p in sys.argv[1:] if Path(p).is_file()]
+    if cli_paden:
+        QTimer.singleShot(0, lambda: window.open_cli_bestanden(cli_paden))
+
     sys.exit(app.exec())
 
 

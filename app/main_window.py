@@ -4,6 +4,7 @@ Layout: compacte topbalk + hoofd-tabwidget met 10 tabs.
 """
 
 from __future__ import annotations
+import os
 import sys
 from pathlib import Path
 from PyQt6.QtWidgets import (
@@ -152,6 +153,15 @@ class MainWindow(QMainWindow):
         if not bestaand:
             return
         self._ingest_paths(bestaand)
+
+    def open_cli_bestanden(self, paths: list[str]) -> None:
+        """Laad bestanden die via de commandoregel zijn meegegeven.
+
+        Parameters
+        ----------
+        paths: Lijst van bestandspaden (.shd/.shi/.shs).
+        """
+        self._ingest_paths(paths)
 
     # ------------------------------------------------------------------
     # Drag-and-drop op het hoofdvenster
@@ -426,6 +436,8 @@ class MainWindow(QMainWindow):
             self._populate_output_stage_combo()
             self._populate_result_step_combo()
             self._update_all()
+            self._report_controller.auto_populate_plan()
+            self._tab_report_select.set_plan(self._report_state.plan)
 
     def _on_list_project_selected(self, base_name: str) -> None:
         """Gebruiker klikt op project in de importlijst."""
@@ -441,6 +453,8 @@ class MainWindow(QMainWindow):
         self._populate_output_stage_combo()
         self._populate_result_step_combo()
         self._update_all()
+        self._report_controller.auto_populate_plan()
+        self._tab_report_select.set_plan(self._report_state.plan)
 
     def _on_remove_project(self, base_name: str) -> None:
         """Verwijder één project inclusief bijbehorende bestanden."""
@@ -832,6 +846,7 @@ class MainWindow(QMainWindow):
             self._tab_report_select.set_word_status(f'Fout: {err}', ok=False)
         else:
             self._tab_report_select.set_word_status(f'Geëxporteerd naar {output_path}', ok=True)
+            os.startfile(output_path)
 
     def _on_settings_requested(self) -> None:
         """Toon de verborgen Instellingen-pagina."""
