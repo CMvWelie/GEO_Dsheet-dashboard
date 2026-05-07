@@ -58,10 +58,10 @@ def faseringsregels(fase_namen: list[str]) -> list[str]:
     Returns
     -------
     list[str]
-        Regels in de vorm ``- Fase n: Naam``.
+        Regels in de vorm ``Fase n: Naam``.
     """
     return [
-        f'- Fase {index}: {fase_naam}'
+        f'Fase {index}: {fase_naam}'
         for index, fase_naam in enumerate(fase_namen, start=1)
     ]
 

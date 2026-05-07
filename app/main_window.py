@@ -757,14 +757,27 @@ class MainWindow(QMainWindow):
         ax = self._tab_input_view.section_ax
         canvas = self._tab_input_view.section_canvas
         fig = self._tab_input_view.section_fig
-        if not self._state.get_active_project():
+        project = self._state.get_active_project()
+        if not project:
             ax.cla()
             ax.set_facecolor('white')
             ax.text(0.5, 0.5, 'Geen project geladen',
                     transform=ax.transAxes,
                     ha='center', va='center', fontsize=13, color='#888')
             canvas.draw()
+            self._tab_input_view.canvas_title_lbl.setText('')
             return
+        stage = self._state.get_active_stage()
+        proj_naam = project.project_name or ''
+        fase_naam = stage.name if stage else ''
+        titel = f'{proj_naam}  –  Fase: {fase_naam}' if fase_naam else proj_naam
+        fs = self._state.render_settings.fs_titel
+        lbl = self._tab_input_view.canvas_title_lbl
+        lbl.setText(titel)
+        lbl.setStyleSheet(
+            f'font-size: {fs:.0f}pt; font-weight: bold; color: #1e2a32; '
+            f'background: transparent; border: none; padding: 4px 0 2px 0;'
+        )
         err = self._controller.render_section(ax, fig)
         canvas.draw()
         if err:
@@ -813,7 +826,8 @@ class MainWindow(QMainWindow):
         if project:
             for card, stage in zip(cards, project.stages):
                 card.image_bytes = self._controller.render_stage_png(
-                    project, stage, width_px=800, height_px=560)
+                    project, stage, width_px=800, height_px=560,
+                    toon_titel=False)
         self._tab_input_desc.populate_fase_cards(
             cards,
             project_fase_namen(project),

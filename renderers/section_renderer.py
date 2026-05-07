@@ -1053,8 +1053,4 @@ class SectionRenderer(BaseRenderer):
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
-        proj_name = project.project_name
-        phase_name = stage.name if stage else '-'
-        ax.set_title(f'{proj_name}  –  Fase: {phase_name}',
-                      fontsize=settings.fs_titel, fontweight='bold', pad=10)
         ax.grid(False)

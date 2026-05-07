@@ -376,7 +376,7 @@ class TabInputDesc(QWidget):
 
         namen = fase_namen or [card.stage_name for card in cards]
         for regel in faseringsregels(namen):
-            fase = QLabel(regel)
+            fase = QLabel(f'•  {regel}')
             fase.setStyleSheet(
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
                 f'background: transparent; border: none; padding-left: 12px;'

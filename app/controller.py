@@ -250,7 +250,8 @@ class AppController:
 
     def render_stage_png(self, project: Project, stage: Stage | None,
                           width_px: int = 400, height_px: int = 300,
-                          dpi: int = 96) -> bytes | None:
+                          dpi: int = 96,
+                          toon_titel: bool = True) -> bytes | None:
         """Render één fase naar PNG-bytes (Agg, geen Qt vereist)."""
         try:
             vp = self._viewport.auto_bounds(project)
@@ -259,6 +260,8 @@ class AppController:
             ax = fig.add_subplot(111)
             self._renderer.render(ax, project, stage,
                                   self._state.render_settings, vp)
+            if not toon_titel:
+                ax.set_title('')
             fig.tight_layout(pad=0.3)
             buf = io.BytesIO()
             fig.savefig(buf, format='png', bbox_inches='tight', dpi=dpi)

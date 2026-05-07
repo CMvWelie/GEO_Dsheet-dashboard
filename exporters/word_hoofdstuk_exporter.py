@@ -36,7 +36,7 @@ from reporting.figure_renderer import render_figuur
 
 _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
-_RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0, 3.0]
+_RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 2.5, 3.5, 2.0]  # label, stap, waarde, eenheid
 _DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
 _DAMWAND_SCHEIDING_TWIPS = 40
 _RESULTAAT_SECTIE_IDS = {
@@ -224,12 +224,14 @@ class WordHoofdstukExporter:
         sec: ReportSection,
     ) -> None:
         """Schrijf damwandgegevens als compacte 3-koloms Word-tabel."""
-        doc.add_heading(sec.title, level=2)
+        kop = doc.add_heading(sec.title, level=2)
+        kop.paragraph_format.page_break_before = True
         for tb in sec.text_blocks[:1]:
             self._schrijf_textblock(doc, tb.effective_text)
+        doc.add_paragraph()
         if not sec.fields:
             for tb in sec.text_blocks[1:]:
-                self._schrijf_textblock(doc, tb.effective_text)
+                self._schrijf_toelichting_met_bullets(doc, tb.effective_text)
             return
 
         velden: list[ReportField | None] = []
@@ -254,6 +256,7 @@ class WordHoofdstukExporter:
 
         for col, tekst in enumerate(['Parameter', 'Waarde', 'Eenheid']):
             tbl.rows[0].cells[col].text = tekst
+        tbl.rows[0].cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         for row_idx, veld in enumerate(velden, start=1):
             if veld is None:
@@ -264,16 +267,87 @@ class WordHoofdstukExporter:
                 continue
             tbl.rows[row_idx].cells[0].text = veld.label
             tbl.rows[row_idx].cells[1].text = veld.value
+            tbl.rows[row_idx].cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
             tbl.rows[row_idx].cells[2].text = self._formatteer_eenheid(veld.unit)
 
         self._pas_damwand_tabel_opmaak_toe(tbl)
+        doc.add_paragraph()
         for tb in sec.text_blocks[1:]:
-            self._schrijf_textblock(doc, tb.effective_text)
+            self._schrijf_toelichting_met_bullets(doc, tb.effective_text)
 
     def _schrijf_textblock(self, doc: Document, tekst: str) -> None:
         """Schrijf een tekstblok als een of meer Word-paragrafen."""
         for regel in (tekst or '').splitlines():
             doc.add_paragraph(regel)
+
+    def _schrijf_toelichting_met_bullets(self, doc: Document, tekst: str) -> None:
+        """Schrijf eerste regel normaal, overige regels als streepjes-bullets."""
+        regels = (tekst or '').splitlines()
+        for i, regel in enumerate(regels):
+            if i == 0:
+                doc.add_paragraph(regel)
+            else:
+                self._voeg_bullet_paragraaf_toe(doc, regel)
+
+    def _maak_streepjes_bullet_num_id(self, doc: Document) -> str:
+        """Voeg een abstractNum + num toe met '-' als bullet; geeft numId terug."""
+        numbering_part = doc.part.numbering_part
+        numbering_elm = numbering_part._element
+
+        bestaande_abstract = numbering_elm.findall(qn('w:abstractNum'))
+        nieuw_abstract_id = str(len(bestaande_abstract))
+
+        abstract_num = OxmlElement('w:abstractNum')
+        abstract_num.set(qn('w:abstractNumId'), nieuw_abstract_id)
+        multi = OxmlElement('w:multiLevelType')
+        multi.set(qn('w:val'), 'singleLevel')
+        abstract_num.append(multi)
+
+        lvl = OxmlElement('w:lvl')
+        lvl.set(qn('w:ilvl'), '0')
+        num_fmt = OxmlElement('w:numFmt')
+        num_fmt.set(qn('w:val'), 'bullet')
+        lvl_text = OxmlElement('w:lvlText')
+        lvl_text.set(qn('w:val'), '-')
+        lvl_jc = OxmlElement('w:lvlJc')
+        lvl_jc.set(qn('w:val'), 'left')
+        p_pr = OxmlElement('w:pPr')
+        ind = OxmlElement('w:ind')
+        ind.set(qn('w:left'), '720')
+        ind.set(qn('w:hanging'), '360')
+        p_pr.append(ind)
+        lvl.append(num_fmt)
+        lvl.append(lvl_text)
+        lvl.append(lvl_jc)
+        lvl.append(p_pr)
+        abstract_num.append(lvl)
+        numbering_elm.append(abstract_num)
+
+        bestaande_num = numbering_elm.findall(qn('w:num'))
+        nieuw_num_id = str(len(bestaande_num) + 1)
+        num_elm = OxmlElement('w:num')
+        num_elm.set(qn('w:numId'), nieuw_num_id)
+        abstract_num_id_ref = OxmlElement('w:abstractNumId')
+        abstract_num_id_ref.set(qn('w:val'), nieuw_abstract_id)
+        num_elm.append(abstract_num_id_ref)
+        numbering_elm.append(num_elm)
+
+        return nieuw_num_id
+
+    def _voeg_bullet_paragraaf_toe(self, doc: Document, tekst: str) -> None:
+        """Voeg een paragraaf toe met '-' als Word-opsommingsteken."""
+        if not hasattr(self, '_bullet_num_id'):
+            self._bullet_num_id = self._maak_streepjes_bullet_num_id(doc)
+        para = doc.add_paragraph(tekst, style='List Paragraph')
+        pPr = para._element.get_or_add_pPr()
+        numPr = OxmlElement('w:numPr')
+        ilvl = OxmlElement('w:ilvl')
+        ilvl.set(qn('w:val'), '0')
+        numId_elm = OxmlElement('w:numId')
+        numId_elm.set(qn('w:val'), self._bullet_num_id)
+        numPr.append(ilvl)
+        numPr.append(numId_elm)
+        pPr.append(numPr)
 
     def _schrijf_fasering_intro(
         self,
@@ -291,8 +365,10 @@ class WordHoofdstukExporter:
             if sec.fase_card is not None
         ]
         for regel in faseringsregels(fase_namen):
-            doc.add_paragraph(regel)
+            self._voeg_bullet_paragraaf_toe(doc, regel)
+        doc.add_paragraph()
         doc.add_paragraph(FASERING_TABEL_INTRO_TEKST)
+        doc.add_paragraph()
 
     def _formatteer_eenheid(self, eenheid: str) -> str:
         """Geef een Word-eenheid terug met blokhaken, indien aanwezig."""
@@ -329,7 +405,10 @@ class WordHoofdstukExporter:
         doc: Document,
         project: object,
     ) -> None:
-        """Schrijf de eerste tabel van de Resultaatbeschrijving-tab naar Word."""
+        """Schrijf de resultaatspecificatietabel: 4 kolommen [label|stap|waarde|eenheid].
+
+        Rijen zonder stap krijgen col 0+1 samengevoegd (ziet er uit als 3 kolommen).
+        """
         rijen = self._resultaat_specificatie_rijen(project)
         if not rijen:
             return
@@ -337,6 +416,11 @@ class WordHoofdstukExporter:
         kop = doc.add_heading(RESULTATEN_TITEL, level=2)
         kop.paragraph_format.page_break_before = True
         doc.add_paragraph(RESULTATEN_INTRO_TEKST)
+        doc.add_paragraph()
+
+        kolom_breedtes = [round(cm * 567) for cm in _RESULTAAT_SPEC_KOLOM_BREEDTES_CM]
+        label_b, stap_b, waarde_b, eenheid_b = kolom_breedtes
+        merged_label_b = label_b + stap_b
 
         tbl = doc.add_table(rows=len(rijen), cols=4)
         tbl.autofit = False
@@ -344,10 +428,6 @@ class WordHoofdstukExporter:
             tbl.style = 'Table Grid'
         except KeyError:
             pass
-
-        kolom_breedtes = [
-            round(cm * 567) for cm in _RESULTAAT_SPEC_KOLOM_BREEDTES_CM
-        ]
         self._stel_tabel_grid_in(tbl, _RESULTAAT_SPEC_KOLOM_BREEDTES_CM)
         for row in tbl.rows:
             for col_idx, cell in enumerate(row.cells[:4]):
@@ -355,21 +435,47 @@ class WordHoofdstukExporter:
             self._stel_rijhoogte_exact_twips(row, _DAMWAND_RIJHOOGTE_TWIPS)
 
         for row_idx, (label, waarde, eenheid, stap) in enumerate(rijen):
+            row = tbl.rows[row_idx]
             is_koprij = waarde == '' and eenheid == ''
-            if is_koprij:
-                kopcel = tbl.rows[row_idx].cells[0].merge(
-                    tbl.rows[row_idx].cells[2]
-                )
-                self._stel_cel_breedte(kopcel, sum(kolom_breedtes[:3]))
-                kopcel.text = label
-                tbl.rows[row_idx].cells[3].text = stap
-                continue
-            tbl.rows[row_idx].cells[0].text = label
-            tbl.rows[row_idx].cells[1].text = waarde
-            tbl.rows[row_idx].cells[2].text = eenheid
-            tbl.rows[row_idx].cells[3].text = stap
+
+            if is_koprij and not stap:
+                # "Grondkering"-type: alle 4 kolommen samenvoegen
+                merged = row.cells[0].merge(row.cells[3])
+                self._stel_cel_breedte(merged, sum(kolom_breedtes))
+                merged.text = label
+
+            elif is_koprij:
+                # "Resultaten"-type: [label | stap-header | rest leeg]
+                row.cells[0].text = label
+                row.cells[1].text = stap
+                merged_rest = row.cells[2].merge(row.cells[3])
+                self._stel_cel_breedte(merged_rest, waarde_b + eenheid_b)
+
+            elif stap:
+                # Datarij mét stap: [label | stap | waarde | eenheid]
+                row.cells[0].text = label
+                row.cells[1].text = stap
+                row.cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                row.cells[2].text = waarde
+                row.cells[2].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                row.cells[3].text = eenheid
+
+            else:
+                # Datarij zonder stap: col 0+1 samenvoegen → [merged-label | waarde | eenheid]
+                waarde_cel = row.cells[2]
+                eenheid_cel = row.cells[3]
+                merged_label = row.cells[0].merge(row.cells[1])
+                self._stel_cel_breedte(merged_label, merged_label_b)
+                merged_label.text = label
+                waarde_cel.text = waarde
+                waarde_cel.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                eenheid_cel.text = eenheid
+
+        for row in tbl.rows:
+            self._stel_rijhoogte_exact_twips(row, _DAMWAND_RIJHOOGTE_TWIPS)
 
         self._pas_resultaat_specificaties_opmaak_toe(tbl)
+        doc.add_paragraph()
 
     def _resultaat_specificatie_rijen(
         self,
@@ -538,7 +644,7 @@ class WordHoofdstukExporter:
             for col_idx, cell in enumerate(row.cells[:4]):
                 self._stel_cel_vulling(cell, fill)
                 self._pas_cel_font_toe(
-                    cell, font, kleuren[col_idx], bold=False,
+                    cell, font, kleuren[min(col_idx, len(kleuren) - 1)], bold=False,
                     size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
                 )
             data_index += 1
@@ -551,8 +657,10 @@ class WordHoofdstukExporter:
     ) -> None:
         """Schrijf de grafische maatgevende resultaten volgens het moederbestand."""
         doc.add_paragraph(RESULTATEN_GRAFIEK_INTRO_TEKST)
+        doc.add_paragraph()
         for groep in sec.image_groups:
             self._schrijf_figuurgroep(doc, groep, project)
+        doc.add_paragraph()
         if project is not None:
             doc.add_paragraph(self._resultaat_conclusie_tekst(project))
 
@@ -656,6 +764,7 @@ class WordHoofdstukExporter:
 
         tbl.rows[1].cells[0].text = 'Parameter'
         tbl.rows[1].cells[1].text = 'Niveau'
+        tbl.rows[1].cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         tbl.rows[1].cells[2].text = 'Toelichting'
         tbl.rows[1].cells[3].text = ''
 
@@ -679,6 +788,7 @@ class WordHoofdstukExporter:
 
             tbl.rows[grid_row].cells[0].text = rij.label
             tbl.rows[grid_row].cells[1].text = rij.value
+            tbl.rows[grid_row].cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
             tbl.rows[grid_row].cells[2].text = rij.extra
             for k, extra_tekst in enumerate(rij.extra_lines):
                 tbl.rows[grid_row + k + 1].cells[2].text = extra_tekst
@@ -804,6 +914,21 @@ class WordHoofdstukExporter:
             tc_pr.append(shd)
         shd.set(qn('w:fill'), fill_hex)
 
+    def _verwijder_cel_randen(self, cell) -> None:
+        """Zet alle celranden op 'none' (onzichtbaar)."""
+        tc_pr = cell._tc.get_or_add_tcPr()
+        tc_borders = tc_pr.find(qn('w:tcBorders'))
+        if tc_borders is None:
+            tc_borders = OxmlElement('w:tcBorders')
+            tc_pr.append(tc_borders)
+        for kant in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
+            rand = OxmlElement(f'w:{kant}')
+            rand.set(qn('w:val'), 'none')
+            rand.set(qn('w:sz'), '0')
+            rand.set(qn('w:space'), '0')
+            rand.set(qn('w:color'), 'auto')
+            tc_borders.append(rand)
+
     def _stel_cel_breedte(self, cell, breedte_dxa: int) -> None:
         """Zet celbreedte in twips/dxa zoals Word die in ``tcW`` verwacht."""
         tc_pr = cell._tc.get_or_add_tcPr()
@@ -920,6 +1045,7 @@ class WordHoofdstukExporter:
                 cell, font, header_fg, bold=True,
                 size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
             )
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         for row_i, row in enumerate(tbl.rows[kop_rij + 1:]):
             fill = row_odd_bg if row_i % 2 == 0 else row_even_bg
@@ -929,6 +1055,7 @@ class WordHoofdstukExporter:
                     cell, font, value_kleur, bold=False,
                     size_pt=table_styles.WORD_TABLE_TEXT_SIZE,
                 )
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     def _schrijf_figuurgroep(
         self,
@@ -950,10 +1077,12 @@ class WordHoofdstukExporter:
             pass
         self._stel_tabel_grid_in(tbl, [breedte_per_col] * n_cols)
 
+        self._stel_rijhoogte_exact_twips(tbl.rows[0], _DAMWAND_RIJHOOGTE_TWIPS)
         for col, tekst in enumerate(groep.headers):
             cell = tbl.rows[0].cells[col]
             self._stel_cel_breedte(cell, breedte_dxa)
             cell.text = tekst
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         for col, img_req in enumerate(groep.images):
             cell = tbl.rows[1].cells[col]
@@ -965,10 +1094,12 @@ class WordHoofdstukExporter:
                     run = para.add_run()
                     run.add_picture(io.BytesIO(png), width=Cm(breedte_per_col - 0.4))
 
+        self._stel_rijhoogte_exact_twips(tbl.rows[2], _DAMWAND_RIJHOOGTE_TWIPS)
         for col, tekst in enumerate(groep.footers):
             cell = tbl.rows[2].cells[col]
             self._stel_cel_breedte(cell, breedte_dxa)
             cell.text = tekst
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         self._pas_figuurgroep_opmaak_toe(tbl)
 

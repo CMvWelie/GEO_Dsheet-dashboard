@@ -191,6 +191,10 @@ class TabInputView(QWidget):
         frame_layout = QVBoxLayout(canvas_frame)
         frame_layout.setContentsMargins(2, 2, 2, 2)
         frame_layout.setSpacing(0)
+
+        self.canvas_title_lbl = QLabel()
+        self.canvas_title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        frame_layout.addWidget(self.canvas_title_lbl)
         frame_layout.addWidget(self.stage_tabs)
 
         canvas_row = QWidget()
