@@ -780,9 +780,8 @@ class WordHoofdstukExporter:
                 )
                 self._stel_cel_breedte(label_cel, kolom_breedtes[0])
                 self._stel_cel_breedte(niveau_cel, kolom_breedtes[1])
-                self._stel_rijhoogte_twips(tbl.rows[grid_row], 54)
-                for k in range(1, n_sub):
-                    self._stel_rijhoogte_twips(tbl.rows[grid_row + k], 52)
+                for k in range(n_sub):
+                    self._stel_rijhoogte_exact_twips(tbl.rows[grid_row + k], _DAMWAND_RIJHOOGTE_TWIPS)
             else:
                 self._stel_rijhoogte_exact_twips(tbl.rows[grid_row], _DAMWAND_RIJHOOGTE_TWIPS)
 
