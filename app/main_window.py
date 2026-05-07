@@ -292,6 +292,7 @@ class MainWindow(QMainWindow):
     def _build_project_corner(self) -> QWidget:
         """Project-selector + instellingenknop als corner-widget in de tab-balk."""
         corner = QWidget()
+        corner.setObjectName('tabCornerRight')
         layout = QHBoxLayout(corner)
         layout.setContentsMargins(4, 2, 8, 2)
         layout.setSpacing(6)

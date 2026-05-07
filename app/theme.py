@@ -366,12 +366,20 @@ QTabWidget::pane {{
     top: -1px;
 }}
 
+QTabBar {{
+    border-bottom: 1px solid {c.border};
+}}
+
+#tabCornerRight {{
+    border-bottom: 1px solid {c.border};
+}}
+
 QTabBar::tab {{
     background: {c.background};
     color: {c.text};
     padding: 6px 14px;
     border: 1px solid {c.border};
-    border-bottom: none;
+    border-bottom: 1px solid {c.border};
     border-top-left-radius: {g.radius}px;
     border-top-right-radius: {g.radius}px;
     margin-right: 2px;
@@ -381,7 +389,9 @@ QTabBar::tab:selected {{
     background: {c.surface};
     color: {c.primary};
     border-top: 3px solid {c.primary};
+    border-bottom: 1px solid {c.surface};
     font-weight: 600;
+    margin-bottom: -1px;
 }}
 
 QTabBar::tab:!selected:hover {{

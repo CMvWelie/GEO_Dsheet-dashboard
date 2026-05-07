@@ -9,14 +9,14 @@ from reporting.models import ReportSection, ReportTable
 from utils.formatting import fmt_number
 
 _KOLOMMEN: list[str] = [
-    'BK laag [m NAP]',
-    'OK laag [m NAP]',
+    'BK laag\n[m NAP]',
+    'OK laag\n[m NAP]',
     'Laag',
-    '\u03b3d [kN/m\u00b3]',
-    '\u03b3n [kN/m\u00b3]',
-    "c'kar [kN/m\u00b2]",
-    "\u03c6'kar [\u00b0]",
-    '\u03b4 [\u00b0]',
+    '\u03b3d\n[kN/m\u00b3]',
+    '\u03b3n\n[kN/m\u00b3]',
+    "c'kar\n[kN/m\u00b2]",
+    "\u03c6'kar\n[\u00b0]",
+    '\u03b4\n[\u00b0]',
     'kh1',
     'kh2',
     'kh3',

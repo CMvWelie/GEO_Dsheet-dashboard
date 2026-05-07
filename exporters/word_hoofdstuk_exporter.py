@@ -1006,7 +1006,14 @@ class WordHoofdstukExporter:
 
         kop_rij = extra_rij
         for col, header in enumerate(tabel.columns):
-            t.rows[kop_rij].cells[col].text = header
+            cell = t.rows[kop_rij].cells[col]
+            if '\n' in header:
+                parts = header.split('\n')
+                cell.text = parts[0]
+                for part in parts[1:]:
+                    cell.add_paragraph(part)
+            else:
+                cell.text = header
 
         for row_i, data_rij in enumerate(tabel.rows):
             rij = t.rows[kop_rij + 1 + row_i]
@@ -1044,7 +1051,8 @@ class WordHoofdstukExporter:
                 cell, font, header_fg, bold=True,
                 size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
             )
-            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for p in cell.paragraphs:
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
         for row_i, row in enumerate(tbl.rows[kop_rij + 1:]):
             fill = row_odd_bg if row_i % 2 == 0 else row_even_bg
