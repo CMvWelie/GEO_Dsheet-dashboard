@@ -1041,3 +1041,11 @@ class MainWindow(QMainWindow):
         """Reset thread-referenties zodat een volgende conversie kan starten."""
         self._word_preview_thread = None
         self._word_preview_worker = None
+
+    def closeEvent(self, event) -> None:
+        """Sla venstergeometrie op voor herstel bij volgende start."""
+        self._state.app_settings.window_geometry = (
+            self.saveGeometry().toBase64().data().decode('ascii')
+        )
+        self._controller.save_config()
+        super().closeEvent(event)

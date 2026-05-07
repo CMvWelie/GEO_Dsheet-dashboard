@@ -60,3 +60,5 @@ class AppSettings:
     """Standaard startmap voor het importeer-dialoogvenster; leeg = systeemstandaard."""
     active_theme_name: str = 'DKIB'
     """Naam van het actieve UI-thema; verwijst naar ``themes/<naam>.json``."""
+    window_geometry: str = ''
+    """Base64-gecodeerde venstergeometrie (Qt saveGeometry); leeg = standaard formaat."""

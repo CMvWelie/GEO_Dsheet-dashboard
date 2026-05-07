@@ -30,7 +30,7 @@ if _ontbrekend:
 
 try:
     from PyQt6.QtWidgets import QApplication
-    from PyQt6.QtCore import Qt, QTimer
+    from PyQt6.QtCore import Qt, QTimer, QByteArray
 except ImportError:
     try:
         from PySide6.QtWidgets import QApplication   # type: ignore
@@ -57,6 +57,10 @@ def main() -> None:
 
     window = MainWindow(thema=thema)
     window.show()
+    if app_settings.window_geometry:
+        window.restoreGeometry(QByteArray.fromBase64(
+            app_settings.window_geometry.encode('ascii')
+        ))
 
     # Bestanden meegegeven via commandoregel (bijv. dubbelklik vanuit Verkenner)
     cli_paden = [p for p in sys.argv[1:] if Path(p).is_file()]
