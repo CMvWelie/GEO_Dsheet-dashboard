@@ -12,9 +12,10 @@ if ($MyInvocation.MyCommand.Path -and $ExecutionContext.SessionState.LanguageMod
 
 $ErrorActionPreference = 'Stop'
 
-$runPyw = Join-Path $PSScriptRoot 'run.pyw'
+$appRoot = Split-Path -Parent $PSScriptRoot
+$runPyw = Join-Path $appRoot 'run.pyw'
 if (-not (Test-Path $runPyw)) {
-    Write-Error "run.pyw niet gevonden in $PSScriptRoot. Voer dit script uit vanuit de app-map."
+    Write-Error "run.pyw niet gevonden in $appRoot. Voer dit script uit vanuit de app-map."
     exit 1
 }
 

@@ -56,7 +56,7 @@ Ontwikkeld door **DKIB Geotechniek**.
 
 - Python **3.10** of hoger
 - PyQt6 of PySide6 (PyQt6 heeft de voorkeur)
-- Runtime-afhankelijkheden staan in `requirements.txt`; testpakketten in `requirements-dev.txt`
+- Runtime-afhankelijkheden staan in `requirements.txt`; testpakketten in `DEV/requirements-dev.txt`
 - `openpyxl`, `python-docx` en `numpy` zijn verplicht en worden bij app-start gecontroleerd in `run.pyw`
 
 ---
@@ -66,7 +66,7 @@ Ontwikkeld door **DKIB Geotechniek**.
 ```bash
 cd Dsheet_dashboard
 pip install -r requirements.txt           # runtime
-pip install -r requirements-dev.txt       # incl. tests
+pip install -r DEV/requirements-dev.txt       # incl. tests
 python run.pyw
 ```
 
@@ -165,7 +165,6 @@ Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je rend
 Dsheet_dashboard/
 â”œâ”€â”€ run.pyw                            Applicatie-entrypoint
 â”œâ”€â”€ requirements.txt                   Runtime-afhankelijkheden
-â”œâ”€â”€ requirements-dev.txt               Dev/test-afhankelijkheden
 â”œâ”€â”€ app/
 â”‚   â”œâ”€â”€ main_window.py                 QMainWindow: layout en signal-verbindingen
 â”‚   â”œâ”€â”€ state.py                       AppState dataclass (single source of truth)
@@ -215,7 +214,7 @@ Dsheet_dashboard/
 â”‚       â”œâ”€â”€ tab_aanvullende_berekeningen.py  Container voor extra controles
 â”‚       â”œâ”€â”€ tab_hydraulische_grondbreuk.py   Subtab: hydraulische grondbreuk
 â”‚       â”œâ”€â”€ tab_verticaal_evenwicht.py       Subtab: verticaal evenwicht
-â”‚       â”œâ”€â”€ tab_report_select.py             Rapportage-itemselectie + Word/Excel export
+â”‚       â”œâ”€â”€ tab_report_select.py             Rapportage-itemselectie + Word-export
 â”‚       â”œâ”€â”€ tab_instellingen.py              Render-, viewport- en thema-instellingen
 â”‚       â”œâ”€â”€ tab_debug.py                     Debug-container (subtabs Invoer/Uitvoer)
 â”‚       â”œâ”€â”€ tab_debug_invoer.py              Debug: ruwe invoerdata-inspectie
@@ -230,20 +229,12 @@ Dsheet_dashboard/
 â”‚   â””â”€â”€ sixgeoconsult.json             SIX Geoconsult-thema
 â”œâ”€â”€ templates/
 â”‚   â””â”€â”€ damwand_stijlen.docx           Word-template voor rapportage
-â””â”€â”€ tests/
-    â”œâ”€â”€ conftest.py                    Gedeelde pytest-fixtures
-    â”œâ”€â”€ test_parsers.py                Parser-tests met embedded SAMPLE_SHI
-    â”œâ”€â”€ test_app_settings.py           AppSettings persistentie
-    â”œâ”€â”€ test_app_settings_theme.py     Thema-instellingen
-    â”œâ”€â”€ test_theme.py                  Theme dataclass + JSON-loader
-    â”œâ”€â”€ test_damwand_hoofdstuk_builder.py
-    â”œâ”€â”€ test_soil_table_builder.py
-    â”œâ”€â”€ test_result_description_builder.py
-    â”œâ”€â”€ test_word_hoofdstuk_exporter.py
-    â”œâ”€â”€ test_hydraulische_grondbreuk.py
-    â”œâ”€â”€ test_verticaal_evenwicht.py
-    â”œâ”€â”€ test_tab_result_desc.py
-    â””â”€â”€ test_debug_tab.py
+â””â”€â”€ DEV/
+    ├── requirements-dev.txt          Dev/test-afhankelijkheden
+    ├── tests/                        Pytest-suite en fixtures
+    ├── DEAD/                         Archief van verwijderde dode code
+    ├── docs/                         Lokale ontwikkel-/planningsdocumenten
+    └── cache/                        Lokale gegenereerde cache-output (genegeerd)
 ```
 
 ---
@@ -339,16 +330,16 @@ pytest -v
 Een specifieke test-module:
 
 ```bash
-pytest tests/test_parsers.py -v
+pytest DEV/tests/test_parsers.py -v
 ```
 
 Een enkel testgeval:
 
 ```bash
-pytest tests/test_parsers.py::test_parse_soils -v
+pytest DEV/tests/test_parsers.py::test_parse_soils -v
 ```
 
-De suite dekt parsers (embedded `SAMPLE_SHI` strings â€” geen externe testbestanden nodig), de rapportage-builders (`damwand_hoofdstuk`, `html_preview`, `soil_table`, `result_description`), de Word-hoofdstuk-exporter, app-instellingen en thema's, en de aanvullende-berekeningen-tabs. Gedeelde fixtures staan in `tests/conftest.py`.
+De suite dekt parsers (embedded `SAMPLE_SHI` strings â€” geen externe testbestanden nodig), de rapportage-builders (`damwand_hoofdstuk`, `soil_table`, `result_description`), de Word-hoofdstuk-exporter, app-instellingen en thema's, en de aanvullende-berekeningen-tabs. Gedeelde fixtures staan in `DEV/tests/conftest.py`.
 
 ---
 
@@ -399,4 +390,5 @@ Codeconventies, naamgeving, PyQt6-patronen, foutafhandeling en terugkerende ontw
 | FileBundle | Groepering van `.shi`, `.shd` en `.shs` bestanden met dezelfde basisnaam |
 | BGR integer | Windows COLORREF kleurformaat dat D-Sheet gebruikt; `parse_color_int()` converteert naar `rgb(r, g, b)` |
 | TextBlock override | Handmatige tekstvervanger; `ReportState.overrides` koppelt `block_id â†’ override_text`; `TextBlock.effective_text` retourneert de override of de gegenereerde tekst |
+
 

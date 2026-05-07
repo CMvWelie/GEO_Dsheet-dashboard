@@ -6,6 +6,7 @@ __pycache__/
 # Pytest
 .pytest_cache/
 pytest-cache-files-*/
+DEV/cache/
 
 # Worktrees
 .worktrees/
@@ -16,6 +17,7 @@ themes/_cache/
 # Superpowers brainstorm-werkmateriaal
 .superpowers/brainstorm/
 docs/
+DEV/docs/
 
 # Editor / OS junk
 *.tmp.*
