@@ -29,12 +29,14 @@ if _ontbrekend:
     sys.exit(1)
 
 try:
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QSplashScreen
     from PyQt6.QtCore import Qt, QTimer, QByteArray
+    from PyQt6.QtGui import QPixmap
 except ImportError:
     try:
-        from PySide6.QtWidgets import QApplication   # type: ignore
-        from PySide6.QtCore import Qt                # type: ignore
+        from PySide6.QtWidgets import QApplication, QSplashScreen  # type: ignore
+        from PySide6.QtCore import Qt                               # type: ignore
+        from PySide6.QtGui import QPixmap                           # type: ignore
     except ImportError:
         print('Fout: PyQt6 of PySide6 is niet geïnstalleerd.')
         print('Installeer met: pip install PyQt6')
@@ -44,12 +46,23 @@ from app.config_manager import ConfigManager
 from app.main_window import MainWindow
 from app.theme_apply import bootstrap_theme
 
+_LOGO_PAD = Path(__file__).parent / 'themes' / 'Dsheet_dashboard.png'
+
 
 def main() -> None:
     """Start de D-Sheet Dashboard applicatie."""
     app = QApplication(sys.argv)
     app.setApplicationName('D-Sheet Dashboard')
     app.setOrganizationName('DKIB Geotechniek')
+
+    # Splash screen tonen vóór het zware laden van het hoofdvenster
+    splash: QSplashScreen | None = None
+    pixmap = QPixmap(str(_LOGO_PAD))
+    if not pixmap.isNull():
+        pixmap = pixmap.scaledToWidth(400, Qt.TransformationMode.SmoothTransformation)
+        splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint)
+        splash.show()
+        app.processEvents()
 
     # Lees actief-thema-naam uit config (default 'DKIB' bij ontbreken)
     _, _, app_settings = ConfigManager().load()
@@ -61,6 +74,10 @@ def main() -> None:
         window.restoreGeometry(QByteArray.fromBase64(
             app_settings.window_geometry.encode('ascii')
         ))
+
+    # Splash sluiten zodra het hoofdvenster zichtbaar is
+    if splash is not None:
+        splash.finish(window)
 
     # Bestanden meegegeven via commandoregel (bijv. dubbelklik vanuit Verkenner)
     cli_paden = [p for p in sys.argv[1:] if Path(p).is_file()]

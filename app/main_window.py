@@ -964,6 +964,7 @@ class MainWindow(QMainWindow):
         branding = self._build_branding_corner()
         if branding is not None:
             self._main_tabs.setCornerWidget(branding, Qt.Corner.TopLeftCorner)
+            branding.show()
 
     def _active_theme_name(self) -> str:
         return self._theme.name if self._theme is not None else BASIC_THEME_NAME
