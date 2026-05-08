@@ -4,6 +4,7 @@ Layout: compacte topbalk + hoofd-tabwidget met 10 tabs.
 """
 
 from __future__ import annotations
+import io
 import os
 import sys
 from pathlib import Path
@@ -15,7 +16,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QApplication,
 )
 from PyQt6.QtCore import Qt, QThread, QProcess, QTimer
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QImage, QPixmap
 
 import matplotlib
 matplotlib.use('QtAgg')
@@ -316,6 +317,7 @@ class MainWindow(QMainWindow):
         self._tab_report_context.project_selected.connect(self._on_list_project_selected)
         self._tab_report_context.remove_requested.connect(self._on_remove_project)
         self._tab_input_view.export_png_requested.connect(self._on_export_png)
+        self._tab_input_view.copy_clipboard_requested.connect(self._on_copy_clipboard)
         self._btn_instellingen.clicked.connect(self._on_settings_requested)
 
         self._project_combo.currentIndexChanged.connect(self._on_project_changed)
@@ -344,7 +346,7 @@ class MainWindow(QMainWindow):
             iv.uni_scale, iv.norm_scale, iv.hload_scale,
             iv.mom_radius, iv.waterpeil_schaal, iv.maaiveld_schaal,
             iv.fs_grondlagen, iv.fs_knikpunten, iv.fs_waterpeil, iv.fs_belastingen,
-            iv.fs_constructie, iv.fs_damwand, iv.fs_assen, iv.fs_titel,
+            iv.fs_constructie, iv.fs_damwand, iv.fs_assen,
         ]:
             sp.valueChanged.connect(self._on_render_change)
 
@@ -548,6 +550,15 @@ class MainWindow(QMainWindow):
             else:
                 self._tab_input_view.set_png_status(f'Opgeslagen als {path}', ok=True)
 
+    def _on_copy_clipboard(self) -> None:
+        buf = io.BytesIO()
+        self._tab_input_view.section_fig.savefig(
+            buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        img = QImage.fromData(buf.read())
+        QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
+        self._tab_input_view.set_png_status('Gekopieerd naar klembord', ok=True)
+
     # ------------------------------------------------------------------
     # Lees UI-waarden
     # ------------------------------------------------------------------
@@ -577,7 +588,6 @@ class MainWindow(QMainWindow):
             fs_constructie=iv.fs_constructie.value(),
             fs_damwand=iv.fs_damwand.value(),
             fs_assen=iv.fs_assen.value(),
-            fs_titel=iv.fs_titel.value(),
             resultaat_half_breedte_m=self._tab_result_view.breedte_slider.value() / 2.0,
         )
 
@@ -606,7 +616,6 @@ class MainWindow(QMainWindow):
             (iv.fs_constructie,  rs.fs_constructie),
             (iv.fs_damwand,      rs.fs_damwand),
             (iv.fs_assen,        rs.fs_assen),
-            (iv.fs_titel,        rs.fs_titel),
         ]
         for sp, val in pairs:
             sp.blockSignals(True)
@@ -766,19 +775,7 @@ class MainWindow(QMainWindow):
                     transform=ax.transAxes,
                     ha='center', va='center', fontsize=13, color='#888')
             canvas.draw()
-            self._tab_input_view.canvas_title_lbl.setText('')
             return
-        stage = self._state.get_active_stage()
-        proj_naam = project.project_name or ''
-        fase_naam = stage.name if stage else ''
-        titel = f'{proj_naam}  –  Fase: {fase_naam}' if fase_naam else proj_naam
-        fs = self._state.render_settings.fs_titel
-        lbl = self._tab_input_view.canvas_title_lbl
-        lbl.setText(titel)
-        lbl.setStyleSheet(
-            f'font-size: {fs:.0f}pt; font-weight: bold; color: #1e2a32; '
-            f'background: transparent; border: none; padding: 4px 0 2px 0;'
-        )
         err = self._controller.render_section(ax, fig)
         canvas.draw()
         if err:

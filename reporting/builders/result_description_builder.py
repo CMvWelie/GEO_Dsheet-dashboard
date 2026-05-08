@@ -176,10 +176,7 @@ class ResultDescriptionBuilder:
                 sec, project.anchor_strut_resume, 'anker', alle_stages, project,
                 lambda r: _ANCHOR_TYPE_LABELS.get(r.anchor_type, f'type {r.anchor_type}'))
         if heeft_steunen:
-            self._voeg_kracht_tabellen_toe(
-                sec, project.supports_resume, 'ondersteuning', alle_stages, project,
-                lambda r: _SUPPORT_RIGIDITY_LABELS.get(
-                    r.support_rigidity_type, f'type {r.support_rigidity_type}'))
+            self._voeg_steun_tabellen_toe(sec, project.supports_resume, alle_stages, project)
         return sec
 
     def _voeg_kracht_tabellen_toe(
@@ -203,7 +200,7 @@ class ResultDescriptionBuilder:
         for naam in sorted(voor_naam):
             groep = voor_naam[naam]
             type_label = type_label_fn(groep[0]) if type_label_fn else ''
-            tabel_titel = f'{naam} ({type_label})' if type_label else naam
+            tabel_titel = naam
             lookup: dict[tuple[int, int], float] = {
                 (r.stage_number, r.verification_type): r.force for r in groep
             }
@@ -220,6 +217,68 @@ class ResultDescriptionBuilder:
                 columns=columns,
                 rows=rows,
             ))
+
+    def _voeg_steun_tabellen_toe(
+        self,
+        sec: ReportSection,
+        items: list,
+        alle_stages: list[int],
+        project: Project,
+    ) -> None:
+        """Voeg per naam kracht- en/of momenttabel toe voor veersteunen/stijve steunen."""
+        aanwezige_vtypes = {r.verification_type for r in items}
+        stappen = [v for v in _VTYPE_VOLGORDE if v in aanwezige_vtypes]
+        columns = ['Fase'] + [_vtype_label(v) for v in stappen]
+
+        steun_heeft_kracht: set[str] = set()
+        steun_heeft_moment: set[str] = set()
+        for r in items:
+            if abs(r.force) > 1e-6:
+                steun_heeft_kracht.add(r.name)
+            if abs(r.moment) > 1e-6:
+                steun_heeft_moment.add(r.name)
+
+        voor_naam: dict[str, list] = {}
+        for r in items:
+            voor_naam.setdefault(r.name, []).append(r)
+
+        for naam in sorted(voor_naam):
+            groep = voor_naam[naam]
+            toon_kracht = naam in steun_heeft_kracht
+            toon_moment = naam in steun_heeft_moment
+            beide = toon_kracht and toon_moment
+
+            if toon_kracht:
+                lookup_f = {(r.stage_number, r.verification_type): r.force for r in groep}
+                rows_f: list[list[str]] = []
+                for sn in alle_stages:
+                    rij = [self._stage_naam(project, sn)]
+                    for vtype in stappen:
+                        waarde = lookup_f.get((sn, vtype))
+                        rij.append(fmt_number(waarde) if waarde is not None else '-')
+                    rows_f.append(rij)
+                sec.tables.append(ReportTable(
+                    id=f'ondersteuning_{naam}_kracht',
+                    title=f'{naam} — kracht [kN/m]' if beide else naam,
+                    columns=columns,
+                    rows=rows_f,
+                ))
+
+            if toon_moment:
+                lookup_m = {(r.stage_number, r.verification_type): r.moment for r in groep}
+                rows_m: list[list[str]] = []
+                for sn in alle_stages:
+                    rij = [self._stage_naam(project, sn)]
+                    for vtype in stappen:
+                        waarde = lookup_m.get((sn, vtype))
+                        rij.append(fmt_number(waarde) if waarde is not None else '-')
+                    rows_m.append(rij)
+                sec.tables.append(ReportTable(
+                    id=f'ondersteuning_{naam}_moment',
+                    title=f'{naam} — moment [kNm/m]' if beide else naam,
+                    columns=columns,
+                    rows=rows_m,
+                ))
 
     def _per_phase_summary(self, project: Project) -> ReportSection:
         sec = ReportSection(id='per_phase_summary',

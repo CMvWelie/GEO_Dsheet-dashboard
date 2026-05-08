@@ -199,7 +199,7 @@ class WordHoofdstukExporter:
         if sec.id == 'damwand_gegevens':
             self._schrijf_damwandgegevens_sectie(doc, sec)
             return
-        if sec.id in {'anchor_forces', 'per_phase_summary'}:
+        if sec.id in {'per_phase_summary'}:
             return
         if sec.id == 'extremen_overzicht':
             self._schrijf_extremen_overzicht_sectie(doc, sec, project)
@@ -475,6 +475,16 @@ class WordHoofdstukExporter:
             self._stel_rijhoogte_exact_twips(row, _DAMWAND_RIJHOOGTE_TWIPS)
 
         self._pas_resultaat_specificaties_opmaak_toe(tbl)
+
+        # Verticale celsamenvoeging voor opeenvolgende rijen met gelijk label
+        for j in range(len(rijen) - 1):
+            sec_j = rijen[j][1] == '' and rijen[j][2] == ''
+            sec_j1 = rijen[j + 1][1] == '' and rijen[j + 1][2] == ''
+            if not sec_j and not sec_j1 and rijen[j][0] == rijen[j + 1][0]:
+                self._stel_verticale_celmerge_in(
+                    tbl.rows[j].cells[0], tbl.rows[j + 1].cells[0]
+                )
+
         doc.add_paragraph()
 
     def _resultaat_specificatie_rijen(
@@ -484,6 +494,7 @@ class WordHoofdstukExporter:
         """Bouw de rijen voor de projectbrede resultaat-specificatietabel."""
         from reporting.builders.result_description_builder import (
             _step_short_label,
+            _VTYPE_LABELS,
             is_bgt_step_key,
             is_ugt_step_key,
         )
@@ -491,11 +502,14 @@ class WordHoofdstukExporter:
 
         sheet_piling = getattr(project, 'sheet_piling', None) or []
         summaries = getattr(project, 'result_summaries', None) or []
+        anchor_strut_resume = getattr(project, 'anchor_strut_resume', None) or []
+        supports_resume = getattr(project, 'supports_resume', None) or []
+        spring_supports = getattr(project, 'spring_supports', None) or []
+        rigid_supports = getattr(project, 'rigid_supports', None) or []
         el = sheet_piling[0] if sheet_piling else None
 
         max_mob_mom = max((s.mob_moment_pct for s in summaries), default=0.0)
         max_mob_grond = max((s.mob_grond_pct for s in summaries), default=0.0)
-        maatgevend = max(summaries, key=lambda s: s.mob_moment_pct, default=None)
 
         msd, dsd, vervorming = self._maatgevende_resultaatwaarden_en_stappen(
             project,
@@ -505,11 +519,11 @@ class WordHoofdstukExporter:
 
         top = getattr(el, 'top', None) if el is not None else None
         bottom = getattr(el, 'bottom', 0.0) if el is not None else 0.0
-        naam = getattr(el, 'name', '-') if el is not None else '-'
-        profiel = naam.split('(')[0].strip() if el is not None else '-'
+        naam_el = getattr(el, 'name', '-') if el is not None else '-'
+        profiel = naam_el.split('(')[0].strip() if el is not None else '-'
         lengte = abs((top or 0.0) - bottom) if el is not None else None
 
-        rijen = [
+        rijen: list[tuple[str, str, str, str]] = [
             ('Grondkering', '', '', ''),
             ('Profiel', profiel, '[-]', ''),
             ('Staalkwaliteit', getattr(el, 'steel_quality', '-') if el else '-', '[-]', ''),
@@ -545,11 +559,76 @@ class WordHoofdstukExporter:
             ('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]', ''),
         ]
 
-        if maatgevend is not None:
-            for naam, kracht, niveau in maatgevend.ondersteuningen[:4]:
-                rijen.append((naam, fmt_number(kracht), '[kN/m]', ''))
-                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]', ''))
+        # Ondersteuningen — identieke logica als de resultaattabel in de app
+        anker_max: dict[str, tuple[float, str]] = {}
+        for item in anchor_strut_resume:
+            stap = _VTYPE_LABELS.get(item.verification_type, '')
+            if item.name not in anker_max or abs(item.force) > abs(anker_max[item.name][0]):
+                anker_max[item.name] = (item.force, stap)
+        for item in supports_resume:
+            stap = _VTYPE_LABELS.get(item.verification_type, '')
+            if item.name not in anker_max or abs(item.force) > abs(anker_max[item.name][0]):
+                anker_max[item.name] = (item.force, stap)
+
+        steun_moment_max: dict[str, tuple[float, str]] = {}
+        steun_heeft_kracht: set[str] = set()
+        steun_heeft_moment: set[str] = set()
+        for item in supports_resume:
+            stap = _VTYPE_LABELS.get(item.verification_type, '')
+            if abs(item.force) > 1e-6:
+                steun_heeft_kracht.add(item.name)
+            if abs(item.moment) > 1e-6:
+                steun_heeft_moment.add(item.name)
+            if item.name not in steun_moment_max or abs(item.moment) > abs(steun_moment_max[item.name][0]):
+                steun_moment_max[item.name] = (item.moment, stap)
+
+        niveau_per_naam: dict[str, float] = {}
+        for rs in summaries:
+            for naam_n, _kracht, niveau in rs.ondersteuningen:
+                if naam_n not in niveau_per_naam:
+                    niveau_per_naam[naam_n] = niveau
+        for sp in spring_supports:
+            if sp.name not in niveau_per_naam:
+                niveau_per_naam[sp.name] = sp.level
+        for rp in rigid_supports:
+            if rp.name not in niveau_per_naam:
+                niveau_per_naam[rp.name] = rp.level
+
+        if anker_max:
+            rijen.append(('Resultaten ondersteuningen', '', '', 'Verificatiestap'))
+            for naam in sorted(anker_max):
+                max_kracht, stap_kracht = anker_max[naam]
+                stap_str = f'stap {stap_kracht}' if stap_kracht else ''
+                if naam in niveau_per_naam:
+                    rijen.append((f'Niveau {naam}', fmt_number(niveau_per_naam[naam]), '[m NAP]', ''))
+                is_steun = naam in steun_moment_max
+                toon_kracht = not is_steun or naam in steun_heeft_kracht
+                toon_moment = is_steun and naam in steun_heeft_moment
+                if toon_kracht:
+                    rijen.append((naam, fmt_number(abs(max_kracht)), '[kN/m]', stap_str))
+                if toon_moment:
+                    max_moment, stap_moment = steun_moment_max[naam]
+                    stap_str_m = f'stap {stap_moment}' if stap_moment else ''
+                    rijen.append((naam, fmt_number(abs(max_moment)), '[kNm/m]', stap_str_m))
+
         return rijen
+
+    def _stel_verticale_celmerge_in(self, cel_top, cel_bot) -> None:
+        """Voeg verticale w:vMerge samen voor twee opeenvolgende cellen."""
+        tc_pr_top = cel_top._tc.get_or_add_tcPr()
+        v_merge_top = OxmlElement('w:vMerge')
+        v_merge_top.set(qn('w:val'), 'restart')
+        tc_pr_top.append(v_merge_top)
+        v_align = OxmlElement('w:vAlign')
+        v_align.set(qn('w:val'), 'top')
+        tc_pr_top.append(v_align)
+
+        tc_pr_bot = cel_bot._tc.get_or_add_tcPr()
+        v_merge_bot = OxmlElement('w:vMerge')
+        tc_pr_bot.append(v_merge_bot)
+        for para in cel_bot.paragraphs:
+            for run in para.runs:
+                run.text = ''
 
     def _formatteer_stap(self, stap_key: str | None, label_fn) -> str:
         """Formatteer een verificatiestap voor de resultaat-specificatietabel."""
@@ -629,7 +708,10 @@ class WordHoofdstukExporter:
         data_index = 0
         for row in tbl.rows:
             eerste_tekst = row.cells[0].text.strip() if row.cells else ''
-            is_koprij = eerste_tekst in {'Grondkering', 'Damwand', 'Resultaten'}
+            is_koprij = (
+                eerste_tekst in {'Grondkering', 'Damwand'}
+                or eerste_tekst.startswith('Resultaten')
+            )
             if is_koprij:
                 for cell in row.cells:
                     self._stel_cel_vulling(cell, header_bg)

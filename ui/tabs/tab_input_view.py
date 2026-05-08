@@ -4,7 +4,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QPushButton, QSizePolicy, QTabWidget,
-    QScrollArea, QLabel, QFrame, QDialog, QDoubleSpinBox,
+    QScrollArea, QLabel, QFrame, QDialog, QDoubleSpinBox, QMenu,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QFontMetrics
@@ -20,6 +20,9 @@ from matplotlib.figure import Figure
 
 class FigureCanvas(_FigureCanvasBase):
     """FigureCanvas die muiswiel-events doorstuurt naar de parent (QScrollArea)."""
+
+    copy_requested = pyqtSignal()
+
     def wheelEvent(self, event):
         parent = self.parent()
         while parent is not None:
@@ -28,6 +31,12 @@ class FigureCanvas(_FigureCanvasBase):
                 return
             parent = parent.parent()
         super().wheelEvent(event)
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+        act = menu.addAction('Kopieer doorsnede')
+        if menu.exec(event.globalPos()) == act:
+            self.copy_requested.emit()
 
 
 def _hsep() -> QFrame:
@@ -58,12 +67,13 @@ class TabInputView(QWidget):
         auto_check, xmin_spin, xmax_spin, ymin_spin, ymax_spin,
         uni_scale, norm_scale, hload_scale, mom_radius,
         fs_grondlagen, fs_knikpunten, fs_waterpeil, fs_belastingen,
-        fs_constructie, fs_damwand, fs_assen, fs_titel
+        fs_constructie, fs_damwand, fs_assen
     """
 
     save_defaults_requested = pyqtSignal()
     reset_to_factory_requested = pyqtSignal()
     export_png_requested = pyqtSignal()
+    copy_clipboard_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -144,7 +154,6 @@ class TabInputView(QWidget):
             ('Constructie', 'fs_constructie', 6.0, 20.0,  8.5),
             ('Damwand',     'fs_damwand',     6.0, 20.0,  8.5),
             ('Assen',       'fs_assen',       6.0, 20.0, 10.0),
-            ('Titel',       'fs_titel',       6.0, 20.0, 12.0),
         ]:
             setattr(self, attr, ScaleSlider(lbl, lo, hi, default))
             self._fs_sliders.append((attr, default))
@@ -171,6 +180,7 @@ class TabInputView(QWidget):
         self.section_fig = Figure(figsize=(14, 11), dpi=96)
         self.section_ax = self.section_fig.add_subplot(111)
         self.section_canvas = FigureCanvas(self.section_fig)
+        self.section_canvas.copy_requested.connect(self.copy_clipboard_requested)
         self.section_canvas.setMinimumHeight(300)
         self.section_canvas.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -192,9 +202,6 @@ class TabInputView(QWidget):
         frame_layout.setContentsMargins(2, 2, 2, 2)
         frame_layout.setSpacing(0)
 
-        self.canvas_title_lbl = QLabel()
-        self.canvas_title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        frame_layout.addWidget(self.canvas_title_lbl)
         frame_layout.addWidget(self.stage_tabs)
 
         canvas_row = QWidget()
@@ -205,7 +212,7 @@ class TabInputView(QWidget):
 
         # Knoppenbalk rechts
         btn_strip = QWidget()
-        btn_strip.setFixedWidth(110)
+        btn_strip.setFixedWidth(138)
         btn_strip_layout = QVBoxLayout(btn_strip)
         btn_strip_layout.setContentsMargins(0, 4, 0, 4)
         btn_strip_layout.setSpacing(6)
@@ -297,7 +304,6 @@ class TabInputView(QWidget):
             ('fs_constructie', 'Constructie'),
             ('fs_damwand',     'Damwand'),
             ('fs_assen',       'Assen'),
-            ('fs_titel',       'Titel'),
         ]
 
         sections = [
@@ -460,7 +466,6 @@ class TabInputView(QWidget):
             'fs_constructie': rs.fs_constructie,
             'fs_damwand':     rs.fs_damwand,
             'fs_assen':       rs.fs_assen,
-            'fs_titel':       rs.fs_titel,
         }
 
     def set_png_status(self, text: str, ok: bool = True) -> None:

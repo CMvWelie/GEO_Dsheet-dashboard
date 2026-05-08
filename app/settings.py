@@ -27,7 +27,6 @@ class RenderSettings:
     """Segmentnamen, kop- en teen-niveau."""
     fs_assen: float = 10.0
     """As-labels en tick-labels."""
-    fs_titel: float = 12.0
 
     # Doorsnede-symbolen
     waterpeil_schaal: float = 1.0

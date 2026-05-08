@@ -16,6 +16,7 @@ from reporting.builders.damwand_tekst import (
 )
 from reporting.builders.result_description_builder import (
     _step_short_label,
+    _VTYPE_LABELS,
     is_bgt_step_key,
     is_ugt_step_key,
 )
@@ -473,8 +474,21 @@ class TabResultDesc(QWidget):
 
         # Maatgevende samenvatting: hoogste mob_moment_pct over alle fases
         maatgevend = max(summaries, key=lambda s: s.mob_moment_pct, default=None)
-        max_mob_mom = max((s.mob_moment_pct for s in summaries), default=0.0)
-        max_mob_grond = max((s.mob_grond_pct for s in summaries), default=0.0)
+        vsteps = project.verify_step_summaries if project else []
+        mob_mom_vstep = max(
+            (s for s in vsteps if s.mob_moment_pct is not None),
+            key=lambda s: s.mob_moment_pct,  # type: ignore[arg-type]
+            default=None,
+        )
+        mob_grond_vstep = max(
+            (s for s in vsteps if s.mob_grond_pct is not None),
+            key=lambda s: s.mob_grond_pct,  # type: ignore[arg-type]
+            default=None,
+        )
+        max_mob_mom = mob_mom_vstep.mob_moment_pct if mob_mom_vstep else max(
+            (s.mob_moment_pct for s in summaries), default=0.0)
+        max_mob_grond = mob_grond_vstep.mob_grond_pct if mob_grond_vstep else max(
+            (s.mob_grond_pct for s in summaries), default=0.0)
 
         rijen: list[tuple[str, str, str, str]] = []
 
@@ -489,17 +503,68 @@ class TabResultDesc(QWidget):
 
         # Resultaten (projectbreed)
         msd, dsd, vervorming = self._maatgevende_waarden_met_stappen()
-        rijen.append(('Resultaten', '', '', 'Verificatiestap'))
+        rijen.append(('Resultaten damwand', '', '', 'Verificatiestap'))
         rijen.append(('Moment Msd UGT', fmt_number(msd[0]), '[kNm/m]', self._formatteer_stap(msd[1])))
         rijen.append(('Dwarskracht Dsd UGT', fmt_number(dsd[0]), '[kN/m]', self._formatteer_stap(dsd[1])))
         rijen.append(('Verplaatsing urep BGT', fmt_number(vervorming[0]), '[mm]', self._formatteer_stap(vervorming[1])))
-        rijen.append(('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]', ''))
-        rijen.append(('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]', ''))
+        rijen.append(('Gemobiliseerd Moment', fmt_number(max_mob_mom), '[%]',
+                      self._formatteer_stap(mob_mom_vstep.step_label) if mob_mom_vstep else ''))
+        rijen.append(('Gemobiliseerd Grond', fmt_number(max_mob_grond), '[%]',
+                      self._formatteer_stap(mob_grond_vstep.step_label) if mob_grond_vstep else ''))
 
-        if maatgevend:
-            for naam, kracht, niveau in maatgevend.ondersteuningen[:4]:
-                rijen.append((naam, fmt_number(kracht), '[kN/m]', ''))
-                rijen.append((f'Niveau {naam}', fmt_number(niveau), '[m NAP]', ''))
+        # Maximale kracht per elementnaam uit de volledige resume-tabellen
+        anker_max: dict[str, tuple[float, str]] = {}
+        for item in (project.anchor_strut_resume if project else []):
+            stap = _VTYPE_LABELS.get(item.verification_type, '')
+            if item.name not in anker_max or abs(item.force) > abs(anker_max[item.name][0]):
+                anker_max[item.name] = (item.force, stap)
+        for item in (project.supports_resume if project else []):
+            stap = _VTYPE_LABELS.get(item.verification_type, '')
+            if item.name not in anker_max or abs(item.force) > abs(anker_max[item.name][0]):
+                anker_max[item.name] = (item.force, stap)
+
+        # Maximale moment + aanwezigheidsvlaggen voor ondersteuningen
+        steun_moment_max: dict[str, tuple[float, str]] = {}
+        steun_heeft_kracht: set[str] = set()
+        steun_heeft_moment: set[str] = set()
+        for item in (project.supports_resume if project else []):
+            stap = _VTYPE_LABELS.get(item.verification_type, '')
+            if abs(item.force) > 1e-6:
+                steun_heeft_kracht.add(item.name)
+            if abs(item.moment) > 1e-6:
+                steun_heeft_moment.add(item.name)
+            if item.name not in steun_moment_max or abs(item.moment) > abs(steun_moment_max[item.name][0]):
+                steun_moment_max[item.name] = (item.moment, stap)
+
+        # Niveau per elementnaam: ankers/stempels uit resultaten, steunen uit invoer
+        niveau_per_naam: dict[str, float] = {}
+        for rs in (project.result_summaries if project else []):
+            for naam, _kracht, niveau in rs.ondersteuningen:
+                if naam not in niveau_per_naam:
+                    niveau_per_naam[naam] = niveau
+        for sp in (project.spring_supports if project else []):
+            if sp.name not in niveau_per_naam:
+                niveau_per_naam[sp.name] = sp.level
+        for rp in (project.rigid_supports if project else []):
+            if rp.name not in niveau_per_naam:
+                niveau_per_naam[rp.name] = rp.level
+
+        if anker_max:
+            rijen.append(('Resultaten ondersteuningen', '', '', 'Verificatiestap'))
+            for naam in sorted(anker_max):
+                max_kracht, stap_kracht = anker_max[naam]
+                stap_str = f'stap {stap_kracht}' if stap_kracht else ''
+                if naam in niveau_per_naam:
+                    rijen.append((f'Niveau {naam}', fmt_number(niveau_per_naam[naam]), '[m NAP]', ''))
+                is_steun = naam in steun_moment_max
+                toon_kracht = not is_steun or naam in steun_heeft_kracht
+                toon_moment = is_steun and naam in steun_heeft_moment
+                if toon_kracht:
+                    rijen.append((naam, fmt_number(abs(max_kracht)), '[kN/m]', stap_str))
+                if toon_moment:
+                    max_moment, stap_moment = steun_moment_max[naam]
+                    stap_str_m = f'stap {stap_moment}' if stap_moment else ''
+                    rijen.append((naam, fmt_number(abs(max_moment)), '[kNm/m]', stap_str_m))
 
         wrapper = QWidget()
         wrapper.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -534,13 +599,24 @@ class TabResultDesc(QWidget):
         grid.setColumnStretch(2, _WAARDE_STRETCH)
         grid.setColumnStretch(3, _EENHEID_STRETCH)
 
+        # Bepaal welke datarijen een samengevoegd label krijgen (zelfde label, opeenvolgend)
+        skip_label: set[int] = set()
+        span_label: dict[int, int] = {}
+        for j in range(len(rijen) - 1):
+            sec_j = rijen[j][1] == '' and rijen[j][2] == ''
+            sec_j1 = rijen[j + 1][1] == '' and rijen[j + 1][2] == ''
+            if not sec_j and not sec_j1 and rijen[j][0] == rijen[j + 1][0]:
+                span_label[j] = 2
+                skip_label.add(j + 1)
+
         data_index = 0
         for i, (label, waarde, eenheid, stap) in enumerate(rijen):
             is_sectie = waarde == '' and eenheid == ''
             is_last = i == len(rijen) - 1
             border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
+            bg_idx = (data_index - 1) if i in skip_label else data_index
             bg = _HDR_BG if is_sectie else (
-                _ROW_ODD_BG if data_index % 2 == 0 else _ROW_EVN_BG
+                _ROW_ODD_BG if bg_idx % 2 == 0 else _ROW_EVN_BG
             )
 
             lbl = QLabel(label)
@@ -555,25 +631,37 @@ class TabResultDesc(QWidget):
             if is_sectie:
                 lbl.setStyleSheet(hdr_stijl)
                 if stap:
-                    # "Resultaten"-type: label col 0, stap-header cols 1-3
+                    # "Resultaten"-type: label col 0, stap-header col 1, lege kopcellen 2-3
                     grid.addWidget(lbl, i, 0, 1, 1)
                     stap_lbl = QLabel(stap)
                     stap_lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
                     stap_lbl.setAlignment(
-                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                        Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
                     stap_lbl.setStyleSheet(hdr_stijl)
-                    grid.addWidget(stap_lbl, i, 1, 1, 3)
+                    grid.addWidget(stap_lbl, i, 1, 1, 1)
+                    for extra_col in (2, 3):
+                        vul = QLabel('')
+                        vul.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+                        vul.setStyleSheet(hdr_stijl)
+                        grid.addWidget(vul, i, extra_col)
                 else:
                     # "Grondkering"-type: span alle 4 kolommen
                     grid.addWidget(lbl, i, 0, 1, 4)
                 continue
 
             # Datarij
+            # Samengevoegde label-cel: geen border-bottom tot het einde van de span
+            if i in span_label:
+                next_is_last = (i + 1) == len(rijen) - 1
+                lbl_border_b = '' if next_is_last else f'border-bottom: 1px solid {_ROW_SEP};'
+            else:
+                lbl_border_b = border_b
+
             lbl_stijl = (
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-weight: 400; '
                 f'color: {_LABEL_CLR}; background: {bg}; padding: 2px 6px; '
                 f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; '
-                f'border-right: 1px solid {_ROW_SEP}; {border_b}'
+                f'border-right: 1px solid {_ROW_SEP}; {lbl_border_b}'
             )
             val_stijl = (
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
@@ -596,10 +684,15 @@ class TabResultDesc(QWidget):
             ext.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
             ext.setStyleSheet(ext_stijl)
 
+            rowspan = span_label.get(i, 1)
+            if rowspan > 1:
+                lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+
             if stap:
                 # Rij mét verificatiestap: label | stap | waarde | eenheid
-                lbl.setStyleSheet(lbl_stijl)
-                grid.addWidget(lbl, i, 0)
+                if i not in skip_label:
+                    lbl.setStyleSheet(lbl_stijl)
+                    grid.addWidget(lbl, i, 0, rowspan, 1)
 
                 stap_cel = QLabel(stap)
                 stap_cel.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
@@ -616,12 +709,14 @@ class TabResultDesc(QWidget):
                 grid.addWidget(ext, i, 3)
             else:
                 # Rij zonder stap: label (cols 0+1 samengevoegd) | waarde | eenheid
-                lbl.setStyleSheet(lbl_stijl)
-                grid.addWidget(lbl, i, 0, 1, 2)
+                if i not in skip_label:
+                    lbl.setStyleSheet(lbl_stijl)
+                    grid.addWidget(lbl, i, 0, rowspan, 2)
                 grid.addWidget(val, i, 2)
                 grid.addWidget(ext, i, 3)
 
-            data_index += 1
+            if i not in skip_label:
+                data_index += 1
 
         lay.addWidget(grid_w)
         tabel_rij_layout.addWidget(frame, stretch=_SPEC_TABLE_STRETCH)
