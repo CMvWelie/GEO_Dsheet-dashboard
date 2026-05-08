@@ -2,10 +2,18 @@
 
 import sys
 import os
+import ctypes
 from pathlib import Path
 
 # Zorg dat het projectpakket vindbaar is
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Windows: eigen app-identiteit zodat de taakbalk het venster-icoon toont
+# in plaats van het python.exe-icoon.
+if sys.platform == 'win32':
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+        'DKIB.DsheetDashboard.1'
+    )
 
 # ------------------------------------------------------------------
 # Dependency-controle bij opstarten
@@ -31,7 +39,7 @@ if _ontbrekend:
 try:
     from PyQt6.QtWidgets import QApplication, QSplashScreen
     from PyQt6.QtCore import Qt, QTimer, QByteArray
-    from PyQt6.QtGui import QPixmap
+    from PyQt6.QtGui import QPixmap, QIcon
 except ImportError:
     try:
         from PySide6.QtWidgets import QApplication, QSplashScreen  # type: ignore
@@ -54,6 +62,8 @@ def main() -> None:
     app = QApplication(sys.argv)
     app.setApplicationName('D-Sheet Dashboard')
     app.setOrganizationName('DKIB Geotechniek')
+    if _LOGO_PAD.exists():
+        app.setWindowIcon(QIcon(str(_LOGO_PAD)))
 
     # Splash screen tonen vóór het zware laden van het hoofdvenster
     splash: QSplashScreen | None = None
