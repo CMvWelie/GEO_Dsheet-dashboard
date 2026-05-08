@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from parsers.models import Project
 from reporting.models import (
@@ -14,6 +15,9 @@ from reporting.models import (
 )
 from utils.formatting import fmt_number
 
+
+_ANCHOR_TYPE_LABELS: dict[int, str] = {0: 'Anker', 1: 'Stempel'}
+_SUPPORT_RIGIDITY_LABELS: dict[int, str] = {0: 'Veersteun', 1: 'Stijve steun'}
 
 # CUR 166 verification_type → label, in vaste rekenvolgorde
 _VTYPE_VOLGORDE: list[int] = [4, 5, 0, 1, 3, 14]
@@ -156,32 +160,53 @@ class ResultDescriptionBuilder:
 
     def _anchor_forces(self, project: Project) -> ReportSection:
         sec = ReportSection(id='anchor_forces',
-                            title='Ankerkrachten en stempelkrachten')
-        alle_items = project.anchor_strut_resume
-        if not alle_items:
+                            title='Ankerkrachten, stempelkrachten en ondersteuningen')
+        alle_stages = list(range(1, len(project.stages) + 1))
+
+        heeft_ankers = bool(project.anchor_strut_resume)
+        heeft_steunen = bool(project.supports_resume)
+
+        if not heeft_ankers and not heeft_steunen:
             sec.fields.append(ReportField('anchor_forces_none', 'Ankerkrachten',
                                            'Geen resultaten beschikbaar'))
             return sec
 
-        # Kolommen: CUR 166 vtype in vaste volgorde, alleen aanwezige
-        aanwezige_vtypes = {r.verification_type for r in alle_items}
+        if heeft_ankers:
+            self._voeg_kracht_tabellen_toe(
+                sec, project.anchor_strut_resume, 'anker', alle_stages, project,
+                lambda r: _ANCHOR_TYPE_LABELS.get(r.anchor_type, f'type {r.anchor_type}'))
+        if heeft_steunen:
+            self._voeg_kracht_tabellen_toe(
+                sec, project.supports_resume, 'ondersteuning', alle_stages, project,
+                lambda r: _SUPPORT_RIGIDITY_LABELS.get(
+                    r.support_rigidity_type, f'type {r.support_rigidity_type}'))
+        return sec
+
+    def _voeg_kracht_tabellen_toe(
+        self,
+        sec: ReportSection,
+        items: list,
+        id_prefix: str,
+        alle_stages: list[int],
+        project: Project,
+        type_label_fn: Callable[[object], str] | None = None,
+    ) -> None:
+        """Voeg per naam één krachttabel toe aan sec."""
+        aanwezige_vtypes = {r.verification_type for r in items}
         stappen = [v for v in _VTYPE_VOLGORDE if v in aanwezige_vtypes]
         columns = ['Fase'] + [_vtype_label(v) for v in stappen]
 
-        # Rijen: alle fases van het project (1-gebaseerd), niet alleen aanwezige
-        alle_stages = list(range(1, len(project.stages) + 1))
-
-        # Eén tabel per ankernaam
         voor_naam: dict[str, list] = {}
-        for r in alle_items:
+        for r in items:
             voor_naam.setdefault(r.name, []).append(r)
 
         for naam in sorted(voor_naam):
-            items = voor_naam[naam]
+            groep = voor_naam[naam]
+            type_label = type_label_fn(groep[0]) if type_label_fn else ''
+            tabel_titel = f'{naam} ({type_label})' if type_label else naam
             lookup: dict[tuple[int, int], float] = {
-                (r.stage_number, r.verification_type): r.force for r in items
+                (r.stage_number, r.verification_type): r.force for r in groep
             }
-
             rows: list[list[str]] = []
             for sn in alle_stages:
                 rij = [self._stage_naam(project, sn)]
@@ -190,12 +215,11 @@ class ResultDescriptionBuilder:
                     rij.append(fmt_number(waarde) if waarde is not None else '-')
                 rows.append(rij)
             sec.tables.append(ReportTable(
-                id=f'anker_{naam}',
-                title=naam,
+                id=f'{id_prefix}_{naam}',
+                title=tabel_titel,
                 columns=columns,
                 rows=rows,
             ))
-        return sec
 
     def _per_phase_summary(self, project: Project) -> ReportSection:
         sec = ReportSection(id='per_phase_summary',

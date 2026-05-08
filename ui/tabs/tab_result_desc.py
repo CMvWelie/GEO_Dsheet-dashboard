@@ -129,7 +129,10 @@ class TabResultDesc(QWidget):
                 lbl = QLabel(f'<b>{field.label}:</b> {val}')
                 lbl.setStyleSheet('padding: 0 8px;')
                 vl.addWidget(lbl)
-            if len(sec.tables) > 1:
+            gebruik_tabs = len(sec.tables) > 1 or (
+                len(sec.tables) == 1 and bool(sec.tables[0].title)
+            )
+            if gebruik_tabs:
                 tabs = QTabWidget()
                 tabs.setDocumentMode(True)
                 for table in sec.tables:
