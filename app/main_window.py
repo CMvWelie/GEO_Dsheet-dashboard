@@ -197,9 +197,9 @@ class MainWindow(QMainWindow):
             self._build_project_corner(), Qt.Corner.TopRightCorner
         )
 
-        # Tab 0: Rapportcontext (gecombineerd met import)
+        # Tab 0: Import (gecombineerd met rapportcontext)
         self._tab_report_context = TabReportContext()
-        self._main_tabs.addTab(self._tab_report_context, 'Rapportcontext')
+        self._main_tabs.addTab(self._tab_report_context, 'Import')
 
         # Tab 1: Grondsoortentabel
         self._tab_grondsoorten = TabGrondsoorten()
@@ -210,25 +210,25 @@ class MainWindow(QMainWindow):
         self._info_panel = InfoPanel()
         self._main_tabs.addTab(self._tab_input_view, 'Invoer')
 
-        # Tab 2C: Invoerbeschrijving
+        # Tab 2C: Fasering
         self._tab_input_desc = TabInputDesc()
-        self._main_tabs.addTab(self._tab_input_desc, 'Invoerbeschrijving')
+        self._main_tabs.addTab(self._tab_input_desc, 'Fasering')
 
-        # Tab 3A: Resultaten
+        # Tab 3A: Uitvoer
         self._tab_result_view = TabResultView()
-        self._main_tabs.addTab(self._tab_result_view, 'Resultaten')
+        self._main_tabs.addTab(self._tab_result_view, 'Uitvoer')
 
-        # Tab 3B: Resultaatbeschrijving
+        # Tab 3B: Resultaten
         self._tab_result_desc = TabResultDesc()
-        self._main_tabs.addTab(self._tab_result_desc, 'Resultaatbeschrijving')
+        self._main_tabs.addTab(self._tab_result_desc, 'Resultaten')
 
         # Tab 4A: Aanvullende berekeningen
         self._tab_aanvullende_berekeningen = TabAanvullendeBerekeningen()
         self._main_tabs.addTab(self._tab_aanvullende_berekeningen, 'Aanvullende berekeningen')
 
-        # Tab 4B: Rapportage
+        # Tab 4B: Rapport-export
         self._tab_report_select = TabReportSelect()
-        self._main_tabs.addTab(self._tab_report_select, 'Rapportage')
+        self._main_tabs.addTab(self._tab_report_select, 'Rapport-export')
 
         # Instellingen: verborgen tab, geopend via knop rechtsboven
         self._tab_instellingen = TabInstellingen()

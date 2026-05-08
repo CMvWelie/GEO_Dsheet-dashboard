@@ -46,7 +46,7 @@ _DATA_PT    = TABLE_TEXT_SIZE
 _PARAM_STRETCH = 5
 _WAARDE_STRETCH = 3
 _EENHEID_STRETCH = 2
-_STAP_STRETCH = 3
+_STAP_STRETCH = 2
 _SPEC_TABLE_STRETCH = 10
 _SPEC_TABLE_REST_STRETCH = 6
 _SPEC_DATA_MIN_HEIGHT_PX = 27
@@ -528,10 +528,11 @@ class TabResultDesc(QWidget):
         grid = QGridLayout(grid_w)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
+        # Kolomvolgorde: label | verificatiestap | waarde | eenheid
         grid.setColumnStretch(0, _PARAM_STRETCH)
-        grid.setColumnStretch(1, _WAARDE_STRETCH)
-        grid.setColumnStretch(2, _EENHEID_STRETCH)
-        grid.setColumnStretch(3, _STAP_STRETCH)
+        grid.setColumnStretch(1, _STAP_STRETCH)
+        grid.setColumnStretch(2, _WAARDE_STRETCH)
+        grid.setColumnStretch(3, _EENHEID_STRETCH)
 
         data_index = 0
         for i, (label, waarde, eenheid, stap) in enumerate(rijen):
@@ -544,62 +545,82 @@ class TabResultDesc(QWidget):
 
             lbl = QLabel(label)
             lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            hdr_stijl = (
+                f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+                f'color: {_HDR_FG}; background: {bg}; padding: 3px 6px; '
+                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
+            )
 
             if is_sectie:
-                lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-                lbl.setStyleSheet(
-                    f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
-                    f'color: {_HDR_FG}; background: {bg}; padding: 3px 6px; '
-                    f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
-                )
-                grid.addWidget(lbl, i, 0, 1, 3)
+                lbl.setStyleSheet(hdr_stijl)
                 if stap:
+                    # "Resultaten"-type: label col 0, stap-header cols 1-3
+                    grid.addWidget(lbl, i, 0, 1, 1)
                     stap_lbl = QLabel(stap)
                     stap_lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
-                    stap_lbl.setStyleSheet(
-                        f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
-                        f'color: {_HDR_FG}; background: {bg}; padding: 3px 6px; '
-                        f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
-                    )
-                    grid.addWidget(stap_lbl, i, 3)
+                    stap_lbl.setAlignment(
+                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                    stap_lbl.setStyleSheet(hdr_stijl)
+                    grid.addWidget(stap_lbl, i, 1, 1, 3)
+                else:
+                    # "Grondkering"-type: span alle 4 kolommen
+                    grid.addWidget(lbl, i, 0, 1, 4)
                 continue
 
-            lbl.setStyleSheet(
+            # Datarij
+            lbl_stijl = (
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-weight: 400; '
                 f'color: {_LABEL_CLR}; background: {bg}; padding: 2px 6px; '
                 f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; '
                 f'border-right: 1px solid {_ROW_SEP}; {border_b}'
             )
-            grid.addWidget(lbl, i, 0)
-
-            val = QLabel(waarde)
-            val.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
-            val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            val.setStyleSheet(
+            val_stijl = (
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
                 f'background: {bg}; padding: 2px 6px; '
                 f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; '
                 f'border-right: 1px solid {_ROW_SEP}; {border_b}'
             )
-            grid.addWidget(val, i, 1)
+            ext_stijl = (
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-style: italic; '
+                f'color: {_EXTRA_CLR}; background: {bg}; padding: 2px 6px; '
+                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
+            )
+
+            val = QLabel(waarde)
+            val.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+            val.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            val.setStyleSheet(val_stijl)
 
             ext = QLabel(eenheid)
             ext.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
-            ext.setStyleSheet(
-                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-style: italic; '
-                f'color: {_EXTRA_CLR}; background: {bg}; padding: 2px 6px; '
-                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
-            )
-            grid.addWidget(ext, i, 2)
+            ext.setStyleSheet(ext_stijl)
 
-            stap_lbl = QLabel(stap)
-            stap_lbl.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
-            stap_lbl.setStyleSheet(
-                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-style: italic; '
-                f'color: {_EXTRA_CLR}; background: {bg}; padding: 2px 6px; '
-                f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; {border_b}'
-            )
-            grid.addWidget(stap_lbl, i, 3)
+            if stap:
+                # Rij mét verificatiestap: label | stap | waarde | eenheid
+                lbl.setStyleSheet(lbl_stijl)
+                grid.addWidget(lbl, i, 0)
+
+                stap_cel = QLabel(stap)
+                stap_cel.setMinimumHeight(_SPEC_DATA_MIN_HEIGHT_PX)
+                stap_cel.setAlignment(
+                    Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                stap_cel.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: {_DATA_PT}pt; '
+                    f'color: {_EXTRA_CLR}; background: {bg}; padding: 2px 6px; '
+                    f'min-height: {_SPEC_DATA_MIN_HEIGHT_PX}px; '
+                    f'border-right: 1px solid {_ROW_SEP}; {border_b}'
+                )
+                grid.addWidget(stap_cel, i, 1)
+                grid.addWidget(val, i, 2)
+                grid.addWidget(ext, i, 3)
+            else:
+                # Rij zonder stap: label (cols 0+1 samengevoegd) | waarde | eenheid
+                lbl.setStyleSheet(lbl_stijl)
+                grid.addWidget(lbl, i, 0, 1, 2)
+                grid.addWidget(val, i, 2)
+                grid.addWidget(ext, i, 3)
+
             data_index += 1
 
         lay.addWidget(grid_w)

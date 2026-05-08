@@ -247,6 +247,10 @@ class TabInputDesc(QWidget):
         for col, tekst in enumerate(['Parameter', 'Waarde', 'Eenheid']):
             header = QLabel(tekst)
             header.setMinimumHeight(_DAMWAND_DATA_MIN_HEIGHT_PX)
+            header.setAlignment(
+                (Qt.AlignmentFlag.AlignCenter if col == 1 else Qt.AlignmentFlag.AlignLeft)
+                | Qt.AlignmentFlag.AlignVCenter
+            )
             border_l = f'border-left: 1px solid {_BORDER};' if col == 0 else ''
             border_r = f'border-right: 1px solid {_BORDER};'
             header.setStyleSheet(
@@ -289,7 +293,7 @@ class TabInputDesc(QWidget):
             )
             val = QLabel(waarde)
             val.setMinimumHeight(_DAMWAND_DATA_MIN_HEIGHT_PX)
-            val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            val.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
             waarde_border_r = f'border-right: 1px solid {_ROW_SEP};'
             val.setStyleSheet(
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
@@ -324,18 +328,20 @@ class TabInputDesc(QWidget):
         tabel_rij_layout.addStretch(10)
         lay.addWidget(tabel_rij)
 
-        toelichting = QLabel(
-            'Hierin is:\n' + '\n'.join(
-                f'{symbool}\t{omschrijving}'
-                for symbool, omschrijving in card.toelichting_regels
-            )
-        )
-        toelichting.setWordWrap(True)
-        toelichting.setStyleSheet(
+        hierin_lbl = QLabel('Hierin is:')
+        hierin_lbl.setStyleSheet(
             f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
             f'background: transparent; padding: 8px 0 0 0; border: none;'
         )
-        lay.addWidget(toelichting)
+        lay.addWidget(hierin_lbl)
+        for symbool, omschrijving in card.toelichting_regels:
+            bullet_lbl = QLabel(f'-  {symbool}\t{omschrijving}')
+            bullet_lbl.setWordWrap(True)
+            bullet_lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
+                f'background: transparent; border: none; padding-left: 12px;'
+            )
+            lay.addWidget(bullet_lbl)
         return wrapper
 
     def _maak_fasering_intro(
@@ -376,7 +382,7 @@ class TabInputDesc(QWidget):
 
         namen = fase_namen or [card.stage_name for card in cards]
         for regel in faseringsregels(namen):
-            fase = QLabel(f'•  {regel}')
+            fase = QLabel(f'-  {regel}')
             fase.setStyleSheet(
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_LABEL_CLR}; '
                 f'background: transparent; border: none; padding-left: 12px;'
@@ -448,7 +454,7 @@ class TabInputDesc(QWidget):
 
         col_defs: list[tuple[str, Qt.AlignmentFlag]] = [
             ('Parameter',   Qt.AlignmentFlag.AlignLeft),
-            ('Niveau',      Qt.AlignmentFlag.AlignRight),
+            ('Niveau',      Qt.AlignmentFlag.AlignCenter),
             ('Toelichting', Qt.AlignmentFlag.AlignLeft),
         ]
         for i, (tekst, uitlijning) in enumerate(col_defs):
@@ -508,7 +514,7 @@ class TabInputDesc(QWidget):
             )
 
             val = QLabel(row.value)
-            val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+            val.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignTop)
             val.setStyleSheet(
                 f'font-family: {_FONT}; font-size: {_DATA_PT}pt; font-weight: 400; '
                 f'color: {_VALUE_CLR}; background: {bg}; '
