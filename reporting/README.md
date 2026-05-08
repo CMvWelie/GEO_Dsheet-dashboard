@@ -10,6 +10,7 @@ concrete opbouw uit parserdata gebeurt in submap `builders/`.
 |---|---|
 | `models.py` | Dataclasses voor velden, tabellen, tekstblokken, secties en het volledige rapportpakket. |
 | `selection.py` | `ReportPlan`-klasse die selectie, volgorde en exportdoelen per item beheert. |
+| `figure_renderer.py` | `render_figuur()` — headless rendering van een `ReportImageRequest` naar PNG-bytes voor rapportage-export; geen Qt. |
 
 ## Modellen
 

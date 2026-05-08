@@ -17,10 +17,13 @@ Applicatielaag van D-Sheet Dashboard. Bevat de centrale state, controllers, conf
 | `theme.py` | Thema-dataclasses (`Theme`, `ThemeColors`, `ThemeTypography`, `ThemeGeometry`, `ThemeAssets`, `ThemeTableStyle`); JSON-loader en QSS-builder, geen Qt. |
 | `theme_apply.py` | `bootstrap_theme()` registreert fonts en past stylesheet toe op de actieve `QApplication`; enige Qt-aware module hier naast `main_window.py`. |
 | `main_window.py` | `QMainWindow` met topbalk en tabwidget; verbindt UI-signals met controller-methoden in `_connect_signals()`. |
+| `docx_to_pdf_converter.py` | `DocxToPdfConverter` converteert `.docx` naar `.pdf` via Word COM (docx2pdf) of LibreOffice als fallback; geen Qt. |
+| `word_preview_worker.py` | `WordPreviewWorker` — `QObject`/`QThread`-worker die `.docx` aanmaakt via `ReportController` en converteert naar PDF voor preview; Qt-aware. |
+| `restart_session.py` | Schrijft en leest een eenmalig sessiebestand (`restart_session.json`) zodat geladen projectpaden na applicatie-herstart hersteld worden; geen Qt. |
 
 ## Conventies
 
-- **Geen Qt-imports** in `state.py`, `settings.py`, `controller.py`, `report_controller.py`, `report_state.py`, `config_manager.py`, `viewport_service.py` en `theme.py`. Qt is alleen toegestaan in `main_window.py` en `theme_apply.py`.
+- **Geen Qt-imports** in `state.py`, `settings.py`, `controller.py`, `report_controller.py`, `report_state.py`, `config_manager.py`, `viewport_service.py`, `theme.py`, `docx_to_pdf_converter.py` en `restart_session.py`. Qt is alleen toegestaan in `main_window.py`, `theme_apply.py` en `word_preview_worker.py`.
 - **State-mutaties uitsluitend via controllers**: de view leest uit `AppState`/`ReportState` maar schrijft nooit rechtstreeks.
 - **Foutafhandeling via returntuples** `(bool, str)` of foutmeldingen als `str | None`; geen exceptions voor herstelbare gebruikersfouten.
 - **Dataclasses voor configuratie en state**, nooit ruwe dicts doorgeven. Muteerbare velden via `field(default_factory=...)`.

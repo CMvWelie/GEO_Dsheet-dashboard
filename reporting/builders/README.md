@@ -10,6 +10,7 @@ Builders die uit `Project`, `Stage` en `AppState` herbruikbare rapport-fragmente
 | `result_description_builder.py` | Bouwt resultaat-secties met CUR 166-stappen (6.1 t/m 6.5) en bijbehorende `ReportField`s en `ReportTable`s uit rekenresultaten. |
 | `soil_table_builder.py` | Levert per grondprofiel één `ReportSection` met de volledige grondparametertabel (BK/OK, gewichten, c', phi', delta, kh). |
 | `damwand_hoofdstuk_builder.py` | Stelt het volledige damwand-hoofdstuk samen door damwandgegevens, grondprofielen en invoerbeschrijvingen te combineren. |
+| `damwand_tekst.py` | Constante rapportageteksten (intro's, toelichting, faserings- en resultaattitels) die door `damwand_hoofdstuk_builder.py` worden gebruikt. |
 
 ## Patroon
 

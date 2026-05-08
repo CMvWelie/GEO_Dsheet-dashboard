@@ -32,7 +32,13 @@ pip install -r DEV/requirements-dev.txt
 | `test_hydraulische_grondbreuk.py` | Berekening en weergave van hydraulische grondbreuk-controle. |
 | `test_verticaal_evenwicht.py` | Berekening en renderer van verticaal evenwicht. |
 | `test_tab_result_desc.py` | UI-gedrag van de Resultaatbeschrijving-tab (overrides, refresh). |
+| `test_tab_input_desc.py` | UI-gedrag van de Invoerbeschrijving-tab (opbouw, overrides). |
+| `test_tab_grondsoorten.py` | UI-gedrag van de Grondsoortentabel-tab (weergave, selectie). |
 | `test_debug_tab.py` | Debug-tab: invoer- en uitvoerinspectie. |
+| `test_input_description_builder.py` | `InputDescriptionBuilder`: fasekaarten, damwandkaart en `TextBlock`-inhoud. |
+| `test_report_controller.py` | `ReportController`: rapportagepijplijn, secties en export-orkestratie. |
+| `test_app_controller_render.py` | `AppController`: foutafhandeling bij render-aanroepen. |
+| `test_docx_to_pdf_converter.py` | `DocxToPdfConverter`: conversie via Word COM en LibreOffice-fallback. |
 
 ## Patronen
 

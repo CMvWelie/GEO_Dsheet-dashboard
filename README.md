@@ -175,7 +175,10 @@ Dsheet_dashboard/
 â”‚   â”œâ”€â”€ config_manager.py              ConfigManager: lees/schrijf ~/.dsheet_dashboard/config.json
 â”‚   â”œâ”€â”€ viewport_service.py            ViewportService: zoom en auto-bounds berekening
 â”‚   â”œâ”€â”€ theme.py                       Theme-dataclass + JSON-loader + QSS-builder
-â”‚   â””â”€â”€ theme_apply.py                 bootstrap_theme() en thema-toepassing op QApplication
+â”‚   â”œâ”€â”€ theme_apply.py                 bootstrap_theme() en thema-toepassing op QApplication
+â”‚   â”œâ”€â”€ docx_to_pdf_converter.py       DocxToPdfConverter: .docx → .pdf via Word COM of LibreOffice
+â”‚   â”œâ”€â”€ word_preview_worker.py         WordPreviewWorker: QThread-worker voor Word→PDF preview
+â”‚   â””â”€â”€ restart_session.py             Sessie-overdracht bij herstart (paden bewaren/herstellen)
 â”œâ”€â”€ parsers/
 â”‚   â”œâ”€â”€ models.py                      Domain dataclasses (Project, Stage, Soil, etc.)
 â”‚   â”œâ”€â”€ shi_parser.py                  Hoofdparser: parse_project â†’ Project
@@ -190,11 +193,13 @@ Dsheet_dashboard/
 â”œâ”€â”€ reporting/
 â”‚   â”œâ”€â”€ models.py                      ReportField, ReportTable, TextBlock, ReportSection, etc.
 │   ├── selection.py                   ReportPlan en rapportitemselectie
+â”‚   â”œâ”€â”€ figure_renderer.py             Headless figuurrendering (ReportImageRequest → PNG-bytes)
 â”‚   â””â”€â”€ builders/
 â”‚       â”œâ”€â”€ input_description_builder.py
 â”‚       â”œâ”€â”€ result_description_builder.py
 â”‚       â”œâ”€â”€ soil_table_builder.py            Grondsoorten-tabelopbouw
 â”‚       â”œâ”€â”€ damwand_hoofdstuk_builder.py     Damwand-hoofdstuk samensteller
+â”‚       â””â”€â”€ damwand_tekst.py                 Vaste rapportageteksten voor het damwandhoofdstuk
 â”œâ”€â”€ exporters/
 â”‚   â””â”€â”€ word_hoofdstuk_exporter.py     Hoofdstuk-gewijze Word-export
 â”œâ”€â”€ ui/
@@ -339,7 +344,7 @@ Een enkel testgeval:
 pytest DEV/tests/test_parsers.py::test_parse_soils -v
 ```
 
-De suite dekt parsers (embedded `SAMPLE_SHI` strings â€” geen externe testbestanden nodig), de rapportage-builders (`damwand_hoofdstuk`, `soil_table`, `result_description`), de Word-hoofdstuk-exporter, app-instellingen en thema's, en de aanvullende-berekeningen-tabs. Gedeelde fixtures staan in `DEV/tests/conftest.py`.
+De suite dekt parsers (embedded `SAMPLE_SHI` strings — geen externe testbestanden nodig), alle rapportage-builders (`damwand_hoofdstuk`, `input_description`, `result_description`, `soil_table`), de Word-hoofdstuk-exporter, `ReportController`, `AppController` render-foutafhandeling, app-instellingen en thema's, de aanvullende-berekeningen-tabs, diverse UI-tabs (Invoerbeschrijving, Resultaatbeschrijving, Grondsoortentabel, Debug) en `DocxToPdfConverter`. Gedeelde fixtures staan in `DEV/tests/conftest.py`.
 
 ---
 
