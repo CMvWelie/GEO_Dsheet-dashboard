@@ -1,13 +1,13 @@
 ﻿# Tests
 
-Pytest-suite voor parsers, rapportage-builders, exporters, app-instellingen, thema's en de aanvullende-berekeningen-tabs. Tests gebruiken embedded `SAMPLE_SHI`-strings â€” er zijn geen externe testbestanden nodig.
+Pytest-suite voor parsers, rapportage-builders, exporters, app-instellingen, thema's en de aanvullende-berekeningen-tabs. Tests gebruiken embedded `SAMPLE_SHI`-strings — er zijn geen externe testbestanden nodig.
 
 ## Uitvoeren
 
 ```bash
 pytest -v                                          # alle tests
-pytest DEV/tests/test_parsers.py -v                    # Ã©Ã©n module
-pytest DEV/tests/test_parsers.py::test_parse_soils -v  # Ã©Ã©n test
+pytest DEV/tests/test_parsers.py -v                    # één module
+pytest DEV/tests/test_parsers.py::test_parse_soils -v  # één test
 ```
 
 Installeer eerst de dev-afhankelijkheden:
@@ -42,8 +42,8 @@ pip install -r DEV/requirements-dev.txt
 
 ## Patronen
 
-- **Embedded testdata**: parser-tests gebruiken `SAMPLE_SHI` strings i.p.v. losse bestanden â€” de tests blijven daardoor zelfstandig en snel.
+- **Embedded testdata**: parser-tests gebruiken `SAMPLE_SHI` strings i.p.v. losse bestanden — de tests blijven daardoor zelfstandig en snel.
 - **Gedeelde fixtures**: `conftest.py` levert factory-fixtures voor `Project`, `Stage` en grondlagen die in meerdere builder-tests hergebruikt worden.
-- **Qt-tests**: tests die widgets instantiÃ«ren gebruiken een `qapp`-fixture die Ã©Ã©n keer per sessie een `QApplication` aanmaakt; widgets worden niet getoond, alleen geconstrueerd en gequeryd.
-- **Geen mocks van databronnen**: bouw liever een minimaal `Project` op dan een mock â€” dat houdt de tests dicht bij echte uitvoer.
+- **Qt-tests**: tests die widgets instantiëren gebruiken een `qapp`-fixture die één keer per sessie een `QApplication` aanmaakt; widgets worden niet getoond, alleen geconstrueerd en gequeryd.
+- **Geen mocks van databronnen**: bouw liever een minimaal `Project` op dan een mock — dat houdt de tests dicht bij echte uitvoer.
 
