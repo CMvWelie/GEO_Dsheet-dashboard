@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent
 PNG_PAD = ROOT / 'themes' / 'Dsheet_dashboard.png'
 ICO_PAD = ROOT / 'themes' / 'Dsheet_dashboard.ico'
 RUN_PAD = ROOT / 'run.pyw'
