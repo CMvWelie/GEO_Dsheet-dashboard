@@ -533,8 +533,8 @@ class WordHoofdstukExporter:
                 '[kNm/m]',
                 '',
             ),
-            ('Niveau b.k.', fmt_number(top or 0.0) if el else '-', '[m NAP]', ''),
-            ('Niveau o.k.', fmt_number(bottom) if el else '-', '[m NAP]', ''),
+            ('Niveau b.k.', fmt_number(top or 0.0, 2) if el else '-', '[m NAP]', ''),
+            ('Niveau o.k.', fmt_number(bottom, 2) if el else '-', '[m NAP]', ''),
             ('Lengte', fmt_number(lengte) if el else '-', '[m]', ''),
             ('Resultaten', '', '', 'Verificatiestap'),
             (
@@ -600,7 +600,7 @@ class WordHoofdstukExporter:
                 max_kracht, stap_kracht = anker_max[naam]
                 stap_str = f'stap {stap_kracht}' if stap_kracht else ''
                 if naam in niveau_per_naam:
-                    rijen.append((f'Niveau {naam}', fmt_number(niveau_per_naam[naam]), '[m NAP]', ''))
+                    rijen.append((f'Niveau {naam}', fmt_number(niveau_per_naam[naam], 2), '[m NAP]', ''))
                 is_steun = naam in steun_moment_max
                 toon_kracht = not is_steun or naam in steun_heeft_kracht
                 toon_moment = is_steun and naam in steun_heeft_moment

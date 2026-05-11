@@ -432,7 +432,7 @@ def test_clip_surface_points():
 
 def test_fmt_number():
     assert fmt_number(3.456, 1) == '3,5'
-    assert fmt_number(0.0, 2) == '0,0'
+    assert fmt_number(0.0, 2) == '0,00'
     assert fmt_number(None) == '-'
     assert fmt_number(float('nan')) == '-'
 

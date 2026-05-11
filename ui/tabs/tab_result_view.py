@@ -3,15 +3,41 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy, QSlider, QFrame,
-    QScrollArea, QTabWidget, QGridLayout, QSplitter,
+    QScrollArea, QTabWidget, QGridLayout, QSplitter, QTabBar, QMenu,
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QTabBar
+from PyQt6.QtCore import Qt, pyqtSignal
 
 import matplotlib
 matplotlib.use('QtAgg')
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as _FigureCanvasBase
 from matplotlib.figure import Figure
+
+_SUBPLOT_LABELS = ('Moment', 'Dwarskracht', 'Vervorming')
+
+
+class FigureCanvas(_FigureCanvasBase):
+    """FigureCanvas met rechtermuisklik-menu om grafieken te kopiëren."""
+
+    copy_subplot_requested = pyqtSignal(int)
+    """Emitted met subplot-index (0/1/2) of -1 voor alle drie."""
+
+    def contextMenuEvent(self, event):
+        heeft_subplots = self.figure and len(self.figure.axes) >= 3
+        menu = QMenu(self)
+        subplot_acts = []
+        if heeft_subplots:
+            for label in _SUBPLOT_LABELS:
+                subplot_acts.append(menu.addAction(f'Kopieer {label}'))
+            menu.addSeparator()
+        act_alle = menu.addAction('Kopieer alle drie')
+        gekozen = menu.exec(event.globalPos())
+        if heeft_subplots:
+            for idx, act in enumerate(subplot_acts):
+                if gekozen == act:
+                    self.copy_subplot_requested.emit(idx)
+                    return
+        if gekozen == act_alle:
+            self.copy_subplot_requested.emit(-1)
 
 from reporting.models import ReportSection, ReportTable
 from ui.table_styles import (
@@ -66,6 +92,9 @@ class TabResultView(QWidget):
     parent : QWidget | None
         Optionele parent-widget.
     """
+
+    copy_subplot_requested = pyqtSignal(int)
+    """Emitted met subplot-index (0/1/2) of -1 voor alle drie."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -148,6 +177,7 @@ class TabResultView(QWidget):
 
         self.results_fig = Figure(figsize=(14, 6), dpi=96)
         self.results_canvas = FigureCanvas(self.results_fig)
+        self.results_canvas.copy_subplot_requested.connect(self.copy_subplot_requested)
         self.results_canvas.setMinimumHeight(120)
         self.results_canvas.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)

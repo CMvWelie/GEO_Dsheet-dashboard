@@ -273,7 +273,7 @@ def _draw_attachment_label(ax: Axes, level: float, wall_x: float, side: str,
         return
     ox = -0.25 if side == 'left' else 0.25
     ha = 'right' if side == 'left' else 'left'
-    ax.text(wall_x + ox, level, f'({fmt_number(level)})',
+    ax.text(wall_x + ox, level, f'({fmt_number(level, 2)})',
             ha=ha, va='center', fontsize=fontsize, color='#1e2a32',
             clip_on=True, zorder=8)
 
@@ -590,7 +590,7 @@ class SectionRenderer(BaseRenderer):
                     continue
                 if y_min + 0.3 < pt['y'] < y_max - 0.3:
                     ax.text(pt['x'], pt['y'] + 0.05,
-                            f"({fmt_number(pt['x'])}; {fmt_number(pt['y'])})",
+                            f"({fmt_number(pt['x'])}; {fmt_number(pt['y'], 2)})",
                             ha='center', va='bottom', fontsize=settings.fs_knikpunten,
                             color='#8b7d1a', rotation=90, clip_on=True, zorder=5)
 
@@ -1035,13 +1035,13 @@ class SectionRenderer(BaseRenderer):
 
         if math.isfinite(wall_top):
             ax.text(wall_x, wall_top + 0.1,
-                    f'Kop ({fmt_number(wall_top)})',
+                    f'Kop ({fmt_number(wall_top, 2)})',
                     ha='center', va='bottom', rotation=90,
                     fontsize=settings.fs_damwand,
                     color='#1e2a32', clip_on=True, zorder=7)
         if math.isfinite(wall_bot):
             ax.text(wall_x, wall_bot - 0.1,
-                    f'Teen ({fmt_number(wall_bot)})',
+                    f'Teen ({fmt_number(wall_bot, 2)})',
                     ha='center', va='top', rotation=90,
                     fontsize=settings.fs_damwand,
                     color='#1e2a32', clip_on=True, zorder=7)

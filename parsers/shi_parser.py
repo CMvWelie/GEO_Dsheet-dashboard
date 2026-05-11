@@ -144,6 +144,8 @@ def parse_soil_profiles(text: str) -> list[SoilProfile]:
         occurrence += 1
         i += 1
         seen_layer_header = False
+        seen_x = False
+        seen_y = False
 
         while i < len(lines):
             cur = lines[i].strip()
@@ -153,11 +155,13 @@ def parse_soil_profiles(text: str) -> list[SoilProfile]:
             mx = re.match(r'^([-\d.]+)\s+X coordinate$', cur, re.IGNORECASE)
             if mx:
                 profile.x = float(mx.group(1))
+                seen_x = True
                 i += 1
                 continue
             my = re.match(r'^([-\d.]+)\s+Y coordinate$', cur, re.IGNORECASE)
             if my:
                 profile.y = float(my.group(1))
+                seen_y = True
                 i += 1
                 continue
             if (re.match(r'^Nr\s+Level', cur, re.IGNORECASE)
@@ -177,6 +181,10 @@ def parse_soil_profiles(text: str) -> list[SoilProfile]:
                 i += 1
                 continue
             if not seen_layer_header and re.match(r'^\d+\s+', cur):
+                i += 1
+                continue
+            # Na X én Y, vóór de laagkoptekst: interne definitienaam van D-Sheet → overslaan
+            if seen_x and seen_y and not seen_layer_header:
                 i += 1
                 continue
             break

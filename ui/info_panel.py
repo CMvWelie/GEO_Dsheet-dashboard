@@ -19,6 +19,7 @@ from PyQt6.QtGui import QColor
 from parsers.models import Project, Stage, SoilProfile
 from ui.table_styles import REPORT_QTABLE_STYLE
 from utils.color_utils import rgb_string_to_tuple
+from utils.formatting import fmt_number
 
 _CARD_STYLE = (
     'QGroupBox { background: white; border: 1px solid #cfd6dd; border-radius: 8px; '
@@ -361,11 +362,11 @@ class InfoPanel(QWidget):
             if not profile:
                 continue
             for i, layer in enumerate(profile.layers):
-                bottom = (str(profile.layers[i + 1].level)
+                bottom = (fmt_number(profile.layers[i + 1].level, 2)
                           if i + 1 < len(profile.layers) else '...')
                 color = project.soil_color_map.get(layer.material, 'rgb(220,220,220)')
                 rows.append((side, layer.nr, layer.material,
-                              str(layer.level), bottom, color))
+                              fmt_number(layer.level, 2), bottom, color))
         self._layers_table.setRowCount(len(rows))
         for row_idx, (side, nr, mat, top_v, bot_v, color) in enumerate(rows):
             self._layers_table.setItem(row_idx, 0, QTableWidgetItem(f'{side}{nr}'))

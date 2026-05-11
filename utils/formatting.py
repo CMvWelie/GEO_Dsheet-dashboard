@@ -14,7 +14,8 @@ def fmt_number(value: float | int | None, decimals: int = 1) -> str:
 
     Returns
     -------
-    str  Geformatteerd getal (bijv. "3,5") of "-" bij ongeldige invoer.
+    str  Geformatteerd getal (bijv. "3,5" of "3,50" bij 2 decimalen)
+         of "-" bij ongeldige invoer.
     """
     try:
         n = float(value)  # type: ignore[arg-type]
@@ -22,8 +23,7 @@ def fmt_number(value: float | int | None, decimals: int = 1) -> str:
         return '-'
     if not math.isfinite(n):
         return '-'
-    rounded = round(n, decimals)
-    return str(rounded).replace('.', ',')
+    return f'{n:.{decimals}f}'.replace('.', ',')
 
 
 def format_surcharge_value(points: list[dict]) -> str:

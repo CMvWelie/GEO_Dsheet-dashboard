@@ -648,7 +648,7 @@ class TabVerticaalEvenwicht(QWidget):
             punten = self._auto_waarden.bodem_punten_raw
             if punten:
                 regels = '\n'.join(
-                    f"  punt {pt['nr']}: x = {pt['x']:.4f} m,  y = {pt['y']:.4f} m NAP"
+                    f"  punt {pt['nr']}: x = {pt['x']:.4f} m,  y = {fmt_number(pt['y'], 2)} m NAP"
                     for pt in punten
                 )
                 self._spin_ontgraving.setToolTip(

@@ -21,7 +21,10 @@ from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QImage, QPixmap
 import matplotlib
 matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as _FigureCanvasBase
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+
+from renderers.output_renderer import render_single_result_chart
 
 
 class FigureCanvas(_FigureCanvasBase):
@@ -49,6 +52,7 @@ from ui.tabs.tab_result_desc import TabResultDesc
 from ui.tabs.tab_report_select import TabReportSelect
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
+from ui.tabs.tab_grondsoorten_v2 import TabGrondsoortenv2
 from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.word_pdf_preview_window import WordPdfPreviewWindow
 from app.docx_to_pdf_converter import DocxToPdfConverter
@@ -206,6 +210,10 @@ class MainWindow(QMainWindow):
         self._tab_grondsoorten = TabGrondsoorten()
         self._main_tabs.addTab(self._tab_grondsoorten, 'Grondsoortentabel')
 
+        # Tab 1B: Grondsoortentabel v2
+        self._tab_grondsoorten_v2 = TabGrondsoortenv2()
+        self._main_tabs.addTab(self._tab_grondsoorten_v2, 'Grondsoortentabel v2')
+
         # Tab 2: Invoer
         self._tab_input_view = TabInputView()
         self._info_panel = InfoPanel()
@@ -318,6 +326,7 @@ class MainWindow(QMainWindow):
         self._tab_report_context.remove_requested.connect(self._on_remove_project)
         self._tab_input_view.export_png_requested.connect(self._on_export_png)
         self._tab_input_view.copy_clipboard_requested.connect(self._on_copy_clipboard)
+        self._tab_result_view.copy_subplot_requested.connect(self._on_copy_clipboard_uitvoer)
         self._btn_instellingen.clicked.connect(self._on_settings_requested)
 
         self._project_combo.currentIndexChanged.connect(self._on_project_changed)
@@ -551,13 +560,59 @@ class MainWindow(QMainWindow):
                 self._tab_input_view.set_png_status(f'Opgeslagen als {path}', ok=True)
 
     def _on_copy_clipboard(self) -> None:
+        project = self._state.get_active_project()
+        stage_idx = self._tab_input_view.stage_tabs.currentIndex()
+        fase = (project.stages[stage_idx].name
+                if project and 0 <= stage_idx < len(project.stages) else '')
+        fig = self._tab_input_view.section_fig
+        suptitle_obj = (fig.suptitle(f'Fase: {fase}', fontsize=10,
+                                     color='#444444', ha='center', x=0.5, y=1.0)
+                        if fase else None)
         buf = io.BytesIO()
-        self._tab_input_view.section_fig.savefig(
-            buf, format='png', dpi=150, bbox_inches='tight')
+        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        if suptitle_obj:
+            suptitle_obj.remove()
         buf.seek(0)
         img = QImage.fromData(buf.read())
         QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
         self._tab_input_view.set_png_status('Gekopieerd naar klembord', ok=True)
+
+    def _on_copy_clipboard_uitvoer(self, idx: int) -> None:
+        project = self._state.get_active_project()
+        stage_idx = self._tab_result_view.output_stage_tabs.currentIndex()
+        fase = (project.stages[stage_idx].name
+                if project and 0 <= stage_idx < len(project.stages) else '')
+        stap_tabs = self._tab_result_view.result_step_tabs
+        stap_raw = stap_tabs.tabText(stap_tabs.currentIndex()) if stap_tabs.count() > 0 else ''
+        stap = f'stap {stap_raw.rstrip("- ").strip()}' if stap_raw.strip() else ''
+        subtitle = ' - '.join(x for x in (fase, stap) if x) or None
+
+        if idx == -1:
+            fig = self._tab_result_view.results_fig
+            suptitle_obj = (fig.suptitle(subtitle, fontsize=8, color='#888888',
+                                         ha='left', x=0.01, y=1.0)
+                            if subtitle else None)
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+            if suptitle_obj:
+                suptitle_obj.remove()
+            buf.seek(0)
+            img = QImage.fromData(buf.read())
+            QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
+            return
+
+        if not project:
+            return
+        active_step = self._tab_result_view.current_result_step_key()
+        fig = Figure(figsize=(6, 8), dpi=150)
+        FigureCanvasAgg(fig)
+        render_single_result_chart(fig, project, stage_idx, idx, active_step,
+                                   self._state.render_settings, subtitle)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        buf.seek(0)
+        img = QImage.fromData(buf.read())
+        QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
 
     # ------------------------------------------------------------------
     # Lees UI-waarden
@@ -764,6 +819,8 @@ class MainWindow(QMainWindow):
             self._refresh_uitvoer_tabellen()
         elif active_tab is self._tab_grondsoorten:
             self._refresh_grondsoorten()
+        elif active_tab is self._tab_grondsoorten_v2:
+            self._refresh_grondsoorten_v2()
 
     def _render_section(self) -> None:
         ax = self._tab_input_view.section_ax
@@ -821,6 +878,8 @@ class MainWindow(QMainWindow):
             self._refresh_uitvoer_tabellen()
         elif tab is self._tab_grondsoorten:
             self._refresh_grondsoorten()
+        elif tab is self._tab_grondsoorten_v2:
+            self._refresh_grondsoorten_v2()
 
     def _refresh_input_desc(self) -> None:
         cards = self._report_controller.build_all_fase_cards()
@@ -853,6 +912,11 @@ class MainWindow(QMainWindow):
         """Ververs de grondsoortentabel met het actieve project."""
         project = self._state.get_active_project()
         self._tab_grondsoorten.populate(project)
+
+    def _refresh_grondsoorten_v2(self) -> None:
+        """Ververs de grondsoortentabel v2 met het actieve project."""
+        project = self._state.get_active_project()
+        self._tab_grondsoorten_v2.populate(project)
 
     def _on_metadata_changed(self) -> None:
         md = self._tab_report_context.get_metadata()

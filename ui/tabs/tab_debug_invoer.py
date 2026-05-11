@@ -12,6 +12,7 @@ from parsers.models import (
     UniformLoad, SurchargeLoad, HorizontalLineLoad, Moment, NormalForce, Stage,
 )
 from ui.table_styles import BASIC_DEBUG_QTABLE_STYLE
+from utils.formatting import fmt_number
 
 # ── Stijlconstanten ──────────────────────────────────────────────────────────
 _FONT      = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
@@ -96,21 +97,21 @@ def _geen_data_label() -> QLabel:
 # ── Rij-helpers ───────────────────────────────────────────────────────────────
 
 def _anchor_rij(a: Anchor) -> list[str]:
-    return [str(a.nr), a.name, str(a.level), str(a.emod), str(a.cross_section),
+    return [str(a.nr), a.name, fmt_number(a.level, 2), str(a.emod), str(a.cross_section),
             str(a.length), str(a.yield_f), str(a.angle), str(a.height), str(a.side)]
 
 
 def _strut_rij(s: Strut) -> list[str]:
-    return [str(s.nr), s.name, str(s.level), str(s.emod), str(s.cross_section),
+    return [str(s.nr), s.name, fmt_number(s.level, 2), str(s.emod), str(s.cross_section),
             str(s.length), str(s.yield_f), str(s.angle), str(s.aux), str(s.side)]
 
 
 def _spring_rij(s: SpringSupport) -> list[str]:
-    return [str(s.nr), s.name, str(s.level), str(s.rot_stiff), str(s.tr_stiff)]
+    return [str(s.nr), s.name, fmt_number(s.level, 2), str(s.rot_stiff), str(s.tr_stiff)]
 
 
 def _rigid_rij(r: RigidSupport) -> list[str]:
-    return [str(r.nr), r.name, str(r.level), str(r.rot_stiff), str(r.tr_stiff)]
+    return [str(r.nr), r.name, fmt_number(r.level, 2), str(r.rot_stiff), str(r.tr_stiff)]
 
 
 def _uniform_rij(u: UniformLoad) -> list[str]:
@@ -122,12 +123,12 @@ def _surcharge_rijen(s: SurchargeLoad) -> list[list[str]]:
 
 
 def _lijnlast_rij(h: HorizontalLineLoad) -> list[str]:
-    return [str(h.nr), h.name, str(h.level), str(h.value),
+    return [str(h.nr), h.name, fmt_number(h.level, 2), str(h.value),
             str(h.permanent), str(h.favourable)]
 
 
 def _moment_rij(m: Moment) -> list[str]:
-    return [str(m.nr), m.name, str(m.level), str(m.value),
+    return [str(m.nr), m.name, fmt_number(m.level, 2), str(m.value),
             str(m.permanent), str(m.favourable)]
 
 
@@ -214,8 +215,9 @@ class TabDebugInvoer(QWidget):
                     'segment_bottom', 'height_mm', 'pile_width_mm', 'EI [kNm²/m]',
                     'A [cm²/m]', 'Wres [cm³/m]', 'Mkar [kNm/m]', 'Mopn [kNm/m]', 'staalsoort']
             rijen = [[
-                e.name, str(e.x), str(e.bottom), str(e.top), str(e.width),
-                str(e.segment_top), str(e.segment_bottom), str(e.height_mm),
+                e.name, str(e.x), fmt_number(e.bottom, 2),
+                fmt_number(e.top, 2) if e.top is not None else '-',
+                str(e.width), str(e.segment_top), str(e.segment_bottom), str(e.height_mm),
                 str(e.pile_width_mm), str(e.ei_knm2_per_m), str(e.section_area_cm2),
                 str(e.resisting_moment_cm3), str(e.max_char_moment_knm),
                 str(e.opneembaar_moment_knm), e.steel_quality,
@@ -229,7 +231,7 @@ class TabDebugInvoer(QWidget):
         if p.waterlevels:
             self._voeg_in(_maak_tabel(
                 ['name', 'level [m NAP]'],
-                [[w.name, str(w.level)] for w in p.waterlevels],
+                [[w.name, fmt_number(w.level, 2)] for w in p.waterlevels],
             ))
         else:
             self._voeg_in(_geen_data_label())
@@ -258,7 +260,7 @@ class TabDebugInvoer(QWidget):
                 if profiel.layers:
                     self._voeg_in(_maak_tabel(
                         ['nr', 'level', 'wosp_top', 'wosp_bottom', 'material'],
-                        [[str(l.nr), str(l.level), str(l.wosp_top),
+                        [[str(l.nr), fmt_number(l.level, 2), str(l.wosp_top),
                           str(l.wosp_bottom), l.material]
                          for l in profiel.layers],
                     ))

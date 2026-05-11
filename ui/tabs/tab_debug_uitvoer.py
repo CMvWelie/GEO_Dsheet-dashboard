@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt
 
 from parsers.models import Project
 from ui.table_styles import BASIC_DEBUG_QTABLE_STYLE
+from utils.formatting import fmt_number
 
 # ── Stijlconstanten (identiek aan tab_debug_invoer) ──────────────────────────
 _FONT      = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
@@ -202,7 +203,7 @@ class TabDebugUitvoer(QWidget):
         ond_rijen: list[list[str]] = []
         for rs in p.result_summaries:
             for naam, kracht, niveau in rs.ondersteuningen:
-                ond_rijen.append([str(rs.stage_number), naam, str(kracht), str(niveau)])
+                ond_rijen.append([str(rs.stage_number), naam, str(kracht), fmt_number(niveau, 2)])
         if ond_rijen:
             self._voeg_in(_maak_tabel(
                 ['fase', 'naam', 'kracht [kN/m]', 'niveau [m NAP]'],
@@ -254,7 +255,7 @@ class TabDebugUitvoer(QWidget):
                     rs = result_step.stages[stage_nr]
                     for pt in rs.points:
                         rijen.append([
-                            str(stage_nr), str(pt.depth), str(pt.moment),
+                            str(stage_nr), fmt_number(pt.depth, 2), str(pt.moment),
                             str(pt.shear), str(pt.disp),
                         ])
                 tabel = _maak_tabel(

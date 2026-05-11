@@ -72,16 +72,16 @@ class InputDescriptionBuilder:
             # ── Maaiveld ─────────────────────────────────────────────
             surf_l = _find(project.surfaces, stage.left_surface)
             surf_r = _find(project.surfaces, stage.right_surface)
-            y_l = fmt_number(surf_l.points[0]['y']) if surf_l and surf_l.points else '-'
-            y_r = fmt_number(surf_r.points[0]['y']) if surf_r and surf_r.points else '-'
+            y_l = fmt_number(surf_l.points[0]['y'], 2) if surf_l and surf_l.points else '-'
+            y_r = fmt_number(surf_r.points[0]['y'], 2) if surf_r and surf_r.points else '-'
             card.rows.append(FaseRow('Maaiveld Links',  f'{y_l} [m NAP]'))
             card.rows.append(FaseRow('Maaiveld Rechts', f'{y_r} [m NAP]'))
 
             # ── Waterpeilen ──────────────────────────────────────────
             wl_l = _find(project.waterlevels, stage.left_water)
             wl_r = _find(project.waterlevels, stage.right_water)
-            w_lv = fmt_number(wl_l.level) if wl_l else '-'
-            w_rv = fmt_number(wl_r.level) if wl_r else '-'
+            w_lv = fmt_number(wl_l.level, 2) if wl_l else '-'
+            w_rv = fmt_number(wl_r.level, 2) if wl_r else '-'
             card.rows.append(FaseRow('Water Links',  f'{w_lv} [m NAP]'))
             card.rows.append(FaseRow('Water Rechts', f'{w_rv} [m NAP]'))
 
@@ -91,7 +91,7 @@ class InputDescriptionBuilder:
                 if a:
                     card.rows.append(FaseRow(
                         a.name,
-                        f'{fmt_number(a.level)} [m NAP]',
+                        f'{fmt_number(a.level, 2)} [m NAP]',
                         f'{fmt_number(a.angle)} graden t.o.v. maaiveld',
                     ))
 
@@ -101,7 +101,7 @@ class InputDescriptionBuilder:
                 if st:
                     card.rows.append(FaseRow(
                         st.name,
-                        f'{fmt_number(st.level)} [m NAP]',
+                        f'{fmt_number(st.level, 2)} [m NAP]',
                         f'{fmt_number(st.angle)} graden t.o.v. maaiveld',
                         extra_lines=[f'{fmt_number(st.length)} m lengte'],
                     ))
@@ -112,7 +112,7 @@ class InputDescriptionBuilder:
                 if s:
                     card.rows.append(FaseRow(
                         s.name,
-                        f'{fmt_number(s.level)} [m NAP]',
+                        f'{fmt_number(s.level, 2)} [m NAP]',
                         f'{fmt_number(s.rot_stiff)} [kNm/rad]',
                         extra_lines=[f'{fmt_number(s.tr_stiff)} [kN/m]'],
                     ))
@@ -121,7 +121,7 @@ class InputDescriptionBuilder:
             for name in stage.rigid_supports:
                 r = _find(project.rigid_supports, name)
                 if r:
-                    card.rows.append(FaseRow(r.name, f'{fmt_number(r.level)} [m NAP]'))
+                    card.rows.append(FaseRow(r.name, f'{fmt_number(r.level, 2)} [m NAP]'))
 
             # ── Normaalkrachten ──────────────────────────────────────
             for name in (stage.normal_forces or []):
@@ -178,7 +178,7 @@ class InputDescriptionBuilder:
                 if m:
                     card.rows.append(FaseRow(
                         m.name,
-                        f'{fmt_number(m.level)} [m NAP]',
+                        f'{fmt_number(m.level, 2)} [m NAP]',
                         f'{fmt_number(m.value)} [kNm/m]',
                     ))
 
@@ -188,7 +188,7 @@ class InputDescriptionBuilder:
                 if hl:
                     card.rows.append(FaseRow(
                         hl.name,
-                        f'{fmt_number(hl.level)} [m NAP]',
+                        f'{fmt_number(hl.level, 2)} [m NAP]',
                         f'{fmt_number(hl.value)} [kN/m]',
                     ))
 
@@ -288,14 +288,14 @@ class InputDescriptionBuilder:
             sec.fields.append(ReportField('wall_name', 'Naam', wall.name))
             sec.fields.append(ReportField('wall_x', 'x-positie', fmt_number(wall.x), 'm'))
             sec.fields.append(ReportField('wall_top', 'Bovenzijde',
-                                           fmt_number(wall.top) if wall.top is not None else '-', 'm NAP'))
+                                           fmt_number(wall.top, 2) if wall.top is not None else '-', 'm NAP'))
             sec.fields.append(ReportField('wall_bottom', 'Onderzijde',
-                                           fmt_number(wall.bottom), 'm NAP'))
+                                           fmt_number(wall.bottom, 2), 'm NAP'))
         if project.sheet_piling:
             w = project.sheet_piling[0]
-            top_s = fmt_number(w.top) if w.top is not None else '?'
+            top_s = fmt_number(w.top, 2) if w.top is not None else '?'
             gen = (f'De damwand heeft een bovenzijde op {top_s} m NAP en een '
-                   f'onderzijde op {fmt_number(w.bottom)} m NAP '
+                   f'onderzijde op {fmt_number(w.bottom, 2)} m NAP '
                    f'(totale lengte {fmt_number(abs(w.bottom - (w.top or 0.0)))} m).')
         else:
             gen = 'Er zijn geen damwandpalen gedefinieerd.'
@@ -320,7 +320,7 @@ class InputDescriptionBuilder:
                                        stage.left_water or '-'))
         sec.fields.append(ReportField('right_water', 'Waterpeil rechts',
                                        stage.right_water or '-'))
-        rows = [[w.name, fmt_number(w.level)] for w in project.waterlevels]
+        rows = [[w.name, fmt_number(w.level, 2)] for w in project.waterlevels]
         if rows:
             sec.tables.append(ReportTable(
                 id='waterlevels', title='Waterpeilen',
@@ -358,7 +358,7 @@ class InputDescriptionBuilder:
         active = [_find(project.anchors, n) for n in stage.anchors]
         active = [a for a in active if a]
         if active:
-            rows = [[a.name, fmt_number(a.level), fmt_number(a.length),
+            rows = [[a.name, fmt_number(a.level, 2), fmt_number(a.length),
                      fmt_number(a.angle), fmt_number(a.yield_f)]
                     for a in active]
             sec.tables.append(ReportTable(
@@ -369,8 +369,8 @@ class InputDescriptionBuilder:
             names = ', '.join(a.name for a in active)
             gen = (f'In deze fase zijn {len(active)} anker(s) actief: {names}. '
                    f'De ankers bevinden zich op niveaus variërend van '
-                   f'{fmt_number(min(a.level for a in active))} tot '
-                   f'{fmt_number(max(a.level for a in active))} m NAP.')
+                   f'{fmt_number(min(a.level for a in active), 2)} tot '
+                   f'{fmt_number(max(a.level for a in active), 2)} m NAP.')
         else:
             sec.fields.append(ReportField('anchors_none', 'Ankers', 'Geen actief'))
             gen = 'In deze fase zijn geen ankers actief.'
@@ -382,7 +382,7 @@ class InputDescriptionBuilder:
         active = [_find(project.struts, n) for n in stage.struts]
         active = [s for s in active if s]
         if active:
-            rows = [[s.name, fmt_number(s.level), fmt_number(s.length),
+            rows = [[s.name, fmt_number(s.level, 2), fmt_number(s.length),
                      fmt_number(s.angle), fmt_number(s.yield_f)]
                     for s in active]
             sec.tables.append(ReportTable(
@@ -403,7 +403,7 @@ class InputDescriptionBuilder:
         active_sp = [_find(project.spring_supports, n) for n in stage.spring_supports]
         active_sp = [s for s in active_sp if s]
         if active_sp:
-            rows = [[s.name, fmt_number(s.level), fmt_number(s.rot_stiff),
+            rows = [[s.name, fmt_number(s.level, 2), fmt_number(s.rot_stiff),
                      fmt_number(s.tr_stiff)] for s in active_sp]
             sec.tables.append(ReportTable(
                 id='spring_supports', title='Veersteunen',
@@ -412,7 +412,7 @@ class InputDescriptionBuilder:
         active_rg = [_find(project.rigid_supports, n) for n in stage.rigid_supports]
         active_rg = [r for r in active_rg if r]
         if active_rg:
-            rows = [[r.name, fmt_number(r.level)] for r in active_rg]
+            rows = [[r.name, fmt_number(r.level, 2)] for r in active_rg]
             sec.tables.append(ReportTable(
                 id='rigid_supports', title='Rigide steunen',
                 columns=['Naam', 'Niveau [m NAP]'],
@@ -431,10 +431,10 @@ class InputDescriptionBuilder:
                 continue
             rows = []
             for i, layer in enumerate(profile.layers):
-                bottom = (fmt_number(profile.layers[i + 1].level)
+                bottom = (fmt_number(profile.layers[i + 1].level, 2)
                           if i + 1 < len(profile.layers) else '...')
                 rows.append([str(layer.nr), layer.material,
-                             fmt_number(layer.level), bottom])
+                             fmt_number(layer.level, 2), bottom])
             sec.tables.append(ReportTable(
                 id=f'soil_layers_{side.lower()}',
                 title=f'Grondlagen {side} — {profile.name}',

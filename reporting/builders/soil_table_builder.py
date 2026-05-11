@@ -62,7 +62,7 @@ class SoilTableBuilder:
         n = len(profiel.layers)
         rijen: list[list[str]] = []
         for i, laag in enumerate(profiel.layers):
-            ok = fmt_number(profiel.layers[i + 1].level) if i + 1 < n else '-'
+            ok = fmt_number(profiel.layers[i + 1].level, 2) if i + 1 < n else '-'
             soil = soil_map.get(laag.material)
             if soil:
                 params: list[str] = [
@@ -78,7 +78,7 @@ class SoilTableBuilder:
                 ]
             else:
                 params = ['-'] * 8
-            rijen.append([fmt_number(laag.level), ok, laag.material] + params)
+            rijen.append([fmt_number(laag.level, 2), ok, laag.material] + params)
         return ReportTable(
             id='',        # wordt gezet door _bouw_sectie
             title='',

@@ -84,15 +84,15 @@ class DamwandHoofdstukBuilder:
             ReportField('ei_knm2',           'Buigstijfheid EI',            fmt_number(w.ei_knm2_per_m),        'kNm²/m'),
             ReportField('wel_cm3',           'Weerstandsmoment Wy;el',      fmt_number(w.resisting_moment_cm3), 'cm³/m'),
             ReportField('opneembaar_moment', 'Opneembaar moment M',         fmt_number(w.opneembaar_moment_knm), 'kNm/m'),
-            ReportField('kopniveau',         'Kopniveau',                   fmt_number(w.top) if w.top is not None else '-', 'm NAP'),
-            ReportField('teenniveau',        'Teenniveau',                  fmt_number(w.bottom),               'm NAP'),
+            ReportField('kopniveau',         'Kopniveau',                   fmt_number(w.top, 2) if w.top is not None else '-', 'm NAP'),
+            ReportField('teenniveau',        'Teenniveau',                  fmt_number(w.bottom, 2),            'm NAP'),
             ReportField('lengte',            'Lengte',                      lengte_str,                         'm'),
         ]
         for naam, niveau in self._actieve_ondersteuningen(project):
             sec.fields.append(ReportField(
                 f'ondersteuning_{len(sec.fields)}',
                 naam,
-                fmt_number(niveau),
+                fmt_number(niveau, 2),
                 'm NAP',
             ))
         return sec

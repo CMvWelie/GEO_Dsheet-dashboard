@@ -226,14 +226,14 @@ class TabInputDesc(QWidget):
             ('Buigstijfheid EI', fmt_number(card.ei_knm2), '[kNm²/m]'),
             ('Weerstandsmoment Wy;el', fmt_number(card.weerstandsmoment_cm3), '[cm³/m]'),
             ('Opneembaar moment M', fmt_number(card.opneembaar_moment_knm), '[kNm/m]'),
-            ('Kopniveau', fmt_number(card.kopniveau), '[m NAP]'),
-            ('Teenniveau', fmt_number(card.teenniveau), '[m NAP]'),
+            ('Kopniveau', fmt_number(card.kopniveau, 2), '[m NAP]'),
+            ('Teenniveau', fmt_number(card.teenniveau, 2), '[m NAP]'),
             ('Lengte', fmt_number(card.lengte), '[m]'),
         ]
         if card.ondersteuningen:
             rijen.append(None)
             for naam, niveau in card.ondersteuningen:
-                rijen.append((naam, fmt_number(niveau), '[m NAP]'))
+                rijen.append((naam, fmt_number(niveau, 2), '[m NAP]'))
 
         grid_w = QWidget()
         grid_w.setStyleSheet(f'background: {_CARD_BG}; border: none;')

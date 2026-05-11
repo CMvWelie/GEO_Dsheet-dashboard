@@ -216,13 +216,13 @@ class TabGrondsoorten(QWidget):
         for i, laag in enumerate(profiel.layers):
             bk = laag.level
             if i + 1 < n_lagen:
-                ok_val: str = fmt_number(profiel.layers[i + 1].level)
+                ok_val: str = fmt_number(profiel.layers[i + 1].level, 2)
             else:
                 ok_val = 'Max'
 
             soil = soil_map.get(laag.material)
             rijen.append([
-                fmt_number(bk),
+                fmt_number(bk, 2),
                 ok_val,
                 laag.material,
                 fmt_number(soil.gamma_dry) if soil else '-',

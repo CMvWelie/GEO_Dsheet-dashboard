@@ -46,7 +46,7 @@ def test_anchor_rapporteert_niveau_en_hoek() -> None:
     )
     cards = InputDescriptionBuilder().build_all_stages(project)
     rijen = {r.label: r for r in cards[0].rows}
-    assert rijen['Leganker'].value == '-0,3 [m NAP]'
+    assert rijen['Leganker'].value == '-0,30 [m NAP]'
     assert '0' in rijen['Leganker'].extra and 'maaiveld' in rijen['Leganker'].extra
 
 
@@ -60,7 +60,7 @@ def test_strut_rapporteert_niveau_hoek_en_lengte() -> None:
     )
     cards = InputDescriptionBuilder().build_all_stages(project)
     rij = next(r for r in cards[0].rows if r.label == 'Stempel')
-    assert rij.value == '-1,0 [m NAP]'
+    assert rij.value == '-1,00 [m NAP]'
     assert 'maaiveld' in rij.extra
     assert any('lengte' in l or '3,5' in l for l in rij.extra_lines)
 
@@ -75,7 +75,7 @@ def test_spring_support_rapporteert_niveau_en_twee_veerwaardes() -> None:
     )
     cards = InputDescriptionBuilder().build_all_stages(project)
     rij = next(r for r in cards[0].rows if r.label == 'Veersteun')
-    assert rij.value == '-2,0 [m NAP]'
+    assert rij.value == '-2,00 [m NAP]'
     assert 'kNm/rad' in rij.extra
     assert len(rij.extra_lines) == 1
     assert 'kN/m' in rij.extra_lines[0]
@@ -91,7 +91,7 @@ def test_rigid_support_rapporteert_alleen_niveau() -> None:
     )
     cards = InputDescriptionBuilder().build_all_stages(project)
     rij = next(r for r in cards[0].rows if r.label == 'Rigide')
-    assert rij.value == '-1,5 [m NAP]'
+    assert rij.value == '-1,50 [m NAP]'
     assert rij.extra == ''
     assert rij.extra_lines == []
 
@@ -140,7 +140,7 @@ def test_moment_rapporteert_niveau_en_waarde() -> None:
     )
     cards = InputDescriptionBuilder().build_all_stages(project)
     rij = next(r for r in cards[0].rows if r.label == 'Leuningmoment')
-    assert rij.value == '-1,0 [m NAP]'
+    assert rij.value == '-1,00 [m NAP]'
     assert '12,5' in rij.extra and 'kNm/m' in rij.extra
 
 
@@ -154,7 +154,7 @@ def test_horizontal_line_load_rapporteert_niveau_en_waarde() -> None:
     )
     cards = InputDescriptionBuilder().build_all_stages(project)
     rij = next(r for r in cards[0].rows if r.label == 'Leuninglast')
-    assert rij.value == '-1,0 [m NAP]'
+    assert rij.value == '-1,00 [m NAP]'
     assert '7,5' in rij.extra and 'kN/m' in rij.extra
 
 

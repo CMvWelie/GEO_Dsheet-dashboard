@@ -283,3 +283,52 @@ class OutputRenderer(BaseRenderer):
                               half_width_m=half_width_m)
 
         fig.tight_layout()
+
+
+def render_single_result_chart(
+    fig: Figure,
+    project: Project,
+    output_stage_index: int,
+    chart_idx: int,
+    active_result_step: str | None,
+    render_settings: RenderSettings | None = None,
+    subtitle: str | None = None,
+) -> None:
+    """Teken één resultaatgrafiek als zelfstandige afbeelding (voor klembord-export).
+
+    Parameters
+    ----------
+    fig:                  Matplotlib Figure met één subplot.
+    project:              Huidig project.
+    output_stage_index:   Index van de actieve uitvoerfase.
+    chart_idx:            0 = Momenten, 1 = Dwarskrachten, 2 = Vervormingen.
+    active_result_step:   Genormaliseerde sleutel van de VERIFY STEP.
+    render_settings:      Optionele renderinstellingen.
+    subtitle:             Optionele subtitel (bijv. 'Fase 2  ·  CUR 166 rep 1').
+    """
+    fig.clear()
+    ax = fig.add_subplot(111)
+    output_stage = (project.stages[output_stage_index]
+                    if 0 <= output_stage_index < len(project.stages) else None)
+    stage_number = output_stage_index + 1
+    result_stage = _get_stage_result(project, active_result_step, stage_number)
+    half_width_m = (render_settings.resultaat_half_breedte_m
+                    if render_settings else 10.0)
+    title, unit, key = OutputRenderer._CHARTS[chart_idx]
+    draw_result_chart(ax, title, unit, key, result_stage, project,
+                      output_stage, render_settings, half_width_m=half_width_m)
+    chart_title = ax.get_title()
+    ax.set_title('', pad=4)
+    if subtitle:
+        ax.set_title(chart_title, fontsize=10, fontweight='bold', loc='left', pad=34)
+        ax.annotate(
+            subtitle,
+            xy=(0, 1), xycoords='axes fraction',
+            xytext=(0, 22), textcoords='offset points',
+            ha='left', va='bottom',
+            fontsize=8, color='#888888',
+            clip_on=False, annotation_clip=False,
+        )
+    else:
+        ax.set_title(chart_title, fontsize=10, fontweight='bold', loc='left', pad=22)
+    fig.tight_layout()
