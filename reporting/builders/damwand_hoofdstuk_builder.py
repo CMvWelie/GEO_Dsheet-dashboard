@@ -17,6 +17,7 @@ from reporting.builders.damwand_tekst import (
     damwand_toelichting_tekst,
 )
 from reporting.builders.soil_table_builder import SoilTableBuilder
+from reporting.builders.soil_table_v2_builder import SoilTableV2Builder
 from reporting.builders.input_description_builder import InputDescriptionBuilder
 from reporting.builders.result_description_builder import ResultDescriptionBuilder
 from utils.formatting import fmt_number
@@ -304,6 +305,7 @@ class DamwandHoofdstukBuilder:
         """
         secties: list[ReportSection] = []
         secties += SoilTableBuilder().build(project)             # 1. Grondlagen
+        secties += SoilTableV2Builder().build(project)           # 1b. Grondlagen v2
         secties.append(self._bouw_damwand_sectie(project))       # 2. Damwandgegevens
         secties += self._bouw_fase_secties(project)              # 3. Invoer per fase
         secties += ResultDescriptionBuilder().build(project, 0, None)  # 4. Resultaatbeschrijving

@@ -38,12 +38,11 @@ def _laag_sleutels(profiel: SoilProfile | None) -> list[tuple]:
     return [(l.level, l.material) for l in profiel.layers]
 
 
-def _fase_titel(namen: list[str]) -> str:
-    """Bouw de sectietitel op uit één of meerdere fasenamen."""
+def _fase_intro(namen: list[str]) -> tuple[str, list[str]]:
+    """Bouw de introtekst en eventuele faselijst voor een grondlaagopbouw."""
     if len(namen) == 1:
-        return f'Grondlagen fase: "{namen[0]}"'
-    hoofd = ', '.join(f'"{n}"' for n in namen[:-1])
-    return f'Grondlagen fases: {hoofd} & "{namen[-1]}"'
+        return f'In de fase "{namen[0]}" wordt het volgende profiel gehanteerd:', []
+    return 'Het volgende profiel wordt gehanteerd in de volgende fases:', namen
 
 
 class TabGrondsoortenv2(QWidget):
@@ -120,9 +119,13 @@ class TabGrondsoortenv2(QWidget):
 
         vorige_l: tuple = ()
         vorige_r: tuple = ()
-        for groep in groepen:
+        for index, groep in enumerate(groepen):
             namen = groep['namen']
-            self._voeg_sectie_kop_toe(_fase_titel(namen))
+            if index == 0:
+                self._voeg_sectie_kop_toe('Grondlaagopbouw fases')
+            else:
+                self._voeg_witregel_toe()
+            self._voeg_fase_intro_toe(namen, witregel_na=bool(index))
             links_ongewijzigd = bool(vorige_l) and groep['sleutel_l'] == vorige_l
             rechts_ongewijzigd = bool(vorige_r) and groep['sleutel_r'] == vorige_r
             widget: QWidget = self._maak_fase_tabel(
@@ -158,6 +161,45 @@ class TabGrondsoortenv2(QWidget):
             f'padding: 16px 4px 6px 4px;'
         )
         self._content_layout.insertWidget(self._content_layout.count() - 1, lbl)
+
+    def _voeg_witregel_toe(self) -> None:
+        """Voeg een compacte witregel toe tussen tekstblokken en tabellen."""
+        spacer = QWidget()
+        spacer.setFixedHeight(8)
+        self._content_layout.insertWidget(self._content_layout.count() - 1, spacer)
+
+    def _voeg_fase_intro_toe(
+        self,
+        namen: list[str],
+        *,
+        witregel_na: bool = False,
+    ) -> None:
+        """Voeg de toelichting bij een fasegroep toe boven de tabel."""
+        intro, bullets = _fase_intro(namen)
+
+        lbl = QLabel(intro)
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(
+            f'font-family: {_ts.TABLE_FONT}; font-size: 12px; '
+            f'color: {_ts.TABLE_VALUE_COLOR}; background: transparent; '
+            f'padding: 0 4px 4px 4px;'
+        )
+        self._content_layout.insertWidget(self._content_layout.count() - 1, lbl)
+
+        for fase_naam in bullets:
+            bullet = QLabel(f'- {fase_naam}')
+            bullet.setWordWrap(True)
+            bullet.setStyleSheet(
+                f'font-family: {_ts.TABLE_FONT}; font-size: 12px; '
+                f'color: {_ts.TABLE_VALUE_COLOR}; background: transparent; '
+                f'padding: 0 4px 2px 20px;'
+            )
+            self._content_layout.insertWidget(
+                self._content_layout.count() - 1,
+                bullet,
+            )
+        if bullets or witregel_na:
+            self._voeg_witregel_toe()
 
     # ------------------------------------------------------------------
     # Grondsoorten-overzichtstabel (deel 1)
@@ -215,7 +257,12 @@ class TabGrondsoortenv2(QWidget):
         n = len(_SOIL_KOLOMMEN)
         for col, tekst in enumerate(_SOIL_KOLOMMEN):
             lbl = QLabel(tekst)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft
+                if col == 0
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
             border_r = (
                 f'border-right: 1px solid {_ts.TABLE_BORDER};'
                 if col < n - 1 else ''
@@ -324,7 +371,12 @@ class TabGrondsoortenv2(QWidget):
         subkoppen = ['Laag', 'b.k. laag', 'o.k. laag', 'Laag', 'b.k. laag', 'o.k. laag']
         for col, tekst in enumerate(subkoppen):
             lbl = QLabel(tekst)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft
+                if col in (0, 3)
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
             border_r = (
                 f'border-right: 1px solid {_ts.TABLE_BORDER};' if col < 5 else ''
             )

@@ -4,6 +4,7 @@ import sys, os, tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from reporting.models import ReportSection, ReportField, ReportTable, ReportImageRequest, ReportMetadata, TextBlock
 from exporters.word_hoofdstuk_exporter import WordHoofdstukExporter
 
@@ -73,6 +74,172 @@ def test_tabel_kolommen_aanwezig() -> None:
     header_cellen = [c.text for c in doc.tables[0].rows[0].cells]
     assert 'Fase' in header_cellen
     assert 'Moment' in header_cellen
+
+
+def test_grondsoorten_v2_overzicht_lijnt_laagdata_links_uit() -> None:
+    sec = ReportSection(id='grondsoorten_v2_overzicht', title='Grondsoorten')
+    sec.tables.append(ReportTable(
+        id='grondsoorten_v2_overzicht_tabel',
+        title='',
+        columns=['Laag', 'gamma'],
+        rows=[['Zand', '18,0']],
+    ))
+
+    doc = _export([sec])
+
+    assert doc.tables[0].rows[1].cells[0].paragraphs[0].alignment == (
+        WD_ALIGN_PARAGRAPH.LEFT
+    )
+
+
+def test_tabel_met_kolomgroepen_wordt_geschreven() -> None:
+    from docx.oxml.ns import qn
+
+    sec = ReportSection(id='grondsoorten_v2_fase_1', title='Grondlaagopbouw fases')
+    sec.tables.append(ReportTable(
+        id='grondsoorten_v2_fase_1_tabel',
+        title='',
+        columns=['Laag', 'b.k. laag', 'o.k. laag', 'Laag', 'b.k. laag', 'o.k. laag'],
+        rows=[['Zand', '0,00', 'Max', 'Klei', '0,00', 'Max']],
+        column_groups=[
+            ('Grondlagen linkerzijde', 3),
+            ('Grondlagen rechterzijde', 3),
+        ],
+    ))
+
+    doc = _export([sec])
+
+    assert 'Grondlagen linkerzijde' in doc.tables[0].rows[0].cells[0].text
+    assert 'Grondlagen rechterzijde' in doc.tables[0].rows[0].cells[3].text
+    assert [col.get(qn('w:w')) for col in doc.tables[0]._tbl.tblGrid.gridCol_lst] == [
+        '2268', '1134', '1134', '2268', '1134', '1134',
+    ]
+    assert doc.tables[0].rows[0].cells[0]._tc.tcPr.tcW.w == 4536
+    assert doc.tables[0].rows[0].cells[3]._tc.tcPr.tcW.w == 4536
+    assert [
+        cell._tc.tcPr.tcW.w
+        for cell in doc.tables[0].rows[2].cells
+    ] == [2268, 1134, 1134, 2268, 1134, 1134]
+    assert doc.tables[0].rows[2].cells[0].paragraphs[0].alignment == (
+        WD_ALIGN_PARAGRAPH.LEFT
+    )
+    assert doc.tables[0].rows[2].cells[3].paragraphs[0].alignment == (
+        WD_ALIGN_PARAGRAPH.LEFT
+    )
+
+
+def test_grondsoorten_v2_ongewijzigde_zijde_wordt_samengevoegd() -> None:
+    from docx.oxml.ns import qn
+
+    sec = ReportSection(id='grondsoorten_v2_fase_2', title='')
+    sec.tables.append(ReportTable(
+        id='grondsoorten_v2_fase_2_tabel',
+        title='',
+        columns=['Laag', 'b.k. laag', 'o.k. laag', 'Laag', 'b.k. laag', 'o.k. laag'],
+        rows=[
+            [
+                'Zand', '0,00', '-5,00',
+                'Grondopbouw ongewijzigd t.o.v. vorige fase', '', '',
+            ],
+            ['Klei', '-5,00', 'Max', '', '', ''],
+        ],
+        column_groups=[
+            ('Grondlagen linkerzijde', 3),
+            ('Grondlagen rechterzijde', 3),
+        ],
+    ))
+
+    doc = _export([sec])
+    samengevoegd = doc.tables[0].rows[2].cells[3]
+    tc_pr = samengevoegd._tc.tcPr
+
+    assert samengevoegd.text == 'Grondopbouw ongewijzigd t.o.v. vorige fase'
+    assert tc_pr.gridSpan.val == 3
+    assert tc_pr.tcW.w == 4536
+    assert tc_pr.find(qn('w:vMerge')).get(qn('w:val')) == 'restart'
+    assert tc_pr.find(qn('w:vAlign')).get(qn('w:val')) == 'center'
+
+
+def test_grondsoorten_v2_fase_intro_voor_tabel_met_word_bullets() -> None:
+    from docx.oxml.ns import qn
+
+    sec = ReportSection(id='grondsoorten_v2_fase_1', title='Grondlaagopbouw fases')
+    sec.text_blocks.append(TextBlock(
+        id='intro',
+        section='grondsoorten_v2_fase_1',
+        generated_text=(
+            'Het volgende profiel wordt gehanteerd in de volgende fases:\n'
+            'Fase 1\n'
+            'Fase 2'
+        ),
+    ))
+    sec.tables.append(ReportTable(
+        id='t',
+        title='',
+        columns=['Laag', 'b.k. laag', 'o.k. laag'],
+        rows=[['Zand', '0,00', 'Max']],
+    ))
+
+    doc = _export([sec])
+    teksten = [p.text for p in doc.paragraphs if p.text.strip()]
+
+    assert teksten[:4] == [
+        'Testproject',
+        'Grondlaagopbouw fases',
+        'Het volgende profiel wordt gehanteerd in de volgende fases:',
+        'Fase 1',
+    ]
+    assert teksten[4] == 'Fase 2'
+    for tekst in ('Fase 1', 'Fase 2'):
+        para = next(p for p in doc.paragraphs if p.text == tekst)
+        num_pr = para._element.pPr.find(qn('w:numPr'))
+        assert num_pr is not None
+    alle_teksten = [p.text for p in doc.paragraphs]
+    assert alle_teksten[alle_teksten.index('Fase 2') + 1] == ''
+    assert any(
+        lvl_text.get(qn('w:val')) == '-'
+        for lvl_text in doc.part.numbering_part.element.iter(qn('w:lvlText'))
+    )
+
+
+def test_grondsoorten_v2_tweede_fasetabel_krijgt_geen_extra_heading() -> None:
+    eerste = ReportSection(id='grondsoorten_v2_fase_1', title='Grondlaagopbouw fases')
+    eerste.text_blocks.append(TextBlock(
+        id='intro_1',
+        section='grondsoorten_v2_fase_1',
+        generated_text='In de fase "Fase 1" wordt het volgende profiel gehanteerd:',
+    ))
+    eerste.tables.append(ReportTable(
+        id='grondsoorten_v2_fase_1_tabel',
+        title='',
+        columns=['Laag', 'b.k. laag', 'o.k. laag'],
+        rows=[['Zand', '0,00', 'Max']],
+    ))
+    tweede = ReportSection(id='grondsoorten_v2_fase_2', title='')
+    tweede.text_blocks.append(TextBlock(
+        id='intro_2',
+        section='grondsoorten_v2_fase_2',
+        generated_text='In de fase "Fase 2" wordt het volgende profiel gehanteerd:',
+    ))
+    tweede.tables.append(ReportTable(
+        id='grondsoorten_v2_fase_2_tabel',
+        title='',
+        columns=['Laag', 'b.k. laag', 'o.k. laag'],
+        rows=[['Klei', '-1,00', 'Max']],
+    ))
+
+    doc = _export([eerste, tweede])
+    teksten = [p.text for p in doc.paragraphs]
+
+    assert teksten.count('Grondlaagopbouw fases') == 1
+    assert 'In de fase "Fase 1" wordt het volgende profiel gehanteerd:' in teksten
+    assert 'In de fase "Fase 2" wordt het volgende profiel gehanteerd:' in teksten
+    tweede_intro_index = teksten.index(
+        'In de fase "Fase 2" wordt het volgende profiel gehanteerd:'
+    )
+    assert teksten[tweede_intro_index - 1] == ''
+    assert teksten[tweede_intro_index + 1] == ''
+    assert len(doc.tables) == 2
 
 
 def test_export_zonder_template_gebruikt_lege_doc() -> None:

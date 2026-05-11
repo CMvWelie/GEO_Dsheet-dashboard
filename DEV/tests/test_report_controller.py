@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.report_controller import ReportController
 from app.report_state import ReportState
 from app.state import AppState
-from parsers.models import FileBundle, Project, SoilLayer, SoilProfile, Stage
+from parsers.models import FileBundle, Project, Soil, SoilLayer, SoilProfile, Stage
 from reporting.models import ReportMetadata
 
 
@@ -28,6 +28,21 @@ def _project() -> Project:
     )
 
 
+def _project_met_grondsoorten() -> Project:
+    project = _project()
+    project.soils = [
+        Soil(
+            name='Zand',
+            color='rgb(0,0,0)',
+            color_int=None,
+            gamma_dry=17.0,
+            gamma_wet=19.0,
+        )
+    ]
+    project.stages[0].left_profile = 'Links'
+    return project
+
+
 def test_auto_populate_plan_hanteert_vaste_rapportvolgorde() -> None:
     """Rapportplan volgt de volgorde van de hoofdstukbuilder."""
     app_state = AppState(projects={'p': _project()}, active_project='p')
@@ -43,6 +58,19 @@ def test_auto_populate_plan_hanteert_vaste_rapportvolgorde() -> None:
         'fase_1_invoer',
         'anchor_forces',
     ]
+
+
+def test_auto_populate_plan_neemt_grondsoortentabel_v2_op() -> None:
+    """Grondsoortentabel v2 is beschikbaar voor Word-exportselectie."""
+    app_state = AppState(projects={'p': _project_met_grondsoorten()}, active_project='p')
+    report_state = ReportState()
+    controller = ReportController(app_state, report_state)
+
+    controller.auto_populate_plan()
+
+    item_ids = [item.id for item in report_state.plan.items]
+    assert 'grondsoorten_v2_overzicht' in item_ids
+    assert 'grondsoorten_v2_fase_1' in item_ids
 
 
 def test_set_template_word_slaat_template_op() -> None:

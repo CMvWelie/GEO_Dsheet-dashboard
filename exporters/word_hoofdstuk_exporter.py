@@ -37,6 +37,7 @@ from reporting.figure_renderer import render_figuur
 _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
 _RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 2.5, 3.5, 2.0]  # label, stap, waarde, eenheid
+_GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0, 4.0, 2.0, 2.0]
 _DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
 _DAMWAND_SCHEIDING_TWIPS = 40
 _RESULTAAT_SECTIE_IDS = {
@@ -204,6 +205,9 @@ class WordHoofdstukExporter:
         if sec.id == 'extremen_overzicht':
             self._schrijf_extremen_overzicht_sectie(doc, sec, project)
             return
+        if sec.id.startswith('grondsoorten_v2_fase_'):
+            self._schrijf_grondsoorten_v2_fase_sectie(doc, sec)
+            return
 
         doc.add_heading(sec.title, level=2)
         for veld in sec.fields:
@@ -217,6 +221,24 @@ class WordHoofdstukExporter:
             self._schrijf_figuur(doc, img_req, project)
         for groep in sec.image_groups:
             self._schrijf_figuurgroep(doc, groep, project)
+
+    def _schrijf_grondsoorten_v2_fase_sectie(
+        self,
+        doc: Document,
+        sec: ReportSection,
+    ) -> None:
+        """Schrijf een Grondsoortentabel v2-fasesectie met intro voor de tabel."""
+        if sec.title:
+            doc.add_heading(sec.title, level=2)
+        else:
+            doc.add_paragraph()
+        for tb in sec.text_blocks:
+            tekst = tb.effective_text
+            self._schrijf_toelichting_met_bullets(doc, tekst)
+            if len((tekst or '').splitlines()) > 1 or not sec.title:
+                doc.add_paragraph()
+        for tabel in sec.tables:
+            self._schrijf_tabel(doc, tabel)
 
     def _schrijf_damwandgegevens_sectie(
         self,
@@ -1020,6 +1042,15 @@ class WordHoofdstukExporter:
         tc_w.set(qn('w:w'), str(breedte_dxa))
         tc_w.set(qn('w:type'), 'dxa')
 
+    def _stel_cel_verticale_uitlijning(self, cell, waarde: str) -> None:
+        """Zet verticale celuitlijning in Word."""
+        tc_pr = cell._tc.get_or_add_tcPr()
+        v_align = tc_pr.find(qn('w:vAlign'))
+        if v_align is None:
+            v_align = OxmlElement('w:vAlign')
+            tc_pr.append(v_align)
+        v_align.set(qn('w:val'), waarde)
+
     def _stel_cant_split(self, row) -> None:
         """Voorkom dat Word deze rij over een pagina-einde breekt."""
         tr_pr = row._tr.get_or_add_trPr()
@@ -1074,7 +1105,19 @@ class WordHoofdstukExporter:
             t.style = 'Table Grid'
         except KeyError:
             pass
-        t.autofit = True
+        vaste_breedtes_cm = (
+            _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM
+            if str(tabel.id).startswith('grondsoorten_v2_fase_')
+            and n_cols == len(_GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM)
+            else []
+        )
+        t.autofit = not bool(vaste_breedtes_cm)
+        vaste_breedtes_dxa = [round(cm * 567) for cm in vaste_breedtes_cm]
+        if vaste_breedtes_cm:
+            self._stel_tabel_grid_in(t, vaste_breedtes_cm)
+            for row in t.rows:
+                for col_idx, cell in enumerate(row.cells[:n_cols]):
+                    self._stel_cel_breedte(cell, vaste_breedtes_dxa[col_idx])
 
         if heeft_groepen:
             col_offset = 0
@@ -1083,6 +1126,11 @@ class WordHoofdstukExporter:
                 if colspan > 1:
                     eind = t.rows[0].cells[col_offset + colspan - 1]
                     start = start.merge(eind)
+                    if vaste_breedtes_dxa:
+                        self._stel_cel_breedte(
+                            start,
+                            sum(vaste_breedtes_dxa[col_offset:col_offset + colspan]),
+                        )
                 start.text = groep_label
                 col_offset += colspan
 
@@ -1103,7 +1151,77 @@ class WordHoofdstukExporter:
                 if col < len(rij.cells):
                     rij.cells[col].text = str(cel)
 
+        if vaste_breedtes_dxa:
+            self._voeg_grondsoorten_v2_ongewijzigd_merges_toe(
+                t,
+                tabel.rows,
+                kop_rij + 1,
+                vaste_breedtes_dxa,
+            )
+
         self._pas_report_tabel_opmaak_toe(t, heeft_groepen)
+        links_uitlijnen = self._grondsoorten_v2_laagkolommen(tabel.id)
+        if links_uitlijnen:
+            self._lijn_report_datarij_kolommen_links(
+                t,
+                kop_rij + 1,
+                links_uitlijnen,
+            )
+
+    def _voeg_grondsoorten_v2_ongewijzigd_merges_toe(
+        self,
+        tbl: Table,
+        data_rijen: list[list[str]],
+        data_start: int,
+        kolom_breedtes_dxa: list[int],
+    ) -> None:
+        """Voeg ongewijzigde v2-grondopbouwzijden samen zoals in de app."""
+        if not data_rijen:
+            return
+
+        melding = 'Grondopbouw ongewijzigd t.o.v. vorige fase'
+        for col_start in (0, 3):
+            eerste_rij = data_rijen[0]
+            if col_start + 2 >= len(eerste_rij) or eerste_rij[col_start] != melding:
+                continue
+            zijde_is_blok = eerste_rij[col_start + 1:col_start + 3] == ['', '']
+            zijde_is_blok = zijde_is_blok and all(
+                rij[col_start:col_start + 3] == ['', '', '']
+                for rij in data_rijen[1:]
+                if col_start + 2 < len(rij)
+            )
+            if not zijde_is_blok:
+                continue
+
+            start = tbl.rows[data_start].cells[col_start]
+            eind = tbl.rows[data_start + len(data_rijen) - 1].cells[col_start + 2]
+            samengevoegd = start.merge(eind)
+            self._stel_cel_breedte(
+                samengevoegd,
+                sum(kolom_breedtes_dxa[col_start:col_start + 3]),
+            )
+            samengevoegd.text = melding
+            self._stel_cel_verticale_uitlijning(samengevoegd, 'center')
+
+    def _grondsoorten_v2_laagkolommen(self, tabel_id: str) -> list[int]:
+        """Geef links uit te lijnen laagnaamkolommen voor v2-tabellen."""
+        if tabel_id == 'grondsoorten_v2_overzicht_tabel':
+            return [0]
+        if tabel_id.startswith('grondsoorten_v2_fase_'):
+            return [0, 3]
+        return []
+
+    def _lijn_report_datarij_kolommen_links(
+        self,
+        tbl: Table,
+        data_start: int,
+        kolommen: list[int],
+    ) -> None:
+        """Lijn specifieke datarijkolommen in een rapporttabel links uit."""
+        for row in tbl.rows[data_start:]:
+            for col in kolommen:
+                if col < len(row.cells):
+                    row.cells[col].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
 
     def _pas_report_tabel_opmaak_toe(self, tbl: Table, heeft_groepen: bool = False) -> None:
         """Pas themakleuren toe op een generieke rapport-tabel."""

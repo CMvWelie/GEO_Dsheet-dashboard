@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from parsers.models import Project, FileBundle, Soil, SoilProfile, SoilLayer
 from reporting.builders.soil_table_builder import SoilTableBuilder
+from reporting.builders.soil_table_v2_builder import SoilTableV2Builder
 from reporting.models import ReportSection, ReportMetadata
 from reporting.selection import ReportPlan
 
@@ -142,3 +143,90 @@ def test_build_package_bevat_extra_sections() -> None:
     )
     assert len(pkg.extra_sections) == 1
     assert pkg.extra_sections[0].id == 'soil_table_links'
+
+
+def test_v2_bouwt_grondsoortenoverzicht_met_gebruikte_gronden() -> None:
+    zand = _soil('Zand')
+    veen = _soil('Veen')
+    project = _maak_project(
+        profielen=[_maak_profiel('L', [_laag(1, 0.0, 'Zand')])],
+        soils=[zand, veen],
+    )
+
+    secties = SoilTableV2Builder().build(project)
+
+    assert secties[0].id == 'grondsoorten_v2_overzicht'
+    assert secties[0].tables[0].rows[0][0] == 'Zand'
+    assert all(rij[0] != 'Veen' for rij in secties[0].tables[0].rows)
+
+
+def test_v2_bouwt_fasegroep_met_links_rechts_kolomgroepen() -> None:
+    from parsers.models import Stage
+
+    links = _maak_profiel('Links', [_laag(1, 0.0, 'Zand'), _laag(2, -5.0, 'Klei')])
+    rechts = _maak_profiel('Rechts', [_laag(1, 1.0, 'Veen')])
+    project = _maak_project(
+        profielen=[links, rechts],
+        soils=[_soil('Zand'), _soil('Klei'), _soil('Veen')],
+    )
+    project.stages = [Stage(name='Fase 1', left_profile='Links', right_profile='Rechts')]
+
+    secties = SoilTableV2Builder().build(project)
+    fase_tabel = secties[1].tables[0]
+
+    assert secties[1].title == 'Grondlaagopbouw fases'
+    assert secties[1].text_blocks[0].effective_text == (
+        'In de fase "Fase 1" wordt het volgende profiel gehanteerd:'
+    )
+    assert fase_tabel.column_groups == [
+        ('Grondlagen linkerzijde', 3),
+        ('Grondlagen rechterzijde', 3),
+    ]
+    assert fase_tabel.rows[0] == ['Zand', '0,00', '-5,00', 'Veen', '1,00', 'Max']
+
+
+def test_v2_groepeert_opeenvolgende_identieke_fases() -> None:
+    from parsers.models import Stage
+
+    profiel = _maak_profiel('Links', [_laag(1, 0.0, 'Zand')])
+    project = _maak_project(
+        profielen=[profiel],
+        soils=[_soil('Zand')],
+    )
+    project.stages = [
+        Stage(name='Fase 1', left_profile='Links'),
+        Stage(name='Fase 2', left_profile='Links'),
+    ]
+
+    secties = SoilTableV2Builder().build(project)
+
+    assert len(secties) == 2
+    assert secties[1].title == 'Grondlaagopbouw fases'
+    assert secties[1].text_blocks[0].effective_text == (
+        'Het volgende profiel wordt gehanteerd in de volgende fases:\n'
+        'Fase 1\n'
+        'Fase 2'
+    )
+
+
+def test_v2_alleen_eerste_grondlaagopbouwgroep_heeft_titel() -> None:
+    from parsers.models import Stage
+
+    links = _maak_profiel('Links', [_laag(1, 0.0, 'Zand')])
+    rechts = _maak_profiel('Rechts', [_laag(1, -1.0, 'Zand')])
+    project = _maak_project(
+        profielen=[links, rechts],
+        soils=[_soil('Zand')],
+    )
+    project.stages = [
+        Stage(name='Fase 1', left_profile='Links'),
+        Stage(name='Fase 2', left_profile='Rechts'),
+    ]
+
+    secties = SoilTableV2Builder().build(project)
+
+    assert secties[1].title == 'Grondlaagopbouw fases'
+    assert secties[2].title == ''
+    assert secties[2].text_blocks[0].effective_text == (
+        'In de fase "Fase 2" wordt het volgende profiel gehanteerd:'
+    )
