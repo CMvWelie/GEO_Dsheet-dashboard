@@ -199,7 +199,7 @@ class WordHoofdstukExporter:
         if sec.id == 'damwand_gegevens':
             self._schrijf_damwandgegevens_sectie(doc, sec)
             return
-        if sec.id in {'per_phase_summary'}:
+        if sec.id in {'per_phase_summary', 'anchor_forces'}:
             return
         if sec.id == 'extremen_overzicht':
             self._schrijf_extremen_overzicht_sectie(doc, sec, project)

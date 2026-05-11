@@ -101,6 +101,7 @@ class TabResultDesc(QWidget):
 
     def populate(self, sections: list[ReportSection]) -> None:
         """Voeg gegenereerde tekstsecties toe (bestaande API, ongewijzigd)."""
+        sections = [s for s in sections if s.id not in {'anchor_forces', 'per_phase_summary'}]
         # Verwijder alleen de dynamische tekstsecties, niet de specificatietabel.
         verwijder = []
         for i in range(self._main_layout.count()):

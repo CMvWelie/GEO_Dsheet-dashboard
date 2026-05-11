@@ -760,6 +760,8 @@ class MainWindow(QMainWindow):
             self._refresh_input_desc()
         elif active_tab is self._tab_result_desc:
             self._refresh_result_desc()
+        elif active_tab is self._tab_result_view:
+            self._refresh_uitvoer_tabellen()
         elif active_tab is self._tab_grondsoorten:
             self._refresh_grondsoorten()
 
@@ -815,6 +817,8 @@ class MainWindow(QMainWindow):
             self._refresh_input_desc()
         elif tab is self._tab_result_desc:
             self._refresh_result_desc()
+        elif tab is self._tab_result_view:
+            self._refresh_uitvoer_tabellen()
         elif tab is self._tab_grondsoorten:
             self._refresh_grondsoorten()
 
@@ -839,6 +843,11 @@ class MainWindow(QMainWindow):
         self._tab_result_desc.populate_resultaat_tabel(project)
         secs = self._report_controller.build_result_descriptions()
         self._tab_result_desc.populate(secs)
+
+    def _refresh_uitvoer_tabellen(self) -> None:
+        """Ververs de anker- en fase-samenvattingstabellen op de Uitvoer-tab."""
+        secs = self._report_controller.build_result_descriptions()
+        self._tab_result_view.populate_ondersteuning_tabellen(secs)
 
     def _refresh_grondsoorten(self) -> None:
         """Ververs de grondsoortentabel met het actieve project."""

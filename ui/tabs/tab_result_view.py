@@ -3,6 +3,7 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy, QSlider, QFrame,
+    QScrollArea, QTabWidget, QGridLayout, QSplitter,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QTabBar
@@ -11,6 +12,39 @@ import matplotlib
 matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+
+from reporting.models import ReportSection, ReportTable
+from ui.table_styles import (
+    TABLE_BORDER, TABLE_FONT, TABLE_HEADER_BG, TABLE_HEADER_FG,
+    TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG, TABLE_ROW_EVEN_BG,
+    TABLE_ROW_ODD_BG, TABLE_ROW_SEP, TABLE_HEADER_SIZE, TABLE_TEXT_SIZE,
+    TABLE_VALUE_COLOR,
+)
+
+_HDR_BG     = TABLE_HEADER_BG
+_HDR_FG     = TABLE_HEADER_FG
+_SUBHDR_BG  = TABLE_HEADER_SUB_BG
+_SUBHDR_FG  = TABLE_HEADER_SUB_FG
+_BORDER     = TABLE_BORDER
+_ROW_SEP    = TABLE_ROW_SEP
+_ROW_ODD_BG = TABLE_ROW_ODD_BG
+_ROW_EVN_BG = TABLE_ROW_EVEN_BG
+_VALUE_CLR  = TABLE_VALUE_COLOR
+_FONT       = TABLE_FONT
+_HDR_PT     = TABLE_HEADER_SIZE
+_DATA_PT    = TABLE_TEXT_SIZE
+_MIN_H      = 27
+_TBL_STRETCH     = 10
+_TBL_REST_STRETCH = 6
+
+_SECTIE_TOELICHTING: dict[str, str] = {
+    'anchor_forces': (
+        'Per fase de berekende anker- en stempelkrachten voor de aanwezige CUR 166-toetsstappen.'
+    ),
+    'per_phase_summary': (
+        'Maximale absolute waarden per fase, uitgesplitst naar de beschikbare toetsstappen.'
+    ),
+}
 
 
 def _scheidingslijn() -> QFrame:
@@ -103,13 +137,38 @@ class TabResultView(QWidget):
         )
         root.addWidget(breedte_row)
 
-        # ── Canvas ───────────────────────────────────────────────────
+        # ── Splitter: canvas boven, tabellen scroll onder ─────────────
+        self._splitter = QSplitter(Qt.Orientation.Vertical)
+        self._splitter.setChildrenCollapsible(True)
+        self._splitter.setHandleWidth(6)
+        self._splitter.setStyleSheet(
+            'QSplitter::handle { background: #cfd6dd; border-top: 1px solid #b0bec5; }'
+            'QSplitter::handle:hover { background: #90a4ae; }'
+        )
+
         self.results_fig = Figure(figsize=(14, 6), dpi=96)
         self.results_canvas = FigureCanvas(self.results_fig)
-        self.results_canvas.setMinimumHeight(380)
+        self.results_canvas.setMinimumHeight(120)
         self.results_canvas.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        root.addWidget(self.results_canvas, stretch=1)
+        self._splitter.addWidget(self.results_canvas)
+
+        self._tabel_scroll = QScrollArea()
+        self._tabel_scroll.setWidgetResizable(True)
+        self._tabel_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._tabel_content = QWidget()
+        self._tabel_layout = QVBoxLayout(self._tabel_content)
+        self._tabel_layout.setContentsMargins(0, 4, 0, 8)
+        self._tabel_layout.setSpacing(8)
+        self._tabel_layout.addStretch()
+        self._tabel_scroll.setWidget(self._tabel_content)
+        self._splitter.addWidget(self._tabel_scroll)
+
+        self._splitter.setStretchFactor(0, 1)
+        self._splitter.setStretchFactor(1, 0)
+        self._splitter.setSizes([600, 0])
+
+        root.addWidget(self._splitter, stretch=1)
 
     # ------------------------------------------------------------------
     # Publieke API
@@ -193,3 +252,139 @@ class TabResultView(QWidget):
         self.breedte_slider.setValue(waarde)
         self.breedte_slider.blockSignals(False)
         self._breedte_lbl.setText(f'{waarde} m')
+
+    def populate_ondersteuning_tabellen(self, sections: list[ReportSection]) -> None:
+        """Vul de tabelzone onder het canvas met anker- en fase-samenvattingstabellen.
+
+        Parameters
+        ----------
+        sections:
+            Resultaatbeschrijvingssecties; alleen anchor_forces en per_phase_summary
+            worden weergegeven.
+        """
+        while self._tabel_layout.count() > 1:
+            item = self._tabel_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+
+        doelsecties = [s for s in sections if s.id in {'anchor_forces', 'per_phase_summary'}]
+        if not doelsecties:
+            self._splitter.setSizes([600, 0])
+            return
+
+        for sec in doelsecties:
+            if not sec.tables:
+                continue
+            titel = QLabel(sec.title)
+            titel.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 14px; font-weight: 700; '
+                f'color: {_VALUE_CLR}; background: transparent; padding: 4px 4px 2px 4px;'
+            )
+            self._tabel_layout.insertWidget(self._tabel_layout.count() - 1, titel)
+
+            toelichting = _SECTIE_TOELICHTING.get(sec.id)
+            if toelichting:
+                toel = QLabel(toelichting)
+                toel.setWordWrap(True)
+                toel.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: 12px; color: {_VALUE_CLR}; '
+                    f'background: transparent; padding: 0px 4px 4px 4px;'
+                )
+                self._tabel_layout.insertWidget(self._tabel_layout.count() - 1, toel)
+
+            gebruik_tabs = len(sec.tables) > 1 or (
+                len(sec.tables) == 1 and bool(sec.tables[0].title)
+            )
+            if gebruik_tabs:
+                tabs = QTabWidget()
+                tabs.setDocumentMode(True)
+                for table in sec.tables:
+                    tabs.addTab(self._maak_styled_tabel(table), table.title)
+                self._tabel_layout.insertWidget(self._tabel_layout.count() - 1, tabs)
+            else:
+                for table in sec.tables:
+                    self._tabel_layout.insertWidget(
+                        self._tabel_layout.count() - 1, self._maak_styled_tabel(table)
+                    )
+
+        total = self._splitter.height()
+        tabel_h = min(240, max(120, total // 3))
+        self._splitter.setSizes([total - tabel_h, tabel_h])
+
+    # ------------------------------------------------------------------
+    # Tabelrendering (identieke stijl als tab_result_desc)
+    # ------------------------------------------------------------------
+
+    def _maak_styled_tabel(self, table: ReportTable) -> QWidget:
+        """Rendert een ReportTable als gestijlde grid-tabel."""
+        wrapper = QWidget()
+        wrapper.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+        buitenste = QHBoxLayout(wrapper)
+        buitenste.setContentsMargins(0, 0, 0, 0)
+        buitenste.setSpacing(0)
+
+        frame = QFrame()
+        frame.setStyleSheet(f'QFrame {{ background: white; border: 1px solid {_BORDER}; }}')
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        buitenste.addWidget(frame, stretch=_TBL_STRETCH)
+        buitenste.addStretch(_TBL_REST_STRETCH)
+
+        grid = QGridLayout(frame)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+
+        n_cols = len(table.columns)
+        heeft_groepen = bool(table.column_groups)
+        kop_rij = 1 if heeft_groepen else 0
+        data_start = kop_rij + 1
+
+        if heeft_groepen:
+            col_offset = 0
+            for groep_label, colspan in table.column_groups:
+                lbl = QLabel(groep_label)
+                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                groep_bg = _HDR_BG if not groep_label else _SUBHDR_BG
+                border_r = (f'border-right: 1px solid {_BORDER};'
+                             if col_offset + colspan < n_cols else '')
+                lbl.setMinimumHeight(_MIN_H)
+                lbl.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+                    f'color: {_HDR_FG}; background: {groep_bg}; '
+                    f'padding: 3px 6px; min-height: {_MIN_H}px; {border_r}'
+                )
+                grid.addWidget(lbl, 0, col_offset, 1, colspan)
+                col_offset += colspan
+
+        for col, kop in enumerate(table.columns):
+            lbl = QLabel(kop)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            border_r = f'border-right: 1px solid {_BORDER};' if col < n_cols - 1 else ''
+            lbl.setMinimumHeight(_MIN_H)
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: {_HDR_PT}pt; font-weight: 700; '
+                f'color: {_SUBHDR_FG}; background: {_HDR_BG}; '
+                f'padding: 3px 6px; min-height: {_MIN_H}px; {border_r}'
+            )
+            grid.addWidget(lbl, kop_rij, col)
+
+        for row_i, rij in enumerate(table.rows):
+            bg = _ROW_ODD_BG if row_i % 2 == 0 else _ROW_EVN_BG
+            is_last = row_i == len(table.rows) - 1
+            border_b = '' if is_last else f'border-bottom: 1px solid {_ROW_SEP};'
+            for col, cel in enumerate(rij):
+                uitlijning = (Qt.AlignmentFlag.AlignLeft if col == 0
+                              else Qt.AlignmentFlag.AlignRight)
+                cel_lbl = QLabel(str(cel))
+                cel_lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+                cel_lbl.setMinimumHeight(_MIN_H)
+                border_r = (f'border-right: 1px solid {_ROW_SEP};'
+                             if col < n_cols - 1 else '')
+                cel_lbl.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: {_DATA_PT}pt; color: {_VALUE_CLR}; '
+                    f'background: {bg}; padding: 2px 6px; '
+                    f'min-height: {_MIN_H}px; {border_r} {border_b}'
+                )
+                grid.addWidget(cel_lbl, data_start + row_i, col)
+
+        return wrapper
