@@ -394,6 +394,7 @@ class MainWindow(QMainWindow):
         self._tab_report_select.selection_changed.connect(
             self._update_word_pdf_preview
         )
+        self._tab_report_select.selection_changed.connect(self._markeer_gewijzigd)
 
         self._bestand_menu_btn.nieuw_gevraagd.connect(self._on_nieuw)
         self._bestand_menu_btn.openen_gevraagd.connect(self._on_sessie_openen)
@@ -419,6 +420,7 @@ class MainWindow(QMainWindow):
         if not ok:
             QMessageBox.warning(self, 'Leesfouten', msg)
         self._parse_files()
+        self._markeer_gewijzigd()
 
     def _refresh_files_list(self) -> None:
         self._tab_report_context.refresh_projects(self._state.projects)
@@ -450,6 +452,7 @@ class MainWindow(QMainWindow):
         self._tab_result_view.results_fig.clear()
         self._tab_result_view.results_canvas.draw()
         self._clear_info()
+        self._markeer_gewijzigd()
 
     def _on_project_changed(self, _index: int) -> None:
         key = self._project_combo.currentData()
@@ -935,9 +938,11 @@ class MainWindow(QMainWindow):
     def _on_metadata_changed(self) -> None:
         md = self._tab_report_context.get_metadata()
         self._report_state.metadata = md
+        self._markeer_gewijzigd()
 
     def _on_override_changed(self, block_id: str, text: str) -> None:
         self._report_controller.set_text_override(block_id, text)
+        self._markeer_gewijzigd()
 
     def _on_export_word(self, output_path: str) -> None:
         err = self._report_controller.export_word(output_path)
@@ -1131,16 +1136,33 @@ class MainWindow(QMainWindow):
         self._word_preview_worker = None
 
     def closeEvent(self, event) -> None:
-        """Sla venstergeometrie op voor herstel bij volgende start."""
+        """Vraag bevestiging bij sluiten met onopgeslagen wijzigingen."""
+        if self._sessie_gewijzigd:
+            antwoord = QMessageBox.question(
+                self,
+                'Onopgeslagen wijzigingen',
+                'Er zijn onopgeslagen wijzigingen. Wil je de app sluiten zonder op te slaan?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if antwoord != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
         self._state.app_settings.window_geometry = (
             self.saveGeometry().toBase64().data().decode('ascii')
         )
         self._controller.save_config()
-        super().closeEvent(event)
+        event.accept()
 
     # ------------------------------------------------------------------
     # Sessie-acties
     # ------------------------------------------------------------------
+    def _markeer_gewijzigd(self) -> None:
+        """Markeer sessie als onopgeslagen na gebruikerswijziging."""
+        if not self._sessie_gewijzigd:
+            self._sessie_gewijzigd = True
+            self._update_venstertitel()
+
     def _on_nieuw(self) -> None:
         """Start een nieuw, leeg project na eventuele bevestiging."""
         if not self._bevestig_weggooien_wijzigingen():
