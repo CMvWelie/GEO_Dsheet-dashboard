@@ -572,6 +572,7 @@ class MainWindow(QMainWindow):
         fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
         if suptitle_obj:
             suptitle_obj.remove()
+            self._tab_input_view.section_canvas.draw()
         buf.seek(0)
         img = QImage.fromData(buf.read())
         QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
@@ -596,6 +597,7 @@ class MainWindow(QMainWindow):
             fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
             if suptitle_obj:
                 suptitle_obj.remove()
+                self._tab_result_view.results_canvas.draw()
             buf.seek(0)
             img = QImage.fromData(buf.read())
             QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
