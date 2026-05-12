@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt6.QtWidgets import QToolButton, QMenu
+from PyQt6.QtWidgets import QToolButton, QMenu, QWidget
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QAction
 
@@ -30,11 +30,12 @@ class BestandMenuButton(QToolButton):
     opslaan_als_gevraagd = pyqtSignal()
     info_gevraagd = pyqtSignal()
 
-    def __init__(self, parent: QToolButton | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._build()
 
     def _build(self) -> None:
+        """Bouw menu-items aan en verbind signals."""
         self.setText('Bestand')
         self.setObjectName('bestandMenuBtn')
         self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
