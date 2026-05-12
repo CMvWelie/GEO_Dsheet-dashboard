@@ -7,8 +7,6 @@ from pathlib import Path
 
 from app.session_state import SessionData
 
-DSD_EXTENSIE = '.dsd'
-
 
 class SessionManager:
     """Serialiseert en deserialiseert sessiebestanden naar JSON.
