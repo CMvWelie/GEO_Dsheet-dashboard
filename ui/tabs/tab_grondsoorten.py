@@ -27,6 +27,8 @@ _LABEL_CLR  = TABLE_LABEL_COLOR
 _VALUE_CLR  = TABLE_VALUE_COLOR
 _FONT       = TABLE_FONT
 
+_COL_STRETCH: list[int] = [14, 14, 20, 14, 14, 14, 14, 14, 14, 14, 14]
+
 _KOLOMMEN: list[tuple[str, str]] = [
     ('BK laag\n[m NAP]',   'bk'),
     ('OK laag\n[m NAP]',   'ok'),
@@ -252,7 +254,8 @@ class TabGrondsoorten(QWidget):
 
         for col, (tekst, _) in enumerate(_KOLOMMEN):
             lbl = QLabel(tekst)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            kop_uitlijning = Qt.AlignmentFlag.AlignLeft if col == 2 else Qt.AlignmentFlag.AlignCenter
+            lbl.setAlignment(kop_uitlijning | Qt.AlignmentFlag.AlignVCenter)
             border_r = f'border-right: 1px solid {_BORDER};' if col < len(_KOLOMMEN) - 1 else ''
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
@@ -260,6 +263,7 @@ class TabGrondsoorten(QWidget):
                 f'padding: 5px 8px; text-transform: uppercase; {border_r}'
             )
             grid.addWidget(lbl, 0, col)
+            grid.setColumnStretch(col, _COL_STRETCH[col])
 
         return hdr
 
@@ -290,7 +294,7 @@ class TabGrondsoorten(QWidget):
             lbl = QLabel(waarde)
             uitlijning = (
                 Qt.AlignmentFlag.AlignLeft if col == 2
-                else Qt.AlignmentFlag.AlignRight
+                else Qt.AlignmentFlag.AlignCenter
             )
             lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
             border_r = f'border-right: 1px solid {_ROW_SEP};' if col < len(waarden) - 1 else ''
@@ -300,6 +304,7 @@ class TabGrondsoorten(QWidget):
                 f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
             )
             grid.addWidget(lbl, 0, col)
+            grid.setColumnStretch(col, _COL_STRETCH[col])
 
         return rij
 

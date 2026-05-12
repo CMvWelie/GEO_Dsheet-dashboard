@@ -37,6 +37,7 @@ from reporting.figure_renderer import render_figuur
 _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
 _RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 2.5, 3.5, 2.0]  # label, stap, waarde, eenheid
+_GRONDSOORTEN_V1_KOLOM_BREEDTES_CM = [1.4, 1.4, 2.0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4]
 _GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM = [4.0, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]
 _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0, 4.0, 2.0, 2.0]
 _GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0]
@@ -1127,7 +1128,10 @@ class WordHoofdstukExporter:
         except KeyError:
             pass
         vaste_breedtes_cm: list[float] = []
-        if tabel.id == 'grondsoorten_v2_overzicht_tabel':
+        if str(tabel.id).startswith('soil_table_') and str(tabel.id).endswith('_tabel'):
+            if n_cols == len(_GRONDSOORTEN_V1_KOLOM_BREEDTES_CM):
+                vaste_breedtes_cm = _GRONDSOORTEN_V1_KOLOM_BREEDTES_CM
+        elif tabel.id == 'grondsoorten_v2_overzicht_tabel':
             if n_cols == len(_GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM):
                 vaste_breedtes_cm = _GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM
         elif str(tabel.id).startswith('grondsoorten_v2_fase_'):
@@ -1245,7 +1249,9 @@ class WordHoofdstukExporter:
             self._stel_cel_verticale_uitlijning(samengevoegd, 'center')
 
     def _grondsoorten_v2_laagkolommen(self, tabel_id: str) -> list[int]:
-        """Geef links uit te lijnen laagnaamkolommen voor v2-tabellen."""
+        """Geef links uit te lijnen laagnaamkolommen voor grondsoortentabellen."""
+        if str(tabel_id).startswith('soil_table_') and str(tabel_id).endswith('_tabel'):
+            return [2]
         if tabel_id == 'grondsoorten_v2_overzicht_tabel':
             return [0]
         if tabel_id.startswith('grondsoorten_v2_fase_'):

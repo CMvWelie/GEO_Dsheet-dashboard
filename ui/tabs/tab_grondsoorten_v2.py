@@ -292,7 +292,7 @@ class TabGrondsoortenv2(QWidget):
             lbl = QLabel(waarde)
             uitlijning = (
                 Qt.AlignmentFlag.AlignLeft if col == 0
-                else Qt.AlignmentFlag.AlignRight
+                else Qt.AlignmentFlag.AlignCenter
             )
             lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
             border_r = (
@@ -550,7 +550,7 @@ class TabGrondsoortenv2(QWidget):
                 col = col_offset + j
                 lbl = QLabel(waarde)
                 is_naam = j == 0
-                uitlijning = Qt.AlignmentFlag.AlignLeft if is_naam else Qt.AlignmentFlag.AlignRight
+                uitlijning = Qt.AlignmentFlag.AlignLeft if is_naam else Qt.AlignmentFlag.AlignCenter
                 lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
                 if links and j == 2:
                     border_r = scheiding_r
