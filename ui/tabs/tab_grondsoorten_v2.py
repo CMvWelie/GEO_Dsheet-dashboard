@@ -16,6 +16,9 @@ from utils.formatting import fmt_number
 _FASE_COL_STRETCH = [4, 2, 2, 4, 2, 2]
 _FASE_COL_STRETCH_ENKEL = [4, 2, 2]
 
+_SOIL_COL0_W = 150   # ≈ 4 cm bij 96 dpi
+_SOIL_COLN_W = 57    # ≈ 1,5 cm bij 96 dpi
+
 _SOIL_KOLOMMEN: list[str] = [
     'Laag',
     'γd\n[kN/m³]',
@@ -259,6 +262,7 @@ class TabGrondsoortenv2(QWidget):
         n = len(_SOIL_KOLOMMEN)
         for col, tekst in enumerate(_SOIL_KOLOMMEN):
             lbl = QLabel(tekst)
+            lbl.setFixedWidth(_SOIL_COL0_W if col == 0 else _SOIL_COLN_W)
             uitlijning = (
                 Qt.AlignmentFlag.AlignLeft
                 if col == 0
@@ -287,6 +291,7 @@ class TabGrondsoortenv2(QWidget):
 
         for col, waarde in enumerate(waarden):
             lbl = QLabel(waarde)
+            lbl.setFixedWidth(_SOIL_COL0_W if col == 0 else _SOIL_COLN_W)
             uitlijning = (
                 Qt.AlignmentFlag.AlignLeft if col == 0
                 else Qt.AlignmentFlag.AlignRight
