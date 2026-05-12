@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QApplication,
 )
 from PyQt6.QtCore import Qt, QThread, QProcess, QTimer
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QImage, QPixmap
+from PyQt6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QImage, QPixmap
 
 import matplotlib
 matplotlib.use('QtAgg')
@@ -1135,7 +1135,7 @@ class MainWindow(QMainWindow):
         self._word_preview_thread = None
         self._word_preview_worker = None
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:
         """Vraag bevestiging bij sluiten met onopgeslagen wijzigingen."""
         if self._sessie_gewijzigd:
             antwoord = QMessageBox.question(

@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import pytest
+
+from app.session_manager import SessionManager
 from app.session_state import SessionData
 from reporting.models import ReportMetadata, ReportItem
 
@@ -36,14 +42,6 @@ def test_session_data_round_trip_dict():
     assert sd2.report_plan_items[0].id == 'sec_1'
     assert sd2.report_metadata.project_name == 'Testproject'
     assert sd2.report_plan_items[0].caption == 'Invoer'
-
-
-import json
-from pathlib import Path
-
-import pytest
-
-from app.session_manager import SessionManager
 
 
 def test_session_manager_opslaan_en_laden(tmp_path: Path):
