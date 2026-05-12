@@ -34,3 +34,5 @@ def test_session_data_round_trip_dict():
     assert sd2.report_metadata.client == 'DKIB'
     assert sd2.report_overrides == {'blk_1': 'Overschreven tekst'}
     assert sd2.report_plan_items[0].id == 'sec_1'
+    assert sd2.report_metadata.project_name == 'Testproject'
+    assert sd2.report_plan_items[0].caption == 'Invoer'

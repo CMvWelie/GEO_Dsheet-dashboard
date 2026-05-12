@@ -51,10 +51,13 @@ class SessionData:
     def from_dict(cls, d: dict) -> SessionData:
         """Deserialiseer vanuit een JSON-dict; ontbrekende sleutels krijgen defaults."""
         meta_data = d.get('report_metadata', {})
-        meta = ReportMetadata(**{
-            k: v for k, v in meta_data.items()
-            if k in ReportMetadata.__dataclass_fields__
-        }) if meta_data else ReportMetadata()
+        if meta_data:
+            meta = ReportMetadata(**{
+                k: v for k, v in meta_data.items()
+                if k in ReportMetadata.__dataclass_fields__
+            })
+        else:
+            meta = ReportMetadata()
 
         items_data = d.get('report_plan_items', [])
         items = [
