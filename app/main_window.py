@@ -1043,12 +1043,15 @@ class MainWindow(QMainWindow):
         self._update_all()
 
     def _refresh_branding_corner(self) -> None:
-        """Werk het logo in de tabbalk bij na een templatewissel."""
-        self._main_tabs.setCornerWidget(None, Qt.Corner.TopLeftCorner)
+        """Ververs het logo-corner-widget na een themawissel.
+
+        Plaatst het branding-logo als het thema er een heeft,
+        anders keert de BestandMenuButton terug.
+        """
         branding = self._build_branding_corner()
-        if branding is not None:
-            self._main_tabs.setCornerWidget(branding, Qt.Corner.TopLeftCorner)
-            branding.show()
+        widget = branding if branding is not None else self._bestand_menu_btn
+        self._main_tabs.setCornerWidget(widget, Qt.Corner.TopLeftCorner)
+        widget.show()
 
     def _active_theme_name(self) -> str:
         return self._theme.name if self._theme is not None else BASIC_THEME_NAME
@@ -1142,13 +1145,12 @@ class MainWindow(QMainWindow):
         """Start een nieuw, leeg project na eventuele bevestiging."""
         if not self._bevestig_weggooien_wijzigingen():
             return
-        self._state.reset()
+        self._on_reset()
         self._report_state = ReportState()
         self._report_controller = ReportController(self._state, self._report_state)
         self._sessie_pad = None
         self._sessie_gewijzigd = False
         self._update_venstertitel()
-        self._update_all()
 
     def _on_sessie_openen(self) -> None:
         """Open een .dsd-sessiebestand via een bestandsdialoog."""
@@ -1186,9 +1188,9 @@ class MainWindow(QMainWindow):
         pad = Path(pad_str)
         if pad.suffix.lower() != '.dsd':
             pad = pad.with_suffix('.dsd')
-        self._sessie_opslaan_naar(pad)
-        self._sessie_pad = pad
-        self._update_venstertitel()
+        if self._sessie_opslaan_naar(pad):
+            self._sessie_pad = pad
+            self._update_venstertitel()
 
     def _on_info(self) -> None:
         """Toon informatie/help-dialoog (stub)."""
@@ -1198,13 +1200,18 @@ class MainWindow(QMainWindow):
             'D-Sheet Dashboard\n\nVerdere informatie volgt.',
         )
 
-    def _sessie_opslaan_naar(self, pad: Path) -> None:
+    def _sessie_opslaan_naar(self, pad: Path) -> bool:
         """Serialiseer huidige state naar ``pad``.
 
         Parameters
         ----------
         pad:
             Doelpad voor het .dsd-sessiebestand.
+
+        Returns
+        -------
+        bool
+            ``True`` bij succes, ``False`` bij fout.
         """
         data = SessionData(
             source_paths=list(self._state.source_paths),
@@ -1215,8 +1222,9 @@ class MainWindow(QMainWindow):
         succes, fout = self._sessie_manager.opslaan(pad, data)
         if not succes:
             QMessageBox.warning(self, 'Fout bij opslaan', fout)
-            return
+            return False
         self._sessie_gewijzigd = False
+        return True
 
     def _sessie_toepassen(self, data: SessionData) -> None:
         """Herstel state vanuit geladen ``SessionData``.
@@ -1235,10 +1243,10 @@ class MainWindow(QMainWindow):
         for item in data.report_plan_items:
             self._report_state.plan.add_item(item)
 
+        self._tab_report_context.set_metadata(self._report_state.metadata)
+
         bestaande_paden = [p for p in data.source_paths if Path(p).exists()]
         ontbrekend = [p for p in data.source_paths if not Path(p).exists()]
-        if bestaande_paden:
-            self._ingest_paths(bestaande_paden)
         if ontbrekend:
             ontbrekend_tekst = '\n'.join(ontbrekend)
             QMessageBox.warning(
@@ -1246,7 +1254,10 @@ class MainWindow(QMainWindow):
                 'Ontbrekende bestanden',
                 f'De volgende SHD-bestanden konden niet worden gevonden:\n{ontbrekend_tekst}',
             )
-        self._update_all()
+        if bestaande_paden:
+            self._ingest_paths(bestaande_paden)
+        else:
+            self._update_all()
 
     def _bevestig_weggooien_wijzigingen(self) -> bool:
         """Vraag bevestiging als er onopgeslagen wijzigingen zijn.
