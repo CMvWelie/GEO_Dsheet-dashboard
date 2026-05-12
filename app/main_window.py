@@ -60,6 +60,9 @@ from app.word_preview_worker import WordPreviewWorker
 from app import restart_session
 from app.theme import BASIC_THEME_NAME, Theme, discover_themes
 from app.theme_apply import THEMES_DIR, bootstrap_theme
+from app.session_manager import SessionManager
+from app.session_state import SessionData
+from ui.bestand_menu import BestandMenuButton
 from reporting.builders.damwand_tekst import project_fase_namen
 import ui.table_styles as table_styles
 
@@ -106,6 +109,10 @@ class MainWindow(QMainWindow):
         self._docx_to_pdf = DocxToPdfConverter()
         self._word_preview_thread: QThread | None = None
         self._word_preview_worker: WordPreviewWorker | None = None
+
+        self._sessie_pad: Path | None = None
+        self._sessie_gewijzigd: bool = False
+        self._sessie_manager = SessionManager()
 
         self._build_ui()
 
@@ -193,9 +200,8 @@ class MainWindow(QMainWindow):
         self._main_tabs = QTabWidget()
         self._main_tabs.setDocumentMode(False)
 
-        branding = self._build_branding_corner()
-        if branding is not None:
-            self._main_tabs.setCornerWidget(branding, Qt.Corner.TopLeftCorner)
+        self._bestand_menu_btn = BestandMenuButton()
+        self._main_tabs.setCornerWidget(self._bestand_menu_btn, Qt.Corner.TopLeftCorner)
 
         # Project-selector als corner-widget van de tab-balk
         self._main_tabs.setCornerWidget(
@@ -388,6 +394,12 @@ class MainWindow(QMainWindow):
         self._tab_report_select.selection_changed.connect(
             self._update_word_pdf_preview
         )
+
+        self._bestand_menu_btn.nieuw_gevraagd.connect(self._on_nieuw)
+        self._bestand_menu_btn.openen_gevraagd.connect(self._on_sessie_openen)
+        self._bestand_menu_btn.opslaan_gevraagd.connect(self._on_opslaan)
+        self._bestand_menu_btn.opslaan_als_gevraagd.connect(self._on_opslaan_als)
+        self._bestand_menu_btn.info_gevraagd.connect(self._on_info)
 
     # ------------------------------------------------------------------
     # Event handlers
@@ -1122,3 +1134,145 @@ class MainWindow(QMainWindow):
         )
         self._controller.save_config()
         super().closeEvent(event)
+
+    # ------------------------------------------------------------------
+    # Sessie-acties
+    # ------------------------------------------------------------------
+    def _on_nieuw(self) -> None:
+        """Start een nieuw, leeg project na eventuele bevestiging."""
+        if not self._bevestig_weggooien_wijzigingen():
+            return
+        self._state.reset()
+        self._report_state = ReportState()
+        self._report_controller = ReportController(self._state, self._report_state)
+        self._sessie_pad = None
+        self._sessie_gewijzigd = False
+        self._update_venstertitel()
+        self._update_all()
+
+    def _on_sessie_openen(self) -> None:
+        """Open een .dsd-sessiebestand via een bestandsdialoog."""
+        if not self._bevestig_weggooien_wijzigingen():
+            return
+        pad_str, _ = QFileDialog.getOpenFileName(
+            self, 'Sessie openen', '', 'D-Sheet Dashboard (*.dsd);;Alle bestanden (*)'
+        )
+        if not pad_str:
+            return
+        pad = Path(pad_str)
+        data, fout = self._sessie_manager.laden(pad)
+        if fout:
+            QMessageBox.warning(self, 'Fout bij openen', fout)
+            return
+        self._sessie_toepassen(data)
+        self._sessie_pad = pad
+        self._sessie_gewijzigd = False
+        self._update_venstertitel()
+
+    def _on_opslaan(self) -> None:
+        """Sla sessie op naar huidig pad; vraag pad als nog onbekend."""
+        if self._sessie_pad is None:
+            self._on_opslaan_als()
+            return
+        self._sessie_opslaan_naar(self._sessie_pad)
+
+    def _on_opslaan_als(self) -> None:
+        """Sla sessie op naar een nieuw pad via dialoog."""
+        pad_str, _ = QFileDialog.getSaveFileName(
+            self, 'Sessie opslaan als', '', 'D-Sheet Dashboard (*.dsd);;Alle bestanden (*)'
+        )
+        if not pad_str:
+            return
+        pad = Path(pad_str)
+        if pad.suffix.lower() != '.dsd':
+            pad = pad.with_suffix('.dsd')
+        self._sessie_opslaan_naar(pad)
+        self._sessie_pad = pad
+        self._update_venstertitel()
+
+    def _on_info(self) -> None:
+        """Toon informatie/help-dialoog (stub)."""
+        QMessageBox.information(
+            self,
+            'Informatie',
+            'D-Sheet Dashboard\n\nVerdere informatie volgt.',
+        )
+
+    def _sessie_opslaan_naar(self, pad: Path) -> None:
+        """Serialiseer huidige state naar ``pad``.
+
+        Parameters
+        ----------
+        pad:
+            Doelpad voor het .dsd-sessiebestand.
+        """
+        data = SessionData(
+            source_paths=list(self._state.source_paths),
+            report_metadata=self._report_state.metadata,
+            report_overrides=dict(self._report_state.overrides),
+            report_plan_items=list(self._report_state.plan.items),
+        )
+        succes, fout = self._sessie_manager.opslaan(pad, data)
+        if not succes:
+            QMessageBox.warning(self, 'Fout bij opslaan', fout)
+            return
+        self._sessie_gewijzigd = False
+
+    def _sessie_toepassen(self, data: SessionData) -> None:
+        """Herstel state vanuit geladen ``SessionData``.
+
+        Parameters
+        ----------
+        data:
+            Geladen sessiedata om te herstellen.
+        """
+        self._state.reset()
+        self._report_state = ReportState()
+        self._report_controller = ReportController(self._state, self._report_state)
+
+        self._report_state.metadata = data.report_metadata
+        self._report_state.overrides = dict(data.report_overrides)
+        for item in data.report_plan_items:
+            self._report_state.plan.add_item(item)
+
+        bestaande_paden = [p for p in data.source_paths if Path(p).exists()]
+        ontbrekend = [p for p in data.source_paths if not Path(p).exists()]
+        if bestaande_paden:
+            self._ingest_paths(bestaande_paden)
+        if ontbrekend:
+            ontbrekend_tekst = '\n'.join(ontbrekend)
+            QMessageBox.warning(
+                self,
+                'Ontbrekende bestanden',
+                f'De volgende SHD-bestanden konden niet worden gevonden:\n{ontbrekend_tekst}',
+            )
+        self._update_all()
+
+    def _bevestig_weggooien_wijzigingen(self) -> bool:
+        """Vraag bevestiging als er onopgeslagen wijzigingen zijn.
+
+        Returns
+        -------
+        bool
+            ``True`` als de actie door mag gaan, ``False`` als de gebruiker annuleert.
+        """
+        if not self._sessie_gewijzigd:
+            return True
+        antwoord = QMessageBox.question(
+            self,
+            'Onopgeslagen wijzigingen',
+            'Er zijn onopgeslagen wijzigingen. Wil je doorgaan zonder op te slaan?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return antwoord == QMessageBox.StandardButton.Yes
+
+    def _update_venstertitel(self) -> None:
+        """Pas de venstertitel aan met het sessiepad en dirty-markering."""
+        if self._sessie_pad is None:
+            titel = 'D-Sheet Dashboard'
+        else:
+            titel = f'D-Sheet Dashboard — {self._sessie_pad.name}'
+        if self._sessie_gewijzigd:
+            titel = f'{titel} *'
+        self.setWindowTitle(titel)
