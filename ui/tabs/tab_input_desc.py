@@ -218,9 +218,10 @@ class TabInputDesc(QWidget):
         )
         lay.addWidget(intro)
 
+        is_beton = 'beton' in card.profiel.lower() or 'concrete' in card.profiel.lower()
         rijen: list[tuple[str, str, str] | None] = [
             ('Profiel', card.profiel, '[-]'),
-            ('Staalkwaliteit', card.staalkwaliteit, '[-]'),
+            *( [] if is_beton else [('Staalkwaliteit', card.staalkwaliteit, '[-]')] ),
             ('Hoogte', fmt_number(card.hoogte_mm), '[mm]'),
             ('Breedte', fmt_number(card.breedte_mm), '[mm]'),
             ('Buigstijfheid EI', fmt_number(card.ei_knm2), '[kNm²/m]'),
