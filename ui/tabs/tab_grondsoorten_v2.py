@@ -9,9 +9,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 import ui.table_styles as _ts
-from parsers.models import Project, SoilProfile, Stage, Surface
+from parsers.models import Project, SoilProfile, Stage
 from utils.formatting import fmt_number
-from utils.geometry import surface_y_at
 
 # Kolomstrekking voor de faselagen-tabel.
 _FASE_COL_STRETCH = [4, 2, 2, 4, 2, 2]
@@ -34,73 +33,11 @@ def _find_profiel(profielen: list[SoilProfile], naam: str) -> SoilProfile | None
     return next((p for p in (profielen or []) if p.name == naam), None)
 
 
-def _find_surface(surfaces: list[Surface], naam: str) -> Surface | None:
-    """Zoek een surface op naam in een surfacelijst."""
-    return next((s for s in (surfaces or []) if s.name == naam), None)
-
-
 def _laag_sleutels(profiel: SoilProfile | None) -> list[tuple]:
     """Geef een vergelijkbare sleutel per laag: (level, material)."""
     if not profiel:
         return []
     return [(l.level, l.material) for l in profiel.layers]
-
-
-def _laag_zichtbaarheids_sleutels(
-    profiel: SoilProfile | None,
-    surface: Surface | None,
-) -> list[tuple[float, str, bool]]:
-    """Geef een vergelijkbare sleutel per laag inclusief zichtbaarheid."""
-    if not profiel:
-        return []
-    return [
-        (laag.level, laag.material, _laag_volledig_afgedekt(profiel, index, surface))
-        for index, laag in enumerate(profiel.layers)
-    ]
-
-
-def _hoogste_surface_niveau(surface: Surface | None) -> float | None:
-    """Geef het hoogste niveau van een surfaceline, inclusief x=0."""
-    if not surface or not surface.points:
-        return None
-    xs = {
-        0.0,
-        *[
-            float(p['x'])
-            for p in surface.points
-            if p.get('x') is not None
-        ],
-    }
-    if not xs:
-        return None
-    return max(surface_y_at(surface.points, x) for x in xs)
-
-
-def _laag_volledig_afgedekt(
-    profiel: SoilProfile,
-    index: int,
-    surface: Surface | None,
-) -> bool:
-    """Bepaal of een laag nergens door de surface heen zichtbaar is."""
-    if index + 1 >= len(profiel.layers) or not surface or not surface.points:
-        return False
-
-    laag_onderkant = profiel.layers[index + 1].level
-    hoogste_surface = _hoogste_surface_niveau(surface)
-    if hoogste_surface is None:
-        return False
-    return hoogste_surface <= laag_onderkant + 1e-6
-
-
-def _stage_surface(project: Project, fase: Stage, zijde: str) -> Surface | None:
-    """Geef de surface die de doorsnede voor deze fasezijde gebruikt."""
-    naam = fase.right_surface if zijde == 'rechts' else fase.left_surface
-    gevonden = _find_surface(project.surfaces, naam)
-    if gevonden:
-        return gevonden
-    if zijde == 'rechts' and len(project.surfaces) > 1:
-        return project.surfaces[1]
-    return project.surfaces[0] if project.surfaces else None
 
 
 def _fase_intro(namen: list[str]) -> tuple[str, list[str]]:
@@ -168,14 +105,8 @@ class TabGrondsoortenv2(QWidget):
         # Bouw groepen van opeenvolgende fases met dezelfde laagsamenstelling
         groepen: list[dict] = []
         for fase in project.stages:
-            sleutel_l = tuple(_laag_zichtbaarheids_sleutels(
-                prof_map.get(fase.left_profile),
-                _stage_surface(project, fase, 'links'),
-            ))
-            sleutel_r = tuple(_laag_zichtbaarheids_sleutels(
-                prof_map.get(fase.right_profile),
-                _stage_surface(project, fase, 'rechts'),
-            ))
+            sleutel_l = tuple(_laag_sleutels(prof_map.get(fase.left_profile)))
+            sleutel_r = tuple(_laag_sleutels(prof_map.get(fase.right_profile)))
             sleutel = (sleutel_l, sleutel_r)
             if groepen and groepen[-1]['sleutel'] == sleutel:
                 groepen[-1]['namen'].append(fase.name)
@@ -400,16 +331,9 @@ class TabGrondsoortenv2(QWidget):
         """
         links_profiel = _find_profiel(project.profiles, fase.left_profile)
         rechts_profiel = _find_profiel(project.profiles, fase.right_profile)
-        links_surface = _stage_surface(project, fase, 'links')
-        rechts_surface = _stage_surface(project, fase, 'rechts')
-        links_rijen = self._laag_rijen(links_profiel, links_surface)
-        rechts_rijen = self._laag_rijen(rechts_profiel, rechts_surface)
-        links_doorgehaald = self._laag_doorgehaald(links_profiel, links_surface)
-        rechts_doorgehaald = self._laag_doorgehaald(rechts_profiel, rechts_surface)
-        zijden_gelijk = bool(links_rijen) and (
-            list(zip(links_rijen, links_doorgehaald))
-            == list(zip(rechts_rijen, rechts_doorgehaald))
-        )
+        links_rijen = self._laag_rijen(links_profiel)
+        rechts_rijen = self._laag_rijen(rechts_profiel)
+        zijden_gelijk = bool(links_rijen) and links_rijen == rechts_rijen
         geheel_ongewijzigd = links_ongewijzigd and rechts_ongewijzigd
 
         # Aantal datarijen: bepaald door de zijde die wél data toont
@@ -443,7 +367,6 @@ class TabGrondsoortenv2(QWidget):
                 2,
                 n_data,
                 links_rijen,
-                links_doorgehaald,
                 geheel_ongewijzigd,
                 col_offset=0,
                 links=False,
@@ -493,7 +416,6 @@ class TabGrondsoortenv2(QWidget):
             2,
             n_data,
             links_rijen,
-            links_doorgehaald,
             links_ongewijzigd,
             col_offset=0,
             links=True,
@@ -503,7 +425,6 @@ class TabGrondsoortenv2(QWidget):
             2,
             n_data,
             rechts_rijen,
-            rechts_doorgehaald,
             rechts_ongewijzigd,
             col_offset=3,
             links=False,
@@ -574,7 +495,6 @@ class TabGrondsoortenv2(QWidget):
         data_start: int,
         n_data: int,
         rijen: list[list[str]],
-        doorgestreept: list[bool],
         ongewijzigd: bool,
         col_offset: int,
         links: bool,
@@ -621,7 +541,6 @@ class TabGrondsoortenv2(QWidget):
                 else f'border-bottom: 1px solid {_ts.TABLE_ROW_SEP};'
             )
             rij = rijen[i] if i < len(rijen) else ['', '', '']
-            rij_doorgehaald = doorgestreept[i] if i < len(doorgestreept) else False
             for j, waarde in enumerate(rij):
                 col = col_offset + j
                 lbl = QLabel(waarde)
@@ -639,16 +558,11 @@ class TabGrondsoortenv2(QWidget):
                     f'font-family: {_ts.TABLE_FONT}; font-size: 12px; color: {kleur}; '
                     f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
                 )
-                if rij_doorgehaald:
-                    font = lbl.font()
-                    font.setStrikeOut(True)
-                    lbl.setFont(font)
                 grid.addWidget(lbl, data_start + i, col)
 
     def _laag_rijen(
         self,
         profiel: SoilProfile | None,
-        surface: Surface | None = None,
     ) -> list[list[str]]:
         """Geef rijen [naam, bk, ok] per laag voor een profiel.
 
@@ -656,8 +570,6 @@ class TabGrondsoortenv2(QWidget):
         ----------
         profiel : SoilProfile | None
             Het grondprofiel, of None als het niet gevonden is.
-        surface : Surface | None
-            De bijbehorende surface voor het zichtbare b.k.-niveau.
 
         Returns
         -------
@@ -666,37 +578,10 @@ class TabGrondsoortenv2(QWidget):
         """
         if not profiel:
             return []
-        rijen = []
         n = len(profiel.layers)
-        doorgestreept = [
-            _laag_volledig_afgedekt(profiel, index, surface)
-            for index, _laag in enumerate(profiel.layers)
-        ]
-        eerste_zichtbaar = next(
-            (index for index, afgedekt in enumerate(doorgestreept) if not afgedekt),
-            None,
-        )
-        hoogste_surface = _hoogste_surface_niveau(surface)
+        rijen = []
         for i, laag in enumerate(profiel.layers):
-            bk_niveau = (
-                hoogste_surface
-                if i == eerste_zichtbaar and hoogste_surface is not None
-                else laag.level
-            )
-            bk = fmt_number(bk_niveau, 2)
+            bk = fmt_number(laag.level, 2)
             ok = fmt_number(profiel.layers[i + 1].level, 2) if i + 1 < n else 'Max'
             rijen.append([laag.material, bk, ok])
         return rijen
-
-    def _laag_doorgehaald(
-        self,
-        profiel: SoilProfile | None,
-        surface: Surface | None,
-    ) -> list[bool]:
-        """Geef per laag aan of deze volledig door de surface is afgedekt."""
-        if not profiel:
-            return []
-        return [
-            _laag_volledig_afgedekt(profiel, index, surface)
-            for index, _laag in enumerate(profiel.layers)
-        ]
