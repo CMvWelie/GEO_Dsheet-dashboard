@@ -37,6 +37,7 @@ from reporting.figure_renderer import render_figuur
 _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
 _RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 2.5, 3.5, 2.0]  # label, stap, waarde, eenheid
+_GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM = [4.0, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]
 _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0, 4.0, 2.0, 2.0]
 _GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0]
 _DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
@@ -1126,7 +1127,10 @@ class WordHoofdstukExporter:
         except KeyError:
             pass
         vaste_breedtes_cm: list[float] = []
-        if str(tabel.id).startswith('grondsoorten_v2_fase_'):
+        if tabel.id == 'grondsoorten_v2_overzicht_tabel':
+            if n_cols == len(_GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM):
+                vaste_breedtes_cm = _GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM
+        elif str(tabel.id).startswith('grondsoorten_v2_fase_'):
             if n_cols == len(_GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM):
                 vaste_breedtes_cm = _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM
             elif n_cols == len(_GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM):

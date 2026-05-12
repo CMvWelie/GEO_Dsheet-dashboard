@@ -16,6 +16,8 @@ from utils.formatting import fmt_number
 _FASE_COL_STRETCH = [4, 2, 2, 4, 2, 2]
 _FASE_COL_STRETCH_ENKEL = [4, 2, 2]
 
+_SOIL_COL_STRETCH = [8, 3, 3, 3, 3, 3, 3, 3, 3]  # verhouding 4:1,5 per kolom
+
 _SOIL_KOLOMMEN: list[str] = [
     'Laag',
     'γd\n[kN/m³]',
@@ -275,6 +277,7 @@ class TabGrondsoortenv2(QWidget):
                 f'padding: 5px 8px; {border_r}'
             )
             grid.addWidget(lbl, 0, col)
+            grid.setColumnStretch(col, _SOIL_COL_STRETCH[col])
 
         return hdr
 
@@ -302,6 +305,8 @@ class TabGrondsoortenv2(QWidget):
                 f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
             )
             grid.addWidget(lbl, 0, col)
+            if col < len(_SOIL_COL_STRETCH):
+                grid.setColumnStretch(col, _SOIL_COL_STRETCH[col])
 
         return rij
 
