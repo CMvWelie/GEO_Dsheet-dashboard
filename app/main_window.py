@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
 
         Parameters
         ----------
-        paths: Lijst van bestandspaden (.shd/.shi/.shs).
+        paths: Lijst van .shd-bestandspaden.
         """
         self._ingest_paths(paths)
 
@@ -396,7 +396,7 @@ class MainWindow(QMainWindow):
         startmap = self._state.app_settings.standaard_importmap or ''
         paths, _ = QFileDialog.getOpenFileNames(
             self, 'Selecteer D-Sheet bestanden', startmap,
-            'D-Sheet bestanden (*.shi *.shd *.shs);;Alle bestanden (*)'
+            'D-Sheet bestanden (*.shd);;Alle bestanden (*)'
         )
         self._ingest_paths(paths)
 

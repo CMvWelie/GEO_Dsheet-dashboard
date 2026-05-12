@@ -1,4 +1,4 @@
-"""Parser voor D-Sheet invoerbestanden (.shi, .shd, .shs).
+"""Parser voor D-Sheet resultaatbestanden (.shd).
 
 Alle functies zijn 1-op-1 geporteerd vanuit Dsheet_dashboard_v89.html.
 """
@@ -38,7 +38,7 @@ def parse_project_name(source_text: str, fallback_name: str) -> str:
 
     Parameters
     ----------
-    source_text:   Tekst van het primaire bronbestand (.shi of .shd).
+    source_text:   Tekst van het primaire bronbestand (.shd).
     fallback_name: Bestandsnaam zonder extensie als terugvalwaarde.
 
     Returns
@@ -84,6 +84,11 @@ def parse_soils(text: str) -> list[Soil]:
             cohesion=float(find_line_value(block, r'^SoilCohesion\s*=\s*(.+)$') or 0),
             phi=float(find_line_value(block, r'^SoilPhi\s*=\s*(.+)$') or 0),
             delta=float(find_line_value(block, r'^SoilDelta\s*=\s*(.+)$') or 0),
+            ka=float(find_line_value(block, r'^SoilLa\s*=\s*(.+)$') or 0),
+            kn=float(find_line_value(block, r'^SoilLn\s*=\s*(.+)$') or 0),
+            kp=float(find_line_value(block, r'^SoilLp\s*=\s*(.+)$') or 0),
+            ocr=float(find_line_value(block, r'^SoilOCR\s*=\s*(.+)$') or 0),
+            shell_factor=float(find_line_value(block, r'^SoilShellFactor\s*=\s*(.+)$') or 0),
             kh1=float(find_line_value(block, r'^SoilCurKo1\s*=\s*(.+)$') or 0),
             kh2=float(find_line_value(block, r'^SoilCurKo2\s*=\s*(.+)$') or 0),
             kh3=float(find_line_value(block, r'^SoilCurKo3\s*=\s*(.+)$') or 0),
@@ -1309,41 +1314,37 @@ def parse_project(file_bundle: FileBundle, base_name: str) -> Project:
 
     Parameters
     ----------
-    file_bundle: FileBundle met .shi, .shd en/of .shs tekst.
+    file_bundle: FileBundle met .shd-tekst.
     base_name:   Bestandsnaam zonder extensie.
 
     Returns
     -------
     Project  Volledig ingelezen project-object.
     """
-    shi = file_bundle.shi or ''
     shd = file_bundle.shd or ''
-    shs = file_bundle.shs or ''
-    source = shi or shd or shs
-    combined = '\n'.join(t for t in [shi, shd, shs] if t)
 
-    soils = parse_soils(combined)
-    profiles = parse_soil_profiles(combined)
-    surfaces = parse_surfaces(combined)
-    waterlevels = parse_water_levels(combined)
-    sheet_piling = parse_sheet_piling(combined)
-    anchors = parse_anchors(combined)
-    struts = parse_struts(combined)
-    spring_supports = parse_spring_supports(combined)
-    rigid_supports = parse_rigid_supports(combined)
-    uniform_loads = parse_uniform_loads(combined)
-    surcharge_loads = parse_surcharge_loads(combined)
-    horizontal_line_loads = parse_horizontal_line_loads(combined)
-    moments = parse_moments(combined)
-    normal_forces = parse_normal_forces(combined)
-    stages = parse_stages(combined)
+    soils = parse_soils(shd)
+    profiles = parse_soil_profiles(shd)
+    surfaces = parse_surfaces(shd)
+    waterlevels = parse_water_levels(shd)
+    sheet_piling = parse_sheet_piling(shd)
+    anchors = parse_anchors(shd)
+    struts = parse_struts(shd)
+    spring_supports = parse_spring_supports(shd)
+    rigid_supports = parse_rigid_supports(shd)
+    uniform_loads = parse_uniform_loads(shd)
+    surcharge_loads = parse_surcharge_loads(shd)
+    horizontal_line_loads = parse_horizontal_line_loads(shd)
+    moments = parse_moments(shd)
+    normal_forces = parse_normal_forces(shd)
+    stages = parse_stages(shd)
 
     result_summaries = parse_result_summaries(shd)
     verify_step_summaries = parse_verify_step_summaries(shd)
 
     return Project(
         base_name=base_name,
-        project_name=parse_project_name(source, base_name),
+        project_name=parse_project_name(shd, base_name),
         file_bundle=file_bundle,
         soils=soils,
         profiles=profiles,

@@ -4,6 +4,27 @@ Gegenereerd: 2026-05-07
 
 ---
 
+## 2026-05-11 — `.shi`/`.shs` runtime parsing verwijderd
+
+| Pad | Symbool | Reden |
+|---|---|---|
+| `parsers/models.py` | `FileBundle.shi`, `FileBundle.shs` | `.shd` bevat de benodigde invoerdata; `.shi`/`.shs` worden niet meer als runtime-bron geaccepteerd. |
+| `parsers/shi_parser.py` | `parse_project()` gecombineerde bronselectie `.shi + .shd + .shs` | Combineren van bestanden kan dubbele `[SOIL]`-blokken opleveren; `.shd` is nu bron van waarheid. |
+| `app/controller.py` | Ingest/groepering/verwijderen van `.shi` en `.shs` | App leest alleen nog `.shd`; legacy raw `.shi/.shs` entries worden genegeerd. |
+| `app/main_window.py` | Importfilter `*.shi *.shd *.shs` | Bestandsdialoog toont alleen nog `.shd`. |
+| `ui/info_panel.py` | `.shi`/`.shs` bestandsstatusregels | Niet meer relevant voor actieve projecten. |
+
+Controlebasis: op 2026-05-11 zijn 62 `.shi/.shd`-paren in
+`C:\Users\t.vanwelie\Dropbox\DKIB_geotechniek\03 AI-automatisering\Testfiles`
+vergeleken. Voor de runtime-parsercategorieën (grondsoorten, profielen,
+surfaces, waterstanden, damwand, steunen, belastingen en fases) waren er
+930 vergelijkingen en 0 afwijkingen tussen `.shi` en `.shd`.
+
+De verwijderde codefragmenten zijn gearchiveerd in
+`DEV/DEAD/DEAD.py` onder `DEAD_SHI_SHS_RUNTIME_PARSING`.
+
+---
+
 ## HIGH — Volledige modules die nergens worden geïmporteerd
 
 | Pad | Symbool | Reden |

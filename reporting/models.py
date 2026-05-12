@@ -23,6 +23,7 @@ class ReportTable:
     separator_before_cols: list[int] = field(default_factory=list)
     # Optionele groepkoppen boven de kolomkoppen: lijst van (label, colspan).
     column_groups: list[tuple[str, int]] = field(default_factory=list)
+    strikethrough_cells: list[list[bool]] = field(default_factory=list)
 
 
 @dataclass

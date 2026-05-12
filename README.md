@@ -1,6 +1,6 @@
 ﻿# D-Sheet Dashboard
 
-PyQt6 desktop applicatie voor het visualiseren en analyseren van **D-Sheet damwand (sheet pile wall) geotechnische berekeningen**. Leest `.shi`/`.shd`/`.shs` bestandsformaten (Deltares D-Sheet uitvoer) en biedt doorsnede-visualisatie, resultaatgrafieken, invoerbeschrijvingen en export naar Excel en Word.
+PyQt6 desktop applicatie voor het visualiseren en analyseren van **D-Sheet damwand (sheet pile wall) geotechnische berekeningen**. Leest `.shd` bestanden (Deltares D-Sheet uitvoer) en biedt doorsnede-visualisatie, resultaatgrafieken, invoerbeschrijvingen en export naar Excel en Word.
 
 Ontwikkeld door **DKIB Geotechniek**.
 
@@ -26,7 +26,7 @@ Ontwikkeld door **DKIB Geotechniek**.
 
 ## Functionaliteit
 
-- Importeren en parsen van `.shi`/`.shd`/`.shs` D-Sheet bestanden (drag-and-drop of bestandsdialoog)
+- Importeren en parsen van `.shd` D-Sheet bestanden (drag-and-drop of bestandsdialoog)
 - Beheer van meerdere projecten tegelijk binnen één sessie
 - Fase-afhankelijke doorsnede-visualisatie — grondlagen, waterpeilen, ankers, stempels, veren, belastingen en normaalkrachten
 - Resultaatgrafieken — moment, dwarskracht en verplaatsing per fase en VERIFY STEP
@@ -79,8 +79,8 @@ Bij het opstarten wordt automatisch gecontroleerd of PyQt6 beschikbaar is. Als P
 ### Bestanden importeren
 
 1. Open de tab **Rapportcontext** — dit is de gecombineerde import- en metadata-tab.
-2. Sleep `.shi`/`.shd`/`.shs` bestanden naar het dropgebied, of klik op **Importeer…** om een bestandsdialoog te openen.
-3. Klik op **Verwerk** om de bestanden te parsen. Bestanden met dezelfde basisnaam (bijv. `project.shi`, `project.shd`, `project.shs`) worden automatisch als één project gegroepeerd in een `FileBundle`.
+2. Sleep `.shd` bestanden naar het dropgebied, of klik op **Importeer…** om een bestandsdialoog te openen.
+3. Klik op **Verwerk** om de bestanden te parsen. Elk `.shd` bestand wordt als één project gegroepeerd in een `FileBundle`.
 4. Geslaagde projecten verschijnen in de lijst **Ingeladen projecten**. Klik op een project om het te selecteren.
 
 ### Doorsnede en grondsoorten
@@ -122,7 +122,7 @@ Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je rend
 ### Datastroom
 
 ```
-.shi/.shd/.shs bestanden
+.shd bestanden
   → AppController.ingest_paths()     (tekst inlezen → AppState.raw_files)
   → AppController.process_files()    (groeperen → FileBundle → parse_project → AppState.projects)
   → AppController.render_section()   (SectionRenderer → matplotlib doorsnede figuur)
@@ -151,7 +151,7 @@ Open via de knop rechtsboven de verborgen **Instellingen**-tab. Daar kun je rend
 - **Geen Qt in controllers**: `AppController`, `ReportController`, `ConfigManager` en `ViewportService` hebben nul Qt-imports.
 - **Qt Signals/Slots**: UI-events zijn losjes gekoppeld — widgets emitteren named signals die `main_window.py` verbindt met controller-methoden.
 - **BaseRenderer ABC**: nieuwe renderers moeten `renderers.BaseRenderer` subclassen en `render(ax, project, stage, settings, viewport)` implementeren.
-- **Parsing**: D-Sheet `.shi/.shd/.shs` bundles worden direct via `parsers.shi_parser.parse_project()` verwerkt.
+- **Parsing**: D-Sheet `.shd` bestanden worden direct via `parsers.shi_parser.parse_project()` verwerkt.
 - **Rapportagepijplijn**: `ReportController` (geen Qt) zit tussen UI-tabs en exporters; selecteert secties uit `ReportPlan` en geeft ze door aan `WordHoofdstukExporter`.
 - **TextBlock overrides**: `ReportState.overrides` dict koppelt `block_id → override_text`; `TextBlock.effective_text` geeft de override terug als die is ingesteld, anders de gegenereerde tekst.
 - **Viewport service**: zoom- en auto-boundslogica zit in `ViewportService`, niet in het venster of de renderer.
@@ -354,7 +354,7 @@ Een enkel testgeval:
 pytest DEV/tests/test_parsers.py::test_parse_soils -v
 ```
 
-De suite dekt parsers (embedded `SAMPLE_SHI` strings — geen externe testbestanden nodig), alle rapportage-builders (`damwand_hoofdstuk`, `input_description`, `result_description`, `soil_table`), de Word-hoofdstuk-exporter, `ReportController`, `AppController` render-foutafhandeling, app-instellingen en thema's, de aanvullende-berekeningen-tabs, diverse UI-tabs (Invoerbeschrijving, Resultaatbeschrijving, Grondsoortentabel, Debug) en `DocxToPdfConverter`. Gedeelde fixtures staan in `DEV/tests/conftest.py`.
+De suite dekt parsers (embedded `SAMPLE_SHD` strings — geen externe testbestanden nodig), alle rapportage-builders (`damwand_hoofdstuk`, `input_description`, `result_description`, `soil_table`), de Word-hoofdstuk-exporter, `ReportController`, `AppController` render-foutafhandeling, app-instellingen en thema's, de aanvullende-berekeningen-tabs, diverse UI-tabs (Invoerbeschrijving, Resultaatbeschrijving, Grondsoortentabel, Debug) en `DocxToPdfConverter`. Gedeelde fixtures staan in `DEV/tests/conftest.py`.
 
 ---
 
@@ -397,12 +397,12 @@ Codeconventies, naamgeving, PyQt6-patronen, foutafhandeling en terugkerende ontw
 
 | Term | Betekenis |
 |---|---|
-| `.shi` / `.shd` / `.shs` | Deltares D-Sheet uitvoerbestanden voor damwandberekeningen |
+| `.shd` | Deltares D-Sheet uitvoerbestand voor damwandberekeningen |
 | m NAP | Normaal Amsterdams Peil (Nederlands hoogtestelsel) |
 | GWS | Grondwaterstand |
 | Constructiefase | D-Sheet berekent per fase (ontgraving/installatie) de constructieve toestand |
 | VERIFY STEP | D-Sheet uitvoerblok met per-fase constructieve resultaten (moment, dwarskracht, verplaatsing) |
-| FileBundle | Groepering van `.shi`, `.shd` en `.shs` bestanden met dezelfde basisnaam |
+| FileBundle | Bundel met de ruwe `.shd` tekst voor één project |
 | BGR integer | Windows COLORREF kleurformaat dat D-Sheet gebruikt; `parse_color_int()` converteert naar `rgb(r, g, b)` |
 | TextBlock override | Handmatige tekstvervanger; `ReportState.overrides` koppelt `block_id → override_text`; `TextBlock.effective_text` retourneert de override of de gegenereerde tekst |
 

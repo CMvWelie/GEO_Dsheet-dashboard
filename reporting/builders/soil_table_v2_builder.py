@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from parsers.models import Project, Soil, SoilProfile, Stage
+from parsers.models import Project, Soil, SoilProfile, Stage, Surface
 from reporting.models import ReportSection, ReportTable, TextBlock
 from utils.formatting import fmt_number
+from utils.geometry import surface_y_at
 
 _GRONDSOORT_KOLOMMEN: list[str] = [
     'Laag',
@@ -27,6 +28,12 @@ _FASE_KOLOMMEN: list[str] = [
     'o.k. laag',
 ]
 
+_FASE_KOLOMMEN_ENKEL: list[str] = [
+    'Laag',
+    'b.k. laag',
+    'o.k. laag',
+]
+
 
 def _find_profiel(profielen: list[SoilProfile], naam: str) -> SoilProfile | None:
     """Zoek een profiel op naam in een profielenlijst."""
@@ -38,6 +45,66 @@ def _laag_sleutels(profiel: SoilProfile | None) -> list[tuple[float, str]]:
     if not profiel:
         return []
     return [(laag.level, laag.material) for laag in profiel.layers]
+
+
+def _find_surface(surfaces: list[Surface], naam: str) -> Surface | None:
+    """Zoek een surface op naam in een surfacelijst."""
+    return next((surface for surface in (surfaces or []) if surface.name == naam), None)
+
+
+def _stage_surface(project: Project, fase: Stage, zijde: str) -> Surface | None:
+    """Geef de surface die de doorsnede voor deze fasezijde gebruikt."""
+    naam = fase.right_surface if zijde == 'rechts' else fase.left_surface
+    gevonden = _find_surface(project.surfaces, naam)
+    if gevonden:
+        return gevonden
+    if zijde == 'rechts' and len(project.surfaces) > 1:
+        return project.surfaces[1]
+    return project.surfaces[0] if project.surfaces else None
+
+
+def _hoogste_surface_niveau(surface: Surface | None) -> float | None:
+    """Geef het hoogste niveau van een surfaceline, inclusief x=0."""
+    if not surface or not surface.points:
+        return None
+    xs = {
+        0.0,
+        *[
+            float(p['x'])
+            for p in surface.points
+            if p.get('x') is not None
+        ],
+    }
+    if not xs:
+        return None
+    return max(surface_y_at(surface.points, x) for x in xs)
+
+
+def _laag_volledig_afgedekt(
+    profiel: SoilProfile,
+    index: int,
+    surface: Surface | None,
+) -> bool:
+    """Bepaal of een laag nergens door de surface heen zichtbaar is."""
+    if index + 1 >= len(profiel.layers) or not surface or not surface.points:
+        return False
+    hoogste_surface = _hoogste_surface_niveau(surface)
+    if hoogste_surface is None:
+        return False
+    return hoogste_surface <= profiel.layers[index + 1].level + 1e-6
+
+
+def _laag_zichtbaarheids_sleutels(
+    profiel: SoilProfile | None,
+    surface: Surface | None,
+) -> list[tuple[float, str, bool]]:
+    """Geef een vergelijkbare sleutel per laag inclusief zichtbaarheid."""
+    if not profiel:
+        return []
+    return [
+        (laag.level, laag.material, _laag_volledig_afgedekt(profiel, index, surface))
+        for index, laag in enumerate(profiel.layers)
+    ]
 
 
 def _fase_titel(namen: list[str]) -> str:
@@ -128,8 +195,8 @@ class SoilTableV2Builder:
         """Bouw een faselaagsectie per aaneengesloten groep gelijke profielen."""
         groepen = self._fase_groepen(project)
         secties: list[ReportSection] = []
-        vorige_l: tuple[tuple[float, str], ...] = ()
-        vorige_r: tuple[tuple[float, str], ...] = ()
+        vorige_l: tuple = ()
+        vorige_r: tuple = ()
 
         for index, groep in enumerate(groepen, start=1):
             links_ongewijzigd = bool(vorige_l) and groep['sleutel_l'] == vorige_l
@@ -152,8 +219,14 @@ class SoilTableV2Builder:
         prof_map = {profiel.name: profiel for profiel in project.profiles}
         groepen: list[dict] = []
         for fase in project.stages:
-            sleutel_l = tuple(_laag_sleutels(prof_map.get(fase.left_profile)))
-            sleutel_r = tuple(_laag_sleutels(prof_map.get(fase.right_profile)))
+            sleutel_l = tuple(_laag_zichtbaarheids_sleutels(
+                prof_map.get(fase.left_profile),
+                _stage_surface(project, fase, 'links'),
+            ))
+            sleutel_r = tuple(_laag_zichtbaarheids_sleutels(
+                prof_map.get(fase.right_profile),
+                _stage_surface(project, fase, 'rechts'),
+            ))
             sleutel = (sleutel_l, sleutel_r)
             if groepen and groepen[-1]['sleutel'] == sleutel:
                 groepen[-1]['namen'].append(fase.name)
@@ -177,6 +250,7 @@ class SoilTableV2Builder:
         rechts_ongewijzigd: bool,
     ) -> ReportSection:
         """Bouw een sectie met linker- en rechtergrondlagen voor een fasegroep."""
+        zijden_gelijk = self._fase_zijden_gelijk(fase, project)
         sec = ReportSection(
             id=f'grondsoorten_v2_fase_{index}',
             title='Grondlaagopbouw fases' if index == 1 else '',
@@ -190,20 +264,55 @@ class SoilTableV2Builder:
         sec.tables.append(ReportTable(
             id=f'grondsoorten_v2_fase_{index}_tabel',
             title='',
-            columns=_FASE_KOLOMMEN,
+            columns=(
+                _FASE_KOLOMMEN_ENKEL
+                if zijden_gelijk
+                else _FASE_KOLOMMEN
+            ),
             rows=self._fase_rijen(
                 fase,
                 project,
                 links_ongewijzigd,
                 rechts_ongewijzigd,
             ),
-            column_groups=[
-                ('Grondlagen linkerzijde', 3),
-                ('Grondlagen rechterzijde', 3),
-            ],
-            separator_before_cols=[3],
+            column_groups=self._fase_kolomgroepen(fase, project),
+            separator_before_cols=[] if zijden_gelijk else [3],
+            strikethrough_cells=self._fase_doorhaal_cellen(
+                fase,
+                project,
+                links_ongewijzigd,
+                rechts_ongewijzigd,
+            ),
         ))
         return sec
+
+    def _fase_zijden_gelijk(self, fase: Stage, project: Project) -> bool:
+        """Geef aan of links en rechts exact dezelfde grondlaagrijen hebben."""
+        links_profiel = _find_profiel(project.profiles, fase.left_profile)
+        rechts_profiel = _find_profiel(project.profiles, fase.right_profile)
+        links_surface = _stage_surface(project, fase, 'links')
+        rechts_surface = _stage_surface(project, fase, 'rechts')
+        links = self._laag_rijen(links_profiel, links_surface)
+        rechts = self._laag_rijen(rechts_profiel, rechts_surface)
+        links_doorgehaald = self._laag_doorgehaald(links_profiel, links_surface)
+        rechts_doorgehaald = self._laag_doorgehaald(rechts_profiel, rechts_surface)
+        return bool(links) and (
+            list(zip(links, links_doorgehaald))
+            == list(zip(rechts, rechts_doorgehaald))
+        )
+
+    def _fase_kolomgroepen(
+        self,
+        fase: Stage,
+        project: Project,
+    ) -> list[tuple[str, int]]:
+        """Geef de kolomgroepen voor een faselaagentabel."""
+        if self._fase_zijden_gelijk(fase, project):
+            return [('Grondlagen', 3)]
+        return [
+            ('Grondlagen linkerzijde', 3),
+            ('Grondlagen rechterzijde', 3),
+        ]
 
     def _fase_rijen(
         self,
@@ -213,19 +322,82 @@ class SoilTableV2Builder:
         rechts_ongewijzigd: bool,
     ) -> list[list[str]]:
         """Bouw gecombineerde links/rechts-rijen voor een faselaagentabel."""
-        links = self._laag_rijen(_find_profiel(project.profiles, fase.left_profile))
-        rechts = self._laag_rijen(_find_profiel(project.profiles, fase.right_profile))
+        links_profiel = _find_profiel(project.profiles, fase.left_profile)
+        rechts_profiel = _find_profiel(project.profiles, fase.right_profile)
+        links_surface = _stage_surface(project, fase, 'links')
+        rechts_surface = _stage_surface(project, fase, 'rechts')
+        links = self._laag_rijen(links_profiel, links_surface)
+        rechts = self._laag_rijen(rechts_profiel, rechts_surface)
+        links_doorgehaald = self._laag_doorgehaald(links_profiel, links_surface)
+        rechts_doorgehaald = self._laag_doorgehaald(rechts_profiel, rechts_surface)
+        zijden_gelijk = bool(links) and (
+            list(zip(links, links_doorgehaald))
+            == list(zip(rechts, rechts_doorgehaald))
+        )
+        geheel_ongewijzigd = links_ongewijzigd and rechts_ongewijzigd
 
-        if links_ongewijzigd:
+        if zijden_gelijk:
+            n_data = max(len(links), 1)
+        elif links_ongewijzigd:
             n_data = max(len(rechts), 1)
         elif rechts_ongewijzigd:
             n_data = max(len(links), 1)
         else:
             n_data = max(len(links), len(rechts), 1)
 
+        if zijden_gelijk:
+            return self._zijde_rijen(links, geheel_ongewijzigd, n_data)
+
         links_data = self._zijde_rijen(links, links_ongewijzigd, n_data)
         rechts_data = self._zijde_rijen(rechts, rechts_ongewijzigd, n_data)
         return [links_data[i] + rechts_data[i] for i in range(n_data)]
+
+    def _fase_doorhaal_cellen(
+        self,
+        fase: Stage,
+        project: Project,
+        links_ongewijzigd: bool,
+        rechts_ongewijzigd: bool,
+    ) -> list[list[bool]]:
+        """Bouw per cel de doorhaalstatus voor een faselaagentabel."""
+        links_profiel = _find_profiel(project.profiles, fase.left_profile)
+        rechts_profiel = _find_profiel(project.profiles, fase.right_profile)
+        links_surface = _stage_surface(project, fase, 'links')
+        rechts_surface = _stage_surface(project, fase, 'rechts')
+        links = self._laag_rijen(links_profiel, links_surface)
+        rechts = self._laag_rijen(rechts_profiel, rechts_surface)
+        links_doorgehaald = self._laag_doorgehaald(links_profiel, links_surface)
+        rechts_doorgehaald = self._laag_doorgehaald(rechts_profiel, rechts_surface)
+        zijden_gelijk = bool(links) and (
+            list(zip(links, links_doorgehaald))
+            == list(zip(rechts, rechts_doorgehaald))
+        )
+        geheel_ongewijzigd = links_ongewijzigd and rechts_ongewijzigd
+
+        if zijden_gelijk:
+            n_data = max(len(links), 1)
+            return self._zijde_doorhaal_cellen(
+                links_doorgehaald,
+                geheel_ongewijzigd,
+                n_data,
+            )
+        if links_ongewijzigd:
+            n_data = max(len(rechts), 1)
+        elif rechts_ongewijzigd:
+            n_data = max(len(links), 1)
+        else:
+            n_data = max(len(links), len(rechts), 1)
+        links_cellen = self._zijde_doorhaal_cellen(
+            links_doorgehaald,
+            links_ongewijzigd,
+            n_data,
+        )
+        rechts_cellen = self._zijde_doorhaal_cellen(
+            rechts_doorgehaald,
+            rechts_ongewijzigd,
+            n_data,
+        )
+        return [links_cellen[i] + rechts_cellen[i] for i in range(n_data)]
 
     def _zijde_rijen(
         self,
@@ -243,14 +415,56 @@ class SoilTableV2Builder:
             for i in range(n_data)
         ]
 
-    def _laag_rijen(self, profiel: SoilProfile | None) -> list[list[str]]:
+    def _zijde_doorhaal_cellen(
+        self,
+        doorgestreept: list[bool],
+        ongewijzigd: bool,
+        n_data: int,
+    ) -> list[list[bool]]:
+        """Geef driekoloms-doorhaalstatussen voor een tabelzijde."""
+        if ongewijzigd:
+            return [[False, False, False] for _ in range(n_data)]
+        return [
+            [doorgestreept[i]] * 3 if i < len(doorgestreept) else [False, False, False]
+            for i in range(n_data)
+        ]
+
+    def _laag_rijen(
+        self,
+        profiel: SoilProfile | None,
+        surface: Surface | None = None,
+    ) -> list[list[str]]:
         """Geef rijen ``[laagnaam, b.k. niveau, o.k. niveau]`` per laag."""
         if not profiel:
             return []
         rijen: list[list[str]] = []
         n = len(profiel.layers)
+        doorgestreept = self._laag_doorgehaald(profiel, surface)
+        eerste_zichtbaar = next(
+            (index for index, afgedekt in enumerate(doorgestreept) if not afgedekt),
+            None,
+        )
+        hoogste_surface = _hoogste_surface_niveau(surface)
         for i, laag in enumerate(profiel.layers):
-            bk = fmt_number(laag.level, 2)
+            bk_niveau = (
+                hoogste_surface
+                if i == eerste_zichtbaar and hoogste_surface is not None
+                else laag.level
+            )
+            bk = fmt_number(bk_niveau, 2)
             ok = fmt_number(profiel.layers[i + 1].level, 2) if i + 1 < n else 'Max'
             rijen.append([laag.material, bk, ok])
         return rijen
+
+    def _laag_doorgehaald(
+        self,
+        profiel: SoilProfile | None,
+        surface: Surface | None,
+    ) -> list[bool]:
+        """Geef per laag aan of deze volledig door de surface is afgedekt."""
+        if not profiel:
+            return []
+        return [
+            _laag_volledig_afgedekt(profiel, index, surface)
+            for index, _laag in enumerate(profiel.layers)
+        ]

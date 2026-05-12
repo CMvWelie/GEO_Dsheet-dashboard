@@ -92,6 +92,21 @@ def test_grondsoorten_v2_overzicht_lijnt_laagdata_links_uit() -> None:
     )
 
 
+def test_grondsoorten_v2_overzicht_begint_op_nieuwe_pagina() -> None:
+    sec = ReportSection(
+        id='grondsoorten_v2_overzicht',
+        title='Grondsoortentabel v2 - Grondsoorten',
+    )
+
+    doc = _export([ReportSection(id='vooraf', title='Vooraf'), sec])
+
+    kop = next(
+        p for p in doc.paragraphs
+        if p.text == 'Grondsoortentabel v2 - Grondsoorten'
+    )
+    assert kop.paragraph_format.page_break_before is True
+
+
 def test_tabel_met_kolomgroepen_wordt_geschreven() -> None:
     from docx.oxml.ns import qn
 
@@ -126,6 +141,58 @@ def test_tabel_met_kolomgroepen_wordt_geschreven() -> None:
     assert doc.tables[0].rows[2].cells[3].paragraphs[0].alignment == (
         WD_ALIGN_PARAGRAPH.LEFT
     )
+
+
+def test_grondsoorten_v2_gelijke_zijden_krijgt_drie_wordkolommen() -> None:
+    from docx.oxml.ns import qn
+
+    sec = ReportSection(id='grondsoorten_v2_fase_1', title='Grondlaagopbouw fases')
+    sec.tables.append(ReportTable(
+        id='grondsoorten_v2_fase_1_tabel',
+        title='',
+        columns=['Laag', 'b.k. laag', 'o.k. laag'],
+        rows=[['Zand', '0,00', 'Max']],
+        column_groups=[('Grondlagen', 3)],
+    ))
+
+    doc = _export([sec])
+
+    assert 'Grondlagen' in doc.tables[0].rows[0].cells[0].text
+    assert [col.get(qn('w:w')) for col in doc.tables[0]._tbl.tblGrid.gridCol_lst] == [
+        '2268', '1134', '1134',
+    ]
+    assert doc.tables[0].rows[0].cells[0]._tc.tcPr.tcW.w == 4536
+    assert [
+        cell._tc.tcPr.tcW.w
+        for cell in doc.tables[0].rows[2].cells
+    ] == [2268, 1134, 1134]
+    assert doc.tables[0].rows[2].cells[0].paragraphs[0].alignment == (
+        WD_ALIGN_PARAGRAPH.LEFT
+    )
+
+
+def test_grondsoorten_v2_word_cellen_kunnen_worden_doorgestreept() -> None:
+    sec = ReportSection(id='grondsoorten_v2_fase_1', title='Grondlaagopbouw fases')
+    sec.tables.append(ReportTable(
+        id='grondsoorten_v2_fase_1_tabel',
+        title='',
+        columns=['Laag', 'b.k. laag', 'o.k. laag'],
+        rows=[
+            ['Zand', '0,00', '-5,00'],
+            ['Klei', '-4,00', 'Max'],
+        ],
+        column_groups=[('Grondlagen', 3)],
+        strikethrough_cells=[
+            [True, True, True],
+            [False, False, False],
+        ],
+    ))
+
+    doc = _export([sec])
+
+    assert doc.tables[0].rows[2].cells[0].paragraphs[0].runs[0].font.strike is True
+    assert doc.tables[0].rows[2].cells[1].paragraphs[0].runs[0].font.strike is True
+    assert doc.tables[0].rows[3].cells[0].paragraphs[0].runs[0].font.strike is not True
 
 
 def test_grondsoorten_v2_ongewijzigde_zijde_wordt_samengevoegd() -> None:

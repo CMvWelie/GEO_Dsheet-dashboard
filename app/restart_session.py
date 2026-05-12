@@ -21,7 +21,7 @@ def save(paths: list[str]) -> None:
     Parameters
     ----------
     paths:
-        Absolute paden naar ``.shi``/``.shd``/``.shs``-bestanden.
+        Absolute paden naar ``.shd``-bestanden.
         Een lege lijst schrijft niets.
     """
     if not paths:

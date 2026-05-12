@@ -38,6 +38,7 @@ _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
 _RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 2.5, 3.5, 2.0]  # label, stap, waarde, eenheid
 _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0, 4.0, 2.0, 2.0]
+_GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0]
 _DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
 _DAMWAND_SCHEIDING_TWIPS = 40
 _RESULTAAT_SECTIE_IDS = {
@@ -205,6 +206,9 @@ class WordHoofdstukExporter:
         if sec.id == 'extremen_overzicht':
             self._schrijf_extremen_overzicht_sectie(doc, sec, project)
             return
+        if sec.id == 'grondsoorten_v2_overzicht':
+            self._schrijf_grondsoorten_v2_overzicht_sectie(doc, sec)
+            return
         if sec.id.startswith('grondsoorten_v2_fase_'):
             self._schrijf_grondsoorten_v2_fase_sectie(doc, sec)
             return
@@ -221,6 +225,22 @@ class WordHoofdstukExporter:
             self._schrijf_figuur(doc, img_req, project)
         for groep in sec.image_groups:
             self._schrijf_figuurgroep(doc, groep, project)
+
+    def _schrijf_grondsoorten_v2_overzicht_sectie(
+        self,
+        doc: Document,
+        sec: ReportSection,
+    ) -> None:
+        """Schrijf het v2-grondsoortenoverzicht op een nieuwe pagina."""
+        kop = doc.add_heading(sec.title, level=2)
+        kop.paragraph_format.page_break_before = True
+        for veld in sec.fields:
+            waarde = f'{veld.value} {veld.unit}'.strip() if veld.unit else veld.value
+            doc.add_paragraph(f'{veld.label}: {waarde}')
+        for tabel in sec.tables:
+            self._schrijf_tabel(doc, tabel)
+        for tb in sec.text_blocks:
+            doc.add_paragraph(tb.effective_text)
 
     def _schrijf_grondsoorten_v2_fase_sectie(
         self,
@@ -1105,12 +1125,12 @@ class WordHoofdstukExporter:
             t.style = 'Table Grid'
         except KeyError:
             pass
-        vaste_breedtes_cm = (
-            _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM
-            if str(tabel.id).startswith('grondsoorten_v2_fase_')
-            and n_cols == len(_GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM)
-            else []
-        )
+        vaste_breedtes_cm: list[float] = []
+        if str(tabel.id).startswith('grondsoorten_v2_fase_'):
+            if n_cols == len(_GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM):
+                vaste_breedtes_cm = _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM
+            elif n_cols == len(_GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM):
+                vaste_breedtes_cm = _GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM
         t.autofit = not bool(vaste_breedtes_cm)
         vaste_breedtes_dxa = [round(cm * 567) for cm in vaste_breedtes_cm]
         if vaste_breedtes_cm:
@@ -1150,6 +1170,8 @@ class WordHoofdstukExporter:
             for col, cel in enumerate(data_rij):
                 if col < len(rij.cells):
                     rij.cells[col].text = str(cel)
+                    if self._report_cel_doorhalen(tabel, row_i, col):
+                        self._zet_cel_doorhalen(rij.cells[col])
 
         if vaste_breedtes_dxa:
             self._voeg_grondsoorten_v2_ongewijzigd_merges_toe(
@@ -1167,6 +1189,21 @@ class WordHoofdstukExporter:
                 kop_rij + 1,
                 links_uitlijnen,
             )
+
+    def _report_cel_doorhalen(self, tabel, row_i: int, col: int) -> bool:
+        """Geef aan of een rapporttabelcel doorgestreept moet worden."""
+        matrix = getattr(tabel, 'strikethrough_cells', []) or []
+        return (
+            row_i < len(matrix)
+            and col < len(matrix[row_i])
+            and bool(matrix[row_i][col])
+        )
+
+    def _zet_cel_doorhalen(self, cell) -> None:
+        """Zet alle tekst in een Word-cel doorgestreept."""
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.font.strike = True
 
     def _voeg_grondsoorten_v2_ongewijzigd_merges_toe(
         self,

@@ -4,7 +4,7 @@ from __future__ import annotations
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QLabel, QWidget
 
-from parsers.models import FileBundle, Project, Soil, SoilLayer, SoilProfile, Stage
+from parsers.models import FileBundle, Project, Soil, SoilLayer, SoilProfile, Stage, Surface
 from ui.tabs.tab_grondsoorten_v2 import TabGrondsoortenv2
 
 
@@ -101,6 +101,97 @@ def test_v2_tab_lijnt_laagkoppen_links_uit(qapp) -> None:
         label.alignment() & Qt.AlignmentFlag.AlignLeft
         for label in laag_koppen
     )
+
+
+def test_v2_tab_toont_enkele_grondlagenkolom_bij_gelijke_zijden(qapp) -> None:
+    tab = TabGrondsoortenv2()
+    links = _profiel('Links')
+    rechts = _profiel('Rechts')
+    project = Project(
+        base_name='test',
+        project_name='Testproject',
+        file_bundle=FileBundle(),
+        soils=[_soil('Zand')],
+        profiles=[links, rechts],
+        stages=[Stage(name='Fase 1', left_profile='Links', right_profile='Rechts')],
+    )
+
+    tab.populate(project)
+
+    teksten = _label_teksten(tab)
+    assert 'Grondlagen' in teksten
+    assert 'Grondlagen linkerzijde' not in teksten
+    assert 'Grondlagen rechterzijde' not in teksten
+
+
+def test_v2_tab_streept_volledig_afgedekte_grondlaag_door(qapp) -> None:
+    tab = TabGrondsoortenv2()
+    profiel = SoilProfile(
+        name='Links',
+        normalized_name='links',
+        occurrence=1,
+        x=None,
+        y=None,
+        layers=[
+            SoilLayer(nr=1, level=0.0, wosp_top=0.0, wosp_bottom=0.0, material='Zand'),
+            SoilLayer(nr=2, level=-5.0, wosp_top=0.0, wosp_bottom=0.0, material='Klei'),
+        ],
+    )
+    project = Project(
+        base_name='test',
+        project_name='Testproject',
+        file_bundle=FileBundle(),
+        soils=[_soil('Zand'), _soil('Klei')],
+        profiles=[profiel],
+        surfaces=[
+            Surface(
+                nr=1,
+                name='Ontgraving',
+                points=[{'x': 0.0, 'y': -6.0}, {'x': 10.0, 'y': -6.0}],
+            )
+        ],
+        stages=[Stage(name='Fase 1', left_profile='Links', left_surface='Ontgraving')],
+    )
+
+    tab.populate(project)
+
+    zand_labels = [label for label in tab.findChildren(QLabel) if label.text() == 'Zand']
+    assert any(label.font().strikeOut() for label in zand_labels)
+
+
+def test_v2_tab_zet_bk_eerste_zichtbare_laag_op_hoogste_surfacepunt(qapp) -> None:
+    tab = TabGrondsoortenv2()
+    profiel = SoilProfile(
+        name='Links',
+        normalized_name='links',
+        occurrence=1,
+        x=None,
+        y=None,
+        layers=[
+            SoilLayer(nr=1, level=0.0, wosp_top=0.0, wosp_bottom=0.0, material='Zand'),
+            SoilLayer(nr=2, level=-5.0, wosp_top=0.0, wosp_bottom=0.0, material='Klei'),
+        ],
+    )
+    project = Project(
+        base_name='test',
+        project_name='Testproject',
+        file_bundle=FileBundle(),
+        soils=[_soil('Zand'), _soil('Klei')],
+        profiles=[profiel],
+        surfaces=[
+            Surface(
+                nr=1,
+                name='Ontgraving',
+                points=[{'x': 0.0, 'y': -4.0}, {'x': 10.0, 'y': -4.5}],
+            )
+        ],
+        stages=[Stage(name='Fase 1', left_profile='Links', left_surface='Ontgraving')],
+    )
+
+    tab.populate(project)
+
+    teksten = _label_teksten(tab)
+    assert '-4,00' in teksten
 
 
 def test_v2_tab_toont_meerdere_fases_als_streepjesregels(qapp) -> None:

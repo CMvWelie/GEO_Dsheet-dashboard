@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**D-Sheet Dashboard** is a PyQt6 desktop application for visualizing D-Sheet damwand (sheet pile wall) geotechnical calculations from `.shi`/`.shd`/`.shs` file formats. Documentation and UI labels are in Dutch.
+**D-Sheet Dashboard** is a PyQt6 desktop application for visualizing D-Sheet damwand (sheet pile wall) geotechnical calculations from `.shd` file format. Documentation and UI labels are in Dutch.
 
 ## Commands
 
@@ -34,8 +34,8 @@ The application follows a **data → parse → visualize → interact** pipeline
 
 ### Data Flow
 
-1. User drags/imports `.shi`/`.shd`/`.shs` files → `AppController.ingest_paths()` → stored as raw text in `AppState.raw_files`
-2. User clicks "Verwerk" (Process) → `AppController.process_files()` → files grouped by base name into `FileBundle` → `parse_project()` → `AppState.projects`
+1. User drags/imports `.shd` files → `AppController.ingest_paths()` → stored as raw text in `AppState.raw_files`
+2. User clicks "Verwerk" (Process) → files grouped by base name into `FileBundle` → `parse_project()` → `AppState.projects`
 3. `_update_all()` → `_update_render_views()` (viewport + drawing) + `_refresh_active_report_tab()` (on-demand report tab refresh)
 4. `SectionRenderer.render()` draws the cross-section; `render_output_charts()` draws moment/shear/displacement graphs
 5. Any UI interaction (combo box, zoom, settings) → signal → handler calls `AppController` method → updates `AppState` → `_update_all()` → re-render
@@ -45,7 +45,7 @@ The application follows a **data → parse → visualize → interact** pipeline
 | Package | Purpose |
 |---|---|
 | `app/` | App layer: `state.py`, `controller.py`, `report_controller.py`, `report_state.py`, `config_manager.py`, `settings.py`, `viewport_service.py`, `main_window.py`, `theme.py`, `theme_apply.py`, `docx_to_pdf_converter.py`, `word_preview_worker.py`, `restart_session.py` |
-| `parsers/` | `.shi`/`.shd`/`.shs` parsing → domain dataclasses (`Project`, `Stage`, `SoilLayer`, etc.) |
+| `parsers/` | `.shd` parsing → domain dataclasses (`Project`, `Stage`, `SoilLayer`, etc.) |
 | `renderers/` | Matplotlib renderers: cross-section, results charts, vertical equilibrium |
 | `ui/` | PyQt6 widgets, theme dialog, table styles, Word/PDF preview window, and tab modules under `ui/tabs/` |
 | `reporting/` | Report models, `ReportPlan` (`selection.py`), and builders (input/result description, soil table, damwand chapter) |
@@ -74,7 +74,7 @@ analysis, archives, and local generated artifacts only.
 - **No Qt in controllers**: `AppController`, `ReportController`, `ConfigManager`, `ViewportService` have zero Qt imports
 - **No widget aliases**: In `main_window.py` all tab widgets are accessed directly via `self._tab_<name>.<widget>` — do not introduce aliases
 - **BaseRenderer ABC**: New renderers must subclass `renderers.BaseRenderer` and implement `render(ax, project, stage, settings, viewport)`
-- **Parsing**: D-Sheet `.shi/.shd/.shs` bundles are parsed directly via `parsers.shi_parser.parse_project`.
+- **Parsing**: D-Sheet `.shd` files are parsed directly via `parsers.shi_parser.parse_project`.
 - **Text overrides**: `ReportState.overrides` maps `block_id → override_text`; `TextBlock.effective_text` returns override if set, else generated text
 - **Render settings always passed**: `AppController.render_results()` always passes `self._state.render_settings` to `render_output_charts()`
 - **ViewportService dependencies**: `y_range_for_project()`, `x_range_for_project()`, `get_stage_profile()` are module-level exports from `section_renderer.py` used by `ViewportService`

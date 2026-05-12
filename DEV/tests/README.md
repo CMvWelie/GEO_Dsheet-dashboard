@@ -1,6 +1,6 @@
 ﻿# Tests
 
-Pytest-suite voor parsers, rapportage-builders, exporters, app-instellingen, thema's en de aanvullende-berekeningen-tabs. Tests gebruiken embedded `SAMPLE_SHI`-strings — er zijn geen externe testbestanden nodig.
+Pytest-suite voor parsers, rapportage-builders, exporters, app-instellingen, thema's en de aanvullende-berekeningen-tabs. Tests gebruiken embedded `SAMPLE_SHD`-strings — er zijn geen externe testbestanden nodig.
 
 ## Uitvoeren
 
@@ -21,7 +21,7 @@ pip install -r DEV/requirements-dev.txt
 | Bestand | Scope |
 |---|---|
 | `conftest.py` | Gedeelde fixtures (o.a. `qapp` voor Qt-tests, voorbeeld-`Project` factories). |
-| `test_parsers.py` | Volledige parser-pijplijn met embedded SHI-strings: soils, soil_profiles, sheet_piling, anchors, struts, water_levels, surfaces, stages en `parse_project`. |
+| `test_parsers.py` | Volledige parser-pijplijn met embedded SHD-strings: soils, soil_profiles, sheet_piling, anchors, struts, water_levels, surfaces, stages en `parse_project`. |
 | `test_app_settings.py` | Persistentie van `RenderSettings`/`ViewportSettings`/`AppSettings` via `ConfigManager`. |
 | `test_app_settings_theme.py` | Opslaan en laden van `active_theme_name` in `AppSettings`. |
 | `test_theme.py` | `Theme`-dataclass, JSON-loader, `discover_themes()` en `Theme.build_stylesheet()`. |
@@ -42,7 +42,7 @@ pip install -r DEV/requirements-dev.txt
 
 ## Patronen
 
-- **Embedded testdata**: parser-tests gebruiken `SAMPLE_SHI` strings i.p.v. losse bestanden — de tests blijven daardoor zelfstandig en snel.
+- **Embedded testdata**: parser-tests gebruiken `SAMPLE_SHD` strings i.p.v. losse bestanden — de tests blijven daardoor zelfstandig en snel.
 - **Gedeelde fixtures**: `conftest.py` levert factory-fixtures voor `Project`, `Stage` en grondlagen die in meerdere builder-tests hergebruikt worden.
 - **Qt-tests**: tests die widgets instantiëren gebruiken een `qapp`-fixture die één keer per sessie een `QApplication` aanmaakt; widgets worden niet getoond, alleen geconstrueerd en gequeryd.
 - **Geen mocks van databronnen**: bouw liever een minimaal `Project` op dan een mock — dat houdt de tests dicht bij echte uitvoer.

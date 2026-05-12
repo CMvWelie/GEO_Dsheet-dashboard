@@ -76,7 +76,7 @@ class AppController:
         loaded = 0
         for path in paths:
             ext = Path(path).suffix.lstrip('.').lower()
-            if ext not in ('shi', 'shd', 'shs'):
+            if ext != 'shd':
                 continue
             try:
                 text = Path(path).read_text(encoding='utf-8', errors='replace')
@@ -91,19 +91,20 @@ class AppController:
         return True, ''
 
     def process_files(self) -> tuple[bool, str]:
-        """Groepeer raw_files → FileBundle → parse_project → state.projects.
+        """Groepeer .shd raw_files → FileBundle → parse_project → state.projects.
 
         Returns:
             (True, statusmelding) bij succes, (False, foutmelding) bij fouten.
         """
-        grouped: dict[str, dict] = {}
+        grouped: dict[str, dict[str, str]] = {}
         for name, text in self._state.raw_files.items():
+            ext = Path(name).suffix.lstrip('.').lower()
+            if ext != 'shd':
+                continue
             base = self.group_base_name(name)
             if base not in grouped:
-                grouped[base] = {'shi': '', 'shd': '', 'shs': ''}
-            ext = Path(name).suffix.lstrip('.').lower()
-            if ext in ('shi', 'shd', 'shs'):
-                grouped[base][ext] = text
+                grouped[base] = {'shd': ''}
+            grouped[base][ext] = text
 
         self._state.projects.clear()
         for base_name, bundle_dict in grouped.items():
@@ -125,9 +126,8 @@ class AppController:
         self._state.reset()
 
     def remove_project(self, base_name: str) -> None:
-        """Verwijder één project en alle bijbehorende raw_files uit de state."""
-        for ext in ('shi', 'shd', 'shs'):
-            self._state.raw_files.pop(f'{base_name}.{ext}', None)
+        """Verwijder één project en het bijbehorende raw_file uit de state."""
+        self._state.raw_files.pop(f'{base_name}.shd', None)
         self._state.source_paths = [
             p for p in self._state.source_paths
             if Path(p).stem.lower() != base_name.lower()
@@ -321,8 +321,8 @@ class AppController:
         return self._viewport.get_stage_profile(project, stage, side)
 
     def group_base_name(self, filename: str) -> str:
-        """Strip .shi/.shd/.shs-extensie van bestandsnaam."""
-        return re.sub(r'\.(shi|shd|shs)$', '', filename, flags=re.IGNORECASE)
+        """Strip .shd-extensie van bestandsnaam."""
+        return re.sub(r'\.shd$', '', filename, flags=re.IGNORECASE)
 
     def sort_result_steps(self, keys: list[str]) -> list[str]:
         """Sorteer VERIFY STEP-sleutels op numeriek prefix."""

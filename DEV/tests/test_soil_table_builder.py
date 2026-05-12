@@ -5,7 +5,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from parsers.models import Project, FileBundle, Soil, SoilProfile, SoilLayer
+from parsers.models import Project, FileBundle, Soil, SoilProfile, SoilLayer, Surface
 from reporting.builders.soil_table_builder import SoilTableBuilder
 from reporting.builders.soil_table_v2_builder import SoilTableV2Builder
 from reporting.models import ReportSection, ReportMetadata
@@ -183,6 +183,54 @@ def test_v2_bouwt_fasegroep_met_links_rechts_kolomgroepen() -> None:
         ('Grondlagen rechterzijde', 3),
     ]
     assert fase_tabel.rows[0] == ['Zand', '0,00', '-5,00', 'Veen', '1,00', 'Max']
+
+
+def test_v2_bouwt_enkele_grondlagenkolom_bij_gelijke_zijden() -> None:
+    from parsers.models import Stage
+
+    links = _maak_profiel('Links', [_laag(1, 0.0, 'Zand')])
+    rechts = _maak_profiel('Rechts', [_laag(1, 0.0, 'Zand')])
+    project = _maak_project(
+        profielen=[links, rechts],
+        soils=[_soil('Zand')],
+    )
+    project.stages = [Stage(name='Fase 1', left_profile='Links', right_profile='Rechts')]
+
+    secties = SoilTableV2Builder().build(project)
+    fase_tabel = secties[1].tables[0]
+
+    assert fase_tabel.columns == ['Laag', 'b.k. laag', 'o.k. laag']
+    assert fase_tabel.column_groups == [('Grondlagen', 3)]
+    assert fase_tabel.separator_before_cols == []
+    assert fase_tabel.rows == [['Zand', '0,00', 'Max']]
+
+
+def test_v2_worddata_streept_afgedekte_laag_en_corrigeert_eerste_bk() -> None:
+    from parsers.models import Stage
+
+    profiel = _maak_profiel('Links', [
+        _laag(1, 0.0, 'Zand'),
+        _laag(2, -5.0, 'Klei'),
+    ])
+    project = _maak_project(
+        profielen=[profiel],
+        soils=[_soil('Zand'), _soil('Klei')],
+    )
+    project.surfaces = [
+        Surface(
+            nr=1,
+            name='Ontgraving',
+            points=[{'x': 0.0, 'y': -6.0}, {'x': 10.0, 'y': -6.5}],
+        )
+    ]
+    project.stages = [Stage(name='Fase 1', left_profile='Links', left_surface='Ontgraving')]
+
+    fase_tabel = SoilTableV2Builder().build(project)[1].tables[0]
+
+    assert fase_tabel.rows[0] == ['Zand', '0,00', '-5,00', '', '', '']
+    assert fase_tabel.rows[1] == ['Klei', '-6,00', 'Max', '', '', '']
+    assert fase_tabel.strikethrough_cells[0][:3] == [True, True, True]
+    assert fase_tabel.strikethrough_cells[1][:3] == [False, False, False]
 
 
 def test_v2_groepeert_opeenvolgende_identieke_fases() -> None:

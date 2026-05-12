@@ -25,8 +25,8 @@ from utils.formatting import fmt_number, format_normal_force_values
 # Testdata
 # ---------------------------------------------------------------------------
 
-SAMPLE_SHI = """\
-FILENAME : C:\\projecten\\testproject.shi
+SAMPLE_SHD = """\
+FILENAME : C:\\projecten\\testproject.shd
 
 [SOIL]
 Klei
@@ -149,9 +149,9 @@ def test_extract_section_missing():
 
 
 def test_find_line_value():
-    text = 'FILENAME : C:\\test\\project.shi\n'
+    text = 'FILENAME : C:\\test\\project.shd\n'
     result = find_line_value(text, r'^FILENAME\s*:\s*(.+)$')
-    assert result == 'C:\\test\\project.shi'
+    assert result == 'C:\\test\\project.shd'
 
 
 def test_find_line_value_missing():
@@ -182,7 +182,7 @@ def test_parse_color_int_bgr():
 # ---------------------------------------------------------------------------
 
 def test_parse_soils():
-    soils = parse_soils(SAMPLE_SHI)
+    soils = parse_soils(SAMPLE_SHD)
     assert len(soils) == 2
     assert soils[0].name == 'Klei'
     assert soils[1].name == 'Zand'
@@ -204,6 +204,11 @@ SoilGamWet=14.00
 SoilCohesion=0.00
 SoilPhi=17.50
 SoilDelta=11.67
+SoilOCR=1.25
+SoilLa=0.47
+SoilLn=0.70
+SoilLp=2.42
+SoilShellFactor=0.95
 SoilCurKo1=2000.00
 SoilCurKo2=1000.00
 SoilCurKo3=500.00
@@ -218,6 +223,11 @@ SoilCurKo3=500.00
     assert s.cohesion == pytest.approx(0.0)
     assert s.phi == pytest.approx(17.5)
     assert s.delta == pytest.approx(11.67)
+    assert s.ka == pytest.approx(0.47)
+    assert s.kn == pytest.approx(0.70)
+    assert s.kp == pytest.approx(2.42)
+    assert s.ocr == pytest.approx(1.25)
+    assert s.shell_factor == pytest.approx(0.95)
     assert s.kh1 == pytest.approx(2000.0)
     assert s.kh2 == pytest.approx(1000.0)
     assert s.kh3 == pytest.approx(500.0)
@@ -228,7 +238,7 @@ SoilCurKo3=500.00
 # ---------------------------------------------------------------------------
 
 def test_parse_soil_profiles():
-    profiles = parse_soil_profiles(SAMPLE_SHI)
+    profiles = parse_soil_profiles(SAMPLE_SHD)
     assert len(profiles) == 2
     klei_prof = profiles[0]
     assert klei_prof.name == 'Klei profiel'
@@ -240,7 +250,7 @@ def test_parse_soil_profiles():
 
 
 def test_parse_soil_profiles_x_coordinate():
-    profiles = parse_soil_profiles(SAMPLE_SHI)
+    profiles = parse_soil_profiles(SAMPLE_SHD)
     assert profiles[0].x == 1.0
     assert profiles[1].x == 3.0
 
@@ -250,7 +260,7 @@ def test_parse_soil_profiles_x_coordinate():
 # ---------------------------------------------------------------------------
 
 def test_parse_surfaces():
-    surfaces = parse_surfaces(SAMPLE_SHI)
+    surfaces = parse_surfaces(SAMPLE_SHD)
     assert len(surfaces) == 1
     assert surfaces[0].name == 'Maaiveld links'
     assert len(surfaces[0].points) == 2
@@ -263,7 +273,7 @@ def test_parse_surfaces():
 # ---------------------------------------------------------------------------
 
 def test_parse_water_levels():
-    wl = parse_water_levels(SAMPLE_SHI)
+    wl = parse_water_levels(SAMPLE_SHD)
     assert len(wl) == 2
     assert wl[0].name == 'Waterstand hoog'
     assert wl[0].level == -1.0
@@ -276,7 +286,7 @@ def test_parse_water_levels():
 # ---------------------------------------------------------------------------
 
 def test_parse_sheet_piling():
-    sp = parse_sheet_piling(SAMPLE_SHI)
+    sp = parse_sheet_piling(SAMPLE_SHD)
     assert len(sp) == 1
     assert sp[0].name == 'Stalen damwand'
     assert sp[0].top == 3.0
@@ -291,14 +301,14 @@ def test_parse_sheet_piling():
 # ---------------------------------------------------------------------------
 
 def test_parse_stages():
-    stages = parse_stages(SAMPLE_SHI)
+    stages = parse_stages(SAMPLE_SHD)
     assert len(stages) == 2
     assert stages[0].name == 'Fase 1'
     assert stages[1].name == 'Fase 2'
 
 
 def test_parse_stages_surface_references():
-    stages = parse_stages(SAMPLE_SHI)
+    stages = parse_stages(SAMPLE_SHD)
     assert stages[0].left_surface == 'Maaiveld links'
     assert stages[0].left_water == 'Waterstand hoog'
     assert stages[0].right_water == 'Waterstand laag'
@@ -307,13 +317,13 @@ def test_parse_stages_surface_references():
 
 
 def test_parse_stages_anchors_fase2():
-    stages = parse_stages(SAMPLE_SHI)
+    stages = parse_stages(SAMPLE_SHD)
     assert len(stages[1].anchors) == 1
     assert stages[1].anchors[0] == 'Anker-1'
 
 
 def test_parse_stages_fase1_geen_ankers():
-    stages = parse_stages(SAMPLE_SHI)
+    stages = parse_stages(SAMPLE_SHD)
     assert stages[0].anchors == []
 
 
@@ -322,7 +332,7 @@ def test_parse_stages_fase1_geen_ankers():
 # ---------------------------------------------------------------------------
 
 def test_parse_anchors():
-    anchors = parse_anchors(SAMPLE_SHI)
+    anchors = parse_anchors(SAMPLE_SHD)
     assert len(anchors) == 1
     assert anchors[0].name == 'Anker-1'
     assert anchors[0].level == -1.5
@@ -331,7 +341,7 @@ def test_parse_anchors():
 
 
 def test_parse_struts():
-    struts = parse_struts(SAMPLE_SHI)
+    struts = parse_struts(SAMPLE_SHD)
     assert len(struts) == 1
     assert struts[0].name == 'Stempel-1'
     assert struts[0].level == -0.5
@@ -381,7 +391,7 @@ sSheetPilingElementReductionFactorMaxMoment=1.00
 # ---------------------------------------------------------------------------
 
 def test_parse_project():
-    bundle = FileBundle(shi=SAMPLE_SHI)
+    bundle = FileBundle(shd=SAMPLE_SHD)
     project = parse_project(bundle, 'testproject')
     assert project.project_name == 'testproject'
     assert len(project.soils) == 2
@@ -393,8 +403,8 @@ def test_parse_project():
 
 
 def test_parse_project_name_from_filename():
-    shi_with_filename = 'FILENAME : C:\\projecten\\mijn_damwand.shi\n' + SAMPLE_SHI
-    bundle = FileBundle(shi=shi_with_filename)
+    shd_with_filename = 'FILENAME : C:\\projecten\\mijn_damwand.shd\n' + SAMPLE_SHD
+    bundle = FileBundle(shd=shd_with_filename)
     project = parse_project(bundle, 'fallback')
     assert project.project_name == 'mijn_damwand'
 

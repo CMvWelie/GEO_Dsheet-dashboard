@@ -239,12 +239,15 @@ class TabDebugInvoer(QWidget):
         # 4 – GRONDSOORTEN
         self._voeg_in(_maak_header('GRONDSOORTEN'))
         if p.soils:
+            extra_hdrs = ['Ka', 'Kn', 'Kp', 'OCR', 'shell factor']
             hdrs = ['name', 'kleur', 'γd', 'γn', "c'", 'φ', 'δ', 'kh1', 'kh2', 'kh3']
             rijen = [[
                 s.name, s.color, str(s.gamma_dry), str(s.gamma_wet),
                 str(s.cohesion), str(s.phi), str(s.delta),
+                str(s.ka), str(s.kn), str(s.kp), str(s.ocr), str(s.shell_factor),
                 str(s.kh1), str(s.kh2), str(s.kh3),
             ] for s in p.soils]
+            hdrs = hdrs[:7] + extra_hdrs + hdrs[7:]
             self._voeg_in(_maak_tabel(hdrs, rijen))
         else:
             self._voeg_in(_geen_data_label())

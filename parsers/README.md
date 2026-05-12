@@ -1,6 +1,6 @@
 # Parsers
 
-Parsen van D-Sheet bestandsformaten (`.shi`, `.shd`, `.shs`) naar
+Parsen van D-Sheet `.shd`-bestanden naar
 domein-dataclasses in `models.py`.
 
 ## Bestanden
@@ -10,7 +10,7 @@ domein-dataclasses in `models.py`.
 | `__init__.py` | Pakketmarkering, geen re-exports. |
 | `models.py` | Dataclasses voor alle domeinobjecten (project, geometrie, belastingen, resultaten). |
 | `base_parser.py` | Gedeelde regex-helpers `extract_section()` en `find_line_value()`. |
-| `shi_parser.py` | Volledige D-Sheet parser; bouwt een `Project` uit een `FileBundle` met `.shi`/`.shd`/`.shs` tekst. |
+| `shi_parser.py` | Volledige D-Sheet parser; historische modulenaam, bouwt een `Project` uit een `FileBundle` met `.shd`-tekst. |
 
 ## Domeinmodellen
 
@@ -22,7 +22,7 @@ Centraal staat `Project`, dat alle domeinlijsten bundelt. Per categorie:
 - Bouwfases: `Stage` (verwijst per fase naar profielen, oppervlakken, waterstanden en belastingen op naam).
 - Resultaten: `ResultStep`, `ResultStage`, `ResultPoint`, `ResultSummary`,
   `AnchorStrutResumeItem`, `SupportResumeItem`.
-- Bestandsbundel: `FileBundle` (ruwe tekst per extensie).
+- Bestandsbundel: `FileBundle` (ruwe `.shd`-tekst).
 
 Alle modellen zijn `@dataclass` met `field(default_factory=list)` voor lijsten;
 geen Qt-imports en geen ruwe dicts in publieke API's.

@@ -35,6 +35,11 @@ class Soil:
     cohesion: float = 0.0       # SoilCohesion [kN/m²]
     phi: float = 0.0            # SoilPhi [°]
     delta: float = 0.0          # SoilDelta [°]
+    ka: float = 0.0             # SoilLa [-]
+    kn: float = 0.0             # SoilLn [-]
+    kp: float = 0.0             # SoilLp [-]
+    ocr: float = 0.0            # SoilOCR [-]
+    shell_factor: float = 0.0   # SoilShellFactor [-]
     kh1: float = 0.0            # SoilCurKo1 [kN/m³]
     kh2: float = 0.0            # SoilCurKo2 [kN/m³]
     kh3: float = 0.0            # SoilCurKo3 [kN/m³]
@@ -267,9 +272,7 @@ class VerifyStepSummary:
 
 @dataclass
 class FileBundle:
-    shi: str = ""
     shd: str = ""
-    shs: str = ""
 
 
 @dataclass

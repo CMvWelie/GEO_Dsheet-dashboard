@@ -2324,3 +2324,66 @@ def test_image_group_wordt_als_3x3_tabel_gerenderd(monkeypatch) -> None:
 ''',
 
 }
+
+
+# ---------------------------------------------------------------------------
+# 2026-05-11 - Verwijderde .shi/.shs-runtime parsing
+# ---------------------------------------------------------------------------
+
+DEAD_SHI_SHS_RUNTIME_PARSING = {
+    "reden": (
+        "De app gebruikt .shd als bron van waarheid. Controle op 62 .shi/.shd-paren "
+        "in de testfile-map liet zien dat de parseruitkomsten voor invoerdata gelijk "
+        "zijn, terwijl .shi/.shs combineren dubbele [SOIL]-blokken kan veroorzaken."
+    ),
+    "parsers.models.FileBundle": r'''
+@dataclass
+class FileBundle:
+    shi: str = ""
+    shd: str = ""
+    shs: str = ""
+''',
+    "parsers.shi_parser.parse_project_oude_bronselectie": r'''
+shi = file_bundle.shi or ''
+shd = file_bundle.shd or ''
+shs = file_bundle.shs or ''
+source = shi or shd or shs
+combined = '\n'.join(t for t in [shi, shd, shs] if t)
+
+soils = parse_soils(combined)
+profiles = parse_soil_profiles(combined)
+surfaces = parse_surfaces(combined)
+waterlevels = parse_water_levels(combined)
+sheet_piling = parse_sheet_piling(combined)
+anchors = parse_anchors(combined)
+struts = parse_struts(combined)
+spring_supports = parse_spring_supports(combined)
+rigid_supports = parse_rigid_supports(combined)
+uniform_loads = parse_uniform_loads(combined)
+surcharge_loads = parse_surcharge_loads(combined)
+horizontal_line_loads = parse_horizontal_line_loads(combined)
+moments = parse_moments(combined)
+normal_forces = parse_normal_forces(combined)
+stages = parse_stages(combined)
+''',
+    "app.controller.ingest_process_remove_group_oude_extensies": r'''
+if ext not in ('shi', 'shd', 'shs'):
+    continue
+
+grouped[base] = {'shi': '', 'shd': '', 'shs': ''}
+if ext in ('shi', 'shd', 'shs'):
+    grouped[base][ext] = text
+
+for ext in ('shi', 'shd', 'shs'):
+    self._state.raw_files.pop(f'{base_name}.{ext}', None)
+
+return re.sub(r'\.(shi|shd|shs)$', '', filename, flags=re.IGNORECASE)
+''',
+    "ui_oude_bestandsindicatie_en_filter": r'''
+('D-Sheet bestanden (*.shi *.shd *.shs);;Alle bestanden (*)')
+
+('.shi',  'ja' if project.file_bundle.shi else 'nee')
+('.shd',  'ja' if project.file_bundle.shd else 'nee')
+('.shs',  'ja' if project.file_bundle.shs else 'nee')
+''',
+}

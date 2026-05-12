@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QScrollArea, QFrame, QGridLayout, QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame, QGridLayout,
+    QSizePolicy,
 )
 # QVBoxLayout gebruikt door _build en grondsoortentabel; QGridLayout door fasetabellen
 from PyQt6.QtCore import Qt
 
 import ui.table_styles as _ts
-from parsers.models import Project, SoilProfile, Stage
+from parsers.models import Project, SoilProfile, Stage, Surface
 from utils.formatting import fmt_number
+from utils.geometry import surface_y_at
 
-# Kolomstrekking voor de 6 kolommen in de faselagen-tabel (4:2:2:4:2:2)
+# Kolomstrekking voor de faselagen-tabel.
 _FASE_COL_STRETCH = [4, 2, 2, 4, 2, 2]
+_FASE_COL_STRETCH_ENKEL = [4, 2, 2]
 
 _SOIL_KOLOMMEN: list[str] = [
     'Laag',
@@ -31,11 +34,73 @@ def _find_profiel(profielen: list[SoilProfile], naam: str) -> SoilProfile | None
     return next((p for p in (profielen or []) if p.name == naam), None)
 
 
+def _find_surface(surfaces: list[Surface], naam: str) -> Surface | None:
+    """Zoek een surface op naam in een surfacelijst."""
+    return next((s for s in (surfaces or []) if s.name == naam), None)
+
+
 def _laag_sleutels(profiel: SoilProfile | None) -> list[tuple]:
     """Geef een vergelijkbare sleutel per laag: (level, material)."""
     if not profiel:
         return []
     return [(l.level, l.material) for l in profiel.layers]
+
+
+def _laag_zichtbaarheids_sleutels(
+    profiel: SoilProfile | None,
+    surface: Surface | None,
+) -> list[tuple[float, str, bool]]:
+    """Geef een vergelijkbare sleutel per laag inclusief zichtbaarheid."""
+    if not profiel:
+        return []
+    return [
+        (laag.level, laag.material, _laag_volledig_afgedekt(profiel, index, surface))
+        for index, laag in enumerate(profiel.layers)
+    ]
+
+
+def _hoogste_surface_niveau(surface: Surface | None) -> float | None:
+    """Geef het hoogste niveau van een surfaceline, inclusief x=0."""
+    if not surface or not surface.points:
+        return None
+    xs = {
+        0.0,
+        *[
+            float(p['x'])
+            for p in surface.points
+            if p.get('x') is not None
+        ],
+    }
+    if not xs:
+        return None
+    return max(surface_y_at(surface.points, x) for x in xs)
+
+
+def _laag_volledig_afgedekt(
+    profiel: SoilProfile,
+    index: int,
+    surface: Surface | None,
+) -> bool:
+    """Bepaal of een laag nergens door de surface heen zichtbaar is."""
+    if index + 1 >= len(profiel.layers) or not surface or not surface.points:
+        return False
+
+    laag_onderkant = profiel.layers[index + 1].level
+    hoogste_surface = _hoogste_surface_niveau(surface)
+    if hoogste_surface is None:
+        return False
+    return hoogste_surface <= laag_onderkant + 1e-6
+
+
+def _stage_surface(project: Project, fase: Stage, zijde: str) -> Surface | None:
+    """Geef de surface die de doorsnede voor deze fasezijde gebruikt."""
+    naam = fase.right_surface if zijde == 'rechts' else fase.left_surface
+    gevonden = _find_surface(project.surfaces, naam)
+    if gevonden:
+        return gevonden
+    if zijde == 'rechts' and len(project.surfaces) > 1:
+        return project.surfaces[1]
+    return project.surfaces[0] if project.surfaces else None
 
 
 def _fase_intro(namen: list[str]) -> tuple[str, list[str]]:
@@ -103,8 +168,14 @@ class TabGrondsoortenv2(QWidget):
         # Bouw groepen van opeenvolgende fases met dezelfde laagsamenstelling
         groepen: list[dict] = []
         for fase in project.stages:
-            sleutel_l = tuple(_laag_sleutels(prof_map.get(fase.left_profile)))
-            sleutel_r = tuple(_laag_sleutels(prof_map.get(fase.right_profile)))
+            sleutel_l = tuple(_laag_zichtbaarheids_sleutels(
+                prof_map.get(fase.left_profile),
+                _stage_surface(project, fase, 'links'),
+            ))
+            sleutel_r = tuple(_laag_zichtbaarheids_sleutels(
+                prof_map.get(fase.right_profile),
+                _stage_surface(project, fase, 'rechts'),
+            ))
             sleutel = (sleutel_l, sleutel_r)
             if groepen and groepen[-1]['sleutel'] == sleutel:
                 groepen[-1]['namen'].append(fase.name)
@@ -327,11 +398,24 @@ class TabGrondsoortenv2(QWidget):
         rechts_ongewijzigd : bool
             True als het rechterprofiel gelijk is aan de vorige fase.
         """
-        links_rijen = self._laag_rijen(_find_profiel(project.profiles, fase.left_profile))
-        rechts_rijen = self._laag_rijen(_find_profiel(project.profiles, fase.right_profile))
+        links_profiel = _find_profiel(project.profiles, fase.left_profile)
+        rechts_profiel = _find_profiel(project.profiles, fase.right_profile)
+        links_surface = _stage_surface(project, fase, 'links')
+        rechts_surface = _stage_surface(project, fase, 'rechts')
+        links_rijen = self._laag_rijen(links_profiel, links_surface)
+        rechts_rijen = self._laag_rijen(rechts_profiel, rechts_surface)
+        links_doorgehaald = self._laag_doorgehaald(links_profiel, links_surface)
+        rechts_doorgehaald = self._laag_doorgehaald(rechts_profiel, rechts_surface)
+        zijden_gelijk = bool(links_rijen) and (
+            list(zip(links_rijen, links_doorgehaald))
+            == list(zip(rechts_rijen, rechts_doorgehaald))
+        )
+        geheel_ongewijzigd = links_ongewijzigd and rechts_ongewijzigd
 
         # Aantal datarijen: bepaald door de zijde die wél data toont
-        if links_ongewijzigd:
+        if zijden_gelijk:
+            n_data = max(len(links_rijen), 1)
+        elif links_ongewijzigd:
             n_data = max(len(rechts_rijen), 1)
         elif rechts_ongewijzigd:
             n_data = max(len(links_rijen), 1)
@@ -347,8 +431,24 @@ class TabGrondsoortenv2(QWidget):
         grid = QGridLayout(frame)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
-        for col, stretch in enumerate(_FASE_COL_STRETCH):
+        col_stretch = _FASE_COL_STRETCH_ENKEL if zijden_gelijk else _FASE_COL_STRETCH
+        for col, stretch in enumerate(col_stretch):
             grid.setColumnStretch(col, stretch)
+
+        if zijden_gelijk:
+            self._voeg_fase_tabel_header_toe(grid, [(0, 'Grondlagen')], 3)
+            self._voeg_fase_tabel_subkoppen_toe(grid, ['Laag', 'b.k. laag', 'o.k. laag'])
+            self._vul_helft(
+                grid,
+                2,
+                n_data,
+                links_rijen,
+                links_doorgehaald,
+                geheel_ongewijzigd,
+                col_offset=0,
+                links=False,
+            )
+            return self._verpak_halve_breedte(frame)
 
         # ── Headerrij 0: samengevoegde zijkoppen ─────────────────────
         for col_start, tekst in [
@@ -388,10 +488,85 @@ class TabGrondsoortenv2(QWidget):
             grid.addWidget(lbl, 1, col)
 
         # ── Datarijen (vanaf gridrow 2) ───────────────────────────────
-        self._vul_helft(grid, 2, n_data, links_rijen, links_ongewijzigd, col_offset=0, links=True)
-        self._vul_helft(grid, 2, n_data, rechts_rijen, rechts_ongewijzigd, col_offset=3, links=False)
+        self._vul_helft(
+            grid,
+            2,
+            n_data,
+            links_rijen,
+            links_doorgehaald,
+            links_ongewijzigd,
+            col_offset=0,
+            links=True,
+        )
+        self._vul_helft(
+            grid,
+            2,
+            n_data,
+            rechts_rijen,
+            rechts_doorgehaald,
+            rechts_ongewijzigd,
+            col_offset=3,
+            links=False,
+        )
 
         return frame
+
+    def _verpak_halve_breedte(self, tabel: QWidget) -> QWidget:
+        """Plaats een verkorte fasetabel op halve breedte links in de tab."""
+        wrapper = QWidget()
+        layout = QHBoxLayout(wrapper)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(tabel, stretch=1)
+        layout.addStretch(1)
+        return wrapper
+
+    def _voeg_fase_tabel_header_toe(
+        self,
+        grid: QGridLayout,
+        groepen: list[tuple[int, str]],
+        totaal_kolommen: int,
+    ) -> None:
+        """Voeg de samengevoegde groepkoppen aan een fasetabel toe."""
+        for col_start, tekst in groepen:
+            lbl = QLabel(tekst)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};'
+                if col_start + 3 < totaal_kolommen else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_ts.TABLE_FONT}; font-size: 10px; font-weight: 700; '
+                f'color: {_ts.TABLE_HEADER_FG}; background: {_ts.TABLE_HEADER_BG}; '
+                f'padding: 5px 8px; border-bottom: 1px solid {_ts.TABLE_BORDER}; {border_r}'
+            )
+            grid.addWidget(lbl, 0, col_start, 1, 3)
+
+    def _voeg_fase_tabel_subkoppen_toe(
+        self,
+        grid: QGridLayout,
+        subkoppen: list[str],
+    ) -> None:
+        """Voeg de kolomkoppen aan een fasetabel toe."""
+        laatste_kolom = len(subkoppen) - 1
+        for col, tekst in enumerate(subkoppen):
+            lbl = QLabel(tekst)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft
+                if col in (0, 3)
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};'
+                if col < laatste_kolom else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_ts.TABLE_FONT}; font-size: 10px; font-weight: 600; '
+                f'color: {_ts.TABLE_HEADER_SUB_FG}; background: {_ts.TABLE_HEADER_SUB_BG}; '
+                f'padding: 5px 8px; {border_r}'
+            )
+            grid.addWidget(lbl, 1, col)
 
     def _vul_helft(
         self,
@@ -399,6 +574,7 @@ class TabGrondsoortenv2(QWidget):
         data_start: int,
         n_data: int,
         rijen: list[list[str]],
+        doorgestreept: list[bool],
         ongewijzigd: bool,
         col_offset: int,
         links: bool,
@@ -445,6 +621,7 @@ class TabGrondsoortenv2(QWidget):
                 else f'border-bottom: 1px solid {_ts.TABLE_ROW_SEP};'
             )
             rij = rijen[i] if i < len(rijen) else ['', '', '']
+            rij_doorgehaald = doorgestreept[i] if i < len(doorgestreept) else False
             for j, waarde in enumerate(rij):
                 col = col_offset + j
                 lbl = QLabel(waarde)
@@ -462,15 +639,25 @@ class TabGrondsoortenv2(QWidget):
                     f'font-family: {_ts.TABLE_FONT}; font-size: 12px; color: {kleur}; '
                     f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
                 )
+                if rij_doorgehaald:
+                    font = lbl.font()
+                    font.setStrikeOut(True)
+                    lbl.setFont(font)
                 grid.addWidget(lbl, data_start + i, col)
 
-    def _laag_rijen(self, profiel: SoilProfile | None) -> list[list[str]]:
+    def _laag_rijen(
+        self,
+        profiel: SoilProfile | None,
+        surface: Surface | None = None,
+    ) -> list[list[str]]:
         """Geef rijen [naam, bk, ok] per laag voor een profiel.
 
         Parameters
         ----------
         profiel : SoilProfile | None
             Het grondprofiel, of None als het niet gevonden is.
+        surface : Surface | None
+            De bijbehorende surface voor het zichtbare b.k.-niveau.
 
         Returns
         -------
@@ -481,8 +668,35 @@ class TabGrondsoortenv2(QWidget):
             return []
         rijen = []
         n = len(profiel.layers)
+        doorgestreept = [
+            _laag_volledig_afgedekt(profiel, index, surface)
+            for index, _laag in enumerate(profiel.layers)
+        ]
+        eerste_zichtbaar = next(
+            (index for index, afgedekt in enumerate(doorgestreept) if not afgedekt),
+            None,
+        )
+        hoogste_surface = _hoogste_surface_niveau(surface)
         for i, laag in enumerate(profiel.layers):
-            bk = fmt_number(laag.level, 2)
+            bk_niveau = (
+                hoogste_surface
+                if i == eerste_zichtbaar and hoogste_surface is not None
+                else laag.level
+            )
+            bk = fmt_number(bk_niveau, 2)
             ok = fmt_number(profiel.layers[i + 1].level, 2) if i + 1 < n else 'Max'
             rijen.append([laag.material, bk, ok])
         return rijen
+
+    def _laag_doorgehaald(
+        self,
+        profiel: SoilProfile | None,
+        surface: Surface | None,
+    ) -> list[bool]:
+        """Geef per laag aan of deze volledig door de surface is afgedekt."""
+        if not profiel:
+            return []
+        return [
+            _laag_volledig_afgedekt(profiel, index, surface)
+            for index, _laag in enumerate(profiel.layers)
+        ]

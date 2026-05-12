@@ -11,7 +11,7 @@ def parse_color_int(n: int | str | None) -> str:
 
     Parameters
     ----------
-    n: Integer kleurwaarde uit het .shi-bestand.
+    n: Integer kleurwaarde uit het .shd-bestand.
 
     Returns
     -------
