@@ -576,18 +576,22 @@ class MainWindow(QMainWindow):
 
     def _on_copy_clipboard(self) -> None:
         project = self._state.get_active_project()
+        if not project:
+            return
         stage_idx = self._tab_input_view.stage_tabs.currentIndex()
         fase = (project.stages[stage_idx].name
-                if project and 0 <= stage_idx < len(project.stages) else '')
-        fig = self._tab_input_view.section_fig
-        suptitle_obj = (fig.suptitle(f'Fase: {fase}', fontsize=10,
-                                     color='#444444', ha='center', x=0.5, y=1.0)
-                        if fase else None)
+                if 0 <= stage_idx < len(project.stages) else '')
+        fig_export = Figure(figsize=(14, 11), dpi=150)
+        FigureCanvasAgg(fig_export)
+        ax_export = fig_export.add_subplot(111)
+        err = self._controller.render_section(ax_export, fig_export)
+        if err:
+            return
+        if fase:
+            fig_export.suptitle(f'Fase: {fase}', fontsize=10,
+                                color='#444444', ha='center', x=0.5, y=1.0)
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-        if suptitle_obj:
-            suptitle_obj.remove()
-            self._tab_input_view.section_canvas.draw()
+        fig_export.savefig(buf, format='png', dpi=150, bbox_inches='tight')
         buf.seek(0)
         img = QImage.fromData(buf.read())
         QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
