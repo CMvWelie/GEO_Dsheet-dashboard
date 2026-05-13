@@ -67,16 +67,16 @@ def test_sectie_titel_correct() -> None:
     assert secties[0].title == 'Grondsoortentabel \u2014 Links'
 
 
-def test_tabel_bevat_11_kolommen() -> None:
+def test_tabel_bevat_10_kolommen() -> None:
     project = _maak_project(
         profielen=[_maak_profiel('L', [_laag(1, 0.0, 'Zand')])]
     )
     tabel = SoilTableBuilder().build(project)[0].tables[0]
-    assert len(tabel.columns) == 11
+    assert len(tabel.columns) == 10
 
 
 def test_rijen_gevuld_met_soil_params() -> None:
-    soil = _soil('Zand', gd=17.0, phi=32.5, kh1=10.0)
+    soil = _soil('Zand', gd=17.0, gn=19.0, phi=32.5, kh1=10.0)
     project = _maak_project(
         profielen=[_maak_profiel('L', [
             _laag(1, 0.0, 'Zand'),
@@ -86,10 +86,10 @@ def test_rijen_gevuld_met_soil_params() -> None:
     )
     tabel = SoilTableBuilder().build(project)[0].tables[0]
     rij = tabel.rows[0]
-    # kolom 0=BK, 1=OK, 2=Laagnaam, 3=γd, 4=γn, 5=c', 6=φ', 7=δ, 8=kh1, 9=kh2, 10=kh3
-    assert rij[2] == 'Zand'
-    assert '17' in rij[3]   # gamma_dry=17,0
-    assert '32' in rij[6]   # phi=32,5
+    # col 0=Laagnaam, 1=BK, 2=OK, 3=Γd/yn, 4=c', 5=φ', 6=δ, 7=kh1, 8=kh2, 9=kh3
+    assert rij[0] == 'Zand'
+    assert '17' in rij[3]   # gamma_dry in Γd/yn
+    assert '32' in rij[5]   # phi=32,5
 
 
 def test_bk_en_ok_correct() -> None:
@@ -100,9 +100,8 @@ def test_bk_en_ok_correct() -> None:
         ])],
     )
     tabel = SoilTableBuilder().build(project)[0].tables[0]
-    # Eerste rij: BK=0.0, OK=niveau van laag 2 = -5.0
-    assert '0' in tabel.rows[0][0]
-    assert '-5' in tabel.rows[0][1]
+    assert '0' in tabel.rows[0][1]   # BK laag bij col 1
+    assert '-5' in tabel.rows[0][2]  # OK laag bij col 2
 
 
 def test_laatste_laag_ok_is_streepje() -> None:
@@ -113,7 +112,7 @@ def test_laatste_laag_ok_is_streepje() -> None:
         ])],
     )
     tabel = SoilTableBuilder().build(project)[0].tables[0]
-    assert tabel.rows[-1][1] == '-'
+    assert tabel.rows[-1][2] == '-'  # OK laag bij col 2
 
 
 def test_ontbrekende_soil_geeft_streepjes() -> None:
@@ -123,8 +122,33 @@ def test_ontbrekende_soil_geeft_streepjes() -> None:
     )
     tabel = SoilTableBuilder().build(project)[0].tables[0]
     rij = tabel.rows[0]
-    assert rij[3] == '-'   # gamma_dry
-    assert rij[6] == '-'   # phi
+    assert rij[3] == '-'   # Γd/yn bij col 3
+    assert rij[5] == '-'   # phi bij col 5
+
+
+def test_tabel_heeft_unit_groups() -> None:
+    project = _maak_project(
+        profielen=[_maak_profiel('L', [_laag(1, 0.0, 'Zand')])]
+    )
+    tabel = SoilTableBuilder().build(project)[0].tables[0]
+    assert tabel.unit_groups == [
+        ('', 1),
+        ('[m NAP]', 2),
+        ('[kN/m³]', 1),
+        ('[kN/m²]', 1),
+        ('[°]', 2),
+        ('[kN/m³]', 3),
+    ]
+
+
+def test_gd_gn_gecombineerd_in_kolom_3() -> None:
+    soil = _soil('Zand', gd=15.0, gn=18.0)
+    project = _maak_project(
+        profielen=[_maak_profiel('L', [_laag(1, 0.0, 'Zand')])],
+        soils=[soil],
+    )
+    tabel = SoilTableBuilder().build(project)[0].tables[0]
+    assert tabel.rows[0][3] == '15,0 / 18,0'
 
 
 def test_lege_profielen_geeft_lege_lijst() -> None:

@@ -9,17 +9,25 @@ from reporting.models import ReportSection, ReportTable
 from utils.formatting import fmt_number
 
 _KOLOMMEN: list[str] = [
-    'BK laag\n[m NAP]',
-    'OK laag\n[m NAP]',
     'Laag',
-    '\u03b3d\n[kN/m\u00b3]',
-    '\u03b3n\n[kN/m\u00b3]',
-    "c'kar\n[kN/m\u00b2]",
-    "\u03c6'kar\n[\u00b0]",
-    '\u03b4\n[\u00b0]',
+    'BK laag',
+    'OK laag',
+    'Γd / yn',
+    "c'kar",
+    "φ'kar",
+    'δ',
     'kh1',
     'kh2',
     'kh3',
+]
+
+_EENHEDEN_GROEPEN: list[tuple[str, int]] = [
+    ('', 1),              # Laag
+    ('[m NAP]', 2),       # BK laag + OK laag
+    ('[kN/m³]', 1), # Γd / yn
+    ('[kN/m²]', 1), # c'kar
+    ('[°]', 2),      # φ'kar + δ
+    ('[kN/m³]', 3), # kh1 + kh2 + kh3
 ]
 
 
@@ -47,7 +55,7 @@ class SoilTableBuilder:
     ) -> ReportSection:
         """Bouw een ReportSection voor één grondprofiel."""
         sec_id = 'soil_table_' + re.sub(r'\s+', '_', profiel.name.lower())
-        sec = ReportSection(id=sec_id, title=f'Grondsoortentabel \u2014 {profiel.name}')
+        sec = ReportSection(id=sec_id, title=f'Grondsoortentabel — {profiel.name}')
         tabel = self._bouw_tabel(profiel, soil_map)
         tabel.id = f'{sec_id}_tabel'
         sec.tables.append(tabel)
@@ -66,22 +74,22 @@ class SoilTableBuilder:
             soil = soil_map.get(laag.material)
             if soil:
                 params: list[str] = [
-                    fmt_number(soil.gamma_dry),
-                    fmt_number(soil.gamma_wet),
+                    f'{fmt_number(soil.gamma_dry)} / {fmt_number(soil.gamma_wet)}',
                     fmt_number(soil.cohesion),
                     fmt_number(soil.phi),
                     fmt_number(soil.delta),
-                    # kh=0 → '-': spiegelt gedrag van tab_grondsoorten (kh=0 betekent niet van toepassing in D-Sheet)
+                    # kh=0 → '-': kh=0 betekent niet van toepassing in D-Sheet
                     str(int(soil.kh1)) if soil.kh1 else '-',
                     str(int(soil.kh2)) if soil.kh2 else '-',
                     str(int(soil.kh3)) if soil.kh3 else '-',
                 ]
             else:
-                params = ['-'] * 8
-            rijen.append([fmt_number(laag.level, 2), ok, laag.material] + params)
+                params = ['-'] * 7
+            rijen.append([laag.material, fmt_number(laag.level, 2), ok] + params)
         return ReportTable(
             id='',        # wordt gezet door _bouw_sectie
             title='',
             columns=_KOLOMMEN,
             rows=rijen,
+            unit_groups=_EENHEDEN_GROEPEN,
         )
