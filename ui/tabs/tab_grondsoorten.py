@@ -27,20 +27,28 @@ _LABEL_CLR  = TABLE_LABEL_COLOR
 _VALUE_CLR  = TABLE_VALUE_COLOR
 _FONT       = TABLE_FONT
 
-_COL_STRETCH: list[int] = [14, 14, 20, 14, 14, 14, 14, 14, 14, 14, 14]
+_COL_STRETCH: list[int] = [37, 15, 15, 15, 14, 14, 14, 13, 13, 13]
 
 _KOLOMMEN: list[tuple[str, str]] = [
-    ('BK laag\n[m NAP]',   'bk'),
-    ('OK laag\n[m NAP]',   'ok'),
-    ('Laag',               'naam'),
-    ('γd\n[kN/m³]',        'gd'),
-    ('γn\n[kN/m³]',        'gn'),
-    ("c'kar\n[kN/m²]",     'c'),
-    ("φ'kar\n[°]",         'phi'),
-    ('δ\n[°]',             'delta'),
-    ('kh1',                'kh1'),
-    ('kh2',                'kh2'),
-    ('kh3',                'kh3'),
+    ('Laag',        'naam'),
+    ('BK laag',     'bk'),
+    ('OK laag',     'ok'),
+    ('Γd / yn',     'gd_gn'),
+    ("c'kar",       'c'),
+    ("φ'kar",       'phi'),
+    ('δ',           'delta'),
+    ('kh1',         'kh1'),
+    ('kh2',         'kh2'),
+    ('kh3',         'kh3'),
+]
+
+_EENHEDEN_RIJ: list[tuple[str, int]] = [
+    ('', 1),              # Laag
+    ('[m NAP]', 2),       # BK laag + OK laag
+    ('[kN/m³]', 1),       # Γd / yn
+    ('[kN/m²]', 1),       # c'kar
+    ('[°]', 2),           # φ'kar + δ
+    ('[kN/m³]', 3),       # kh1 + kh2 + kh3
 ]
 
 
@@ -223,15 +231,19 @@ class TabGrondsoorten(QWidget):
                 ok_val = 'Max'
 
             soil = soil_map.get(laag.material)
+            if soil:
+                gd_gn = f'{fmt_number(soil.gamma_dry)} / {fmt_number(soil.gamma_wet)}'
+            else:
+                gd_gn = '-'
+
             rijen.append([
+                laag.material,
                 fmt_number(bk, 2),
                 ok_val,
-                laag.material,
-                fmt_number(soil.gamma_dry) if soil else '-',
-                fmt_number(soil.gamma_wet) if soil else '-',
-                fmt_number(soil.cohesion)  if soil else '-',
-                fmt_number(soil.phi)       if soil else '-',
-                fmt_number(soil.delta)     if soil else '-',
+                gd_gn,
+                fmt_number(soil.cohesion) if soil else '-',
+                fmt_number(soil.phi)      if soil else '-',
+                fmt_number(soil.delta)    if soil else '-',
                 str(int(soil.kh1)) if soil and soil.kh1 else '-',
                 str(int(soil.kh2)) if soil and soil.kh2 else '-',
                 str(int(soil.kh3)) if soil and soil.kh3 else '-',
@@ -239,12 +251,12 @@ class TabGrondsoorten(QWidget):
         return rijen
 
     def _maak_kolomhoofden(self) -> QWidget:
-        """Maak de headerrij met kolomlabels.
+        """Maak de 2-rij headerwidget: rij 0 = kolomnamen, rij 1 = eenheden.
 
         Returns
         -------
         QWidget
-            Widget met gestijlde kolomkoppen in een grid.
+            Widget met kolomkoppen en eenhedenrij in een grid.
         """
         hdr = QWidget()
         hdr.setStyleSheet(f'background: {_SUBHDR_BG};')
@@ -252,18 +264,40 @@ class TabGrondsoorten(QWidget):
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
 
+        # ── Rij 0: kolomnamen ────────────────────────────────────────────────
         for col, (tekst, _) in enumerate(_KOLOMMEN):
             lbl = QLabel(tekst)
-            kop_uitlijning = Qt.AlignmentFlag.AlignLeft if col == 2 else Qt.AlignmentFlag.AlignCenter
-            lbl.setAlignment(kop_uitlijning | Qt.AlignmentFlag.AlignVCenter)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft
+                if col == 0
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
             border_r = f'border-right: 1px solid {_BORDER};' if col < len(_KOLOMMEN) - 1 else ''
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
                 f'color: {_SUBHDR_FG}; background: {_SUBHDR_BG}; '
-                f'padding: 5px 8px; text-transform: uppercase; {border_r}'
+                f'padding: 5px 8px; text-transform: uppercase; '
+                f'border-bottom: 1px solid {_BORDER}; {border_r}'
             )
             grid.addWidget(lbl, 0, col)
             grid.setColumnStretch(col, _COL_STRETCH[col])
+
+        # ── Rij 1: eenheden (samengevoegde cellen) ───────────────────────────
+        col_offset = 0
+        n_groepen = len(_EENHEDEN_RIJ)
+        for groep_idx, (tekst, colspan) in enumerate(_EENHEDEN_RIJ):
+            lbl = QLabel(tekst)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            is_laatste = groep_idx == n_groepen - 1
+            border_r = '' if is_laatste else f'border-right: 1px solid {_BORDER};'
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
+                f'color: {_SUBHDR_FG}; background: {_SUBHDR_BG}; '
+                f'padding: 3px 8px; {border_r}'
+            )
+            grid.addWidget(lbl, 1, col_offset, 1, colspan)
+            col_offset += colspan
 
         return hdr
 
@@ -293,12 +327,12 @@ class TabGrondsoorten(QWidget):
         for col, waarde in enumerate(waarden):
             lbl = QLabel(waarde)
             uitlijning = (
-                Qt.AlignmentFlag.AlignLeft if col == 2
+                Qt.AlignmentFlag.AlignLeft if col == 0
                 else Qt.AlignmentFlag.AlignCenter
             )
             lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
             border_r = f'border-right: 1px solid {_ROW_SEP};' if col < len(waarden) - 1 else ''
-            kleur = _LABEL_CLR if col == 2 else _VALUE_CLR
+            kleur = _LABEL_CLR if col == 0 else _VALUE_CLR
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 12px; color: {kleur}; '
                 f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
