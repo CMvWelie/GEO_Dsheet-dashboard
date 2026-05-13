@@ -24,6 +24,8 @@ class ReportTable:
     # Optionele groepkoppen boven de kolomkoppen: lijst van (label, colspan).
     column_groups: list[tuple[str, int]] = field(default_factory=list)
     strikethrough_cells: list[list[bool]] = field(default_factory=list)
+    # Optionele eenhedenrij ná de kolomnamenrij: lijst van (label, colspan).
+    unit_groups: list[tuple[str, int]] = field(default_factory=list)
 
 
 @dataclass

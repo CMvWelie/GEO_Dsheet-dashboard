@@ -278,3 +278,11 @@ def test_v2_alleen_eerste_grondlaagopbouwgroep_heeft_titel() -> None:
     assert secties[2].text_blocks[0].effective_text == (
         'In de fase "Fase 2" wordt het volgende profiel gehanteerd:'
     )
+
+
+def test_report_table_heeft_unit_groups_veld() -> None:
+    from reporting.models import ReportTable
+    tbl = ReportTable(id='x', title='', columns=[], rows=[])
+    assert tbl.unit_groups == []
+    tbl2 = ReportTable(id='x', title='', columns=[], rows=[], unit_groups=[('[m NAP]', 2)])
+    assert tbl2.unit_groups == [('[m NAP]', 2)]
