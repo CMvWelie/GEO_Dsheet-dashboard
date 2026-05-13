@@ -847,3 +847,56 @@ def test_render_figuur_moment_shear_geeft_bytes() -> None:
     result = exp._render_figuur(img_req, project)
     assert result is not None
     assert result[:4] == b'\x89PNG'
+
+
+def test_grondsoorten_v1_unit_groups_worden_geschreven() -> None:
+    sec = ReportSection(id='soil_table_links', title='Grondsoortentabel — Links')
+    sec.tables.append(ReportTable(
+        id='soil_table_links_tabel',
+        title='',
+        columns=['Laag', 'BK laag', 'OK laag', 'Γd / yn', "c'kar",
+                 "φ'kar", 'δ', 'kh1', 'kh2', 'kh3'],
+        rows=[['Zand', '0,00', '-5,00', '15,0 / 18,0', '1,0', '32,5', '16,0', '10000', '5000', '2000']],
+        unit_groups=[
+            ('', 1),
+            ('[m NAP]', 2),
+            ('[kN/m³]', 1),
+            ('[kN/m²]', 1),
+            ('[°]', 2),
+            ('[kN/m³]', 3),
+        ],
+    ))
+
+    doc = _export([sec])
+
+    tbl = doc.tables[0]
+    # Rij 0: kolomnamen
+    assert tbl.rows[0].cells[0].text == 'Laag'
+    assert tbl.rows[0].cells[1].text == 'BK laag'
+    # Rij 1: eenheden
+    assert tbl.rows[1].cells[1].text == '[m NAP]'   # BK+OK samengevoegd
+    assert tbl.rows[1].cells[5].text == '[°]'        # φ'+δ samengevoegd
+    assert tbl.rows[1].cells[7].text == '[kN/m³]'   # kh1+2+3 samengevoegd
+    # Rij 2: data
+    assert tbl.rows[2].cells[0].text == 'Zand'
+    assert tbl.rows[2].cells[3].text == '15,0 / 18,0'
+
+
+def test_grondsoorten_v1_laag_kolom_links_uitgelijnd() -> None:
+    sec = ReportSection(id='soil_table_links', title='Grondsoortentabel — Links')
+    sec.tables.append(ReportTable(
+        id='soil_table_links_tabel',
+        title='',
+        columns=['Laag', 'BK laag', 'OK laag', 'Γd / yn', "c'kar",
+                 "φ'kar", 'δ', 'kh1', 'kh2', 'kh3'],
+        rows=[['Zand', '0,00', '-5,00', '15,0 / 18,0', '1,0', '32,5', '16,0', '10000', '5000', '2000']],
+        unit_groups=[
+            ('', 1), ('[m NAP]', 2), ('[kN/m³]', 1),
+            ('[kN/m²]', 1), ('[°]', 2), ('[kN/m³]', 3),
+        ],
+    ))
+
+    doc = _export([sec])
+
+    # Laag-kolom (col 0) in datarij moet links zijn
+    assert doc.tables[0].rows[2].cells[0].paragraphs[0].alignment == WD_ALIGN_PARAGRAPH.LEFT

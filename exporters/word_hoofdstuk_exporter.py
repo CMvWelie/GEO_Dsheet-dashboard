@@ -37,7 +37,7 @@ from reporting.figure_renderer import render_figuur
 _FASE_RIJHOOGTE_CM = 0.45
 _DAMWAND_KOLOM_BREEDTES_CM = [5.0, 3.0, 2.0]
 _RESULTAAT_SPEC_KOLOM_BREEDTES_CM = [5.0, 2.5, 3.5, 2.0]  # label, stap, waarde, eenheid
-_GRONDSOORTEN_V1_KOLOM_BREEDTES_CM = [1.4, 1.4, 2.0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4]
+_GRONDSOORTEN_V1_KOLOM_BREEDTES_CM = [3.7, 1.5, 1.5, 1.5, 1.35, 1.35, 1.35, 1.25, 1.25, 1.25]
 _GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM = [4.0, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]
 _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0, 4.0, 2.0, 2.0]
 _GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0]
@@ -1120,9 +1120,14 @@ class WordHoofdstukExporter:
         if tabel.title:
             doc.add_paragraph(tabel.title)
         heeft_groepen = bool(tabel.column_groups)
+        heeft_unit_groepen = bool(getattr(tabel, 'unit_groups', []))
         extra_rij = 1 if heeft_groepen else 0
+        extra_unit_rij = 1 if heeft_unit_groepen else 0
         n_cols = len(tabel.columns)
-        t = doc.add_table(rows=1 + extra_rij + len(tabel.rows), cols=n_cols)
+        t = doc.add_table(
+            rows=1 + extra_rij + extra_unit_rij + len(tabel.rows),
+            cols=n_cols,
+        )
         try:
             t.style = 'Table Grid'
         except KeyError:
@@ -1173,8 +1178,25 @@ class WordHoofdstukExporter:
             else:
                 cell.text = header
 
+        if heeft_unit_groepen:
+            unit_rij_idx = kop_rij + 1
+            col_offset = 0
+            for unit_label, colspan in tabel.unit_groups:
+                start = t.rows[unit_rij_idx].cells[col_offset]
+                if colspan > 1:
+                    eind = t.rows[unit_rij_idx].cells[col_offset + colspan - 1]
+                    start = start.merge(eind)
+                    if vaste_breedtes_dxa:
+                        self._stel_cel_breedte(
+                            start,
+                            sum(vaste_breedtes_dxa[col_offset:col_offset + colspan]),
+                        )
+                start.text = unit_label
+                col_offset += colspan
+
+        data_start = kop_rij + 1 + extra_unit_rij
         for row_i, data_rij in enumerate(tabel.rows):
-            rij = t.rows[kop_rij + 1 + row_i]
+            rij = t.rows[data_start + row_i]
             for col, cel in enumerate(data_rij):
                 if col < len(rij.cells):
                     rij.cells[col].text = str(cel)
@@ -1185,16 +1207,16 @@ class WordHoofdstukExporter:
             self._voeg_grondsoorten_v2_ongewijzigd_merges_toe(
                 t,
                 tabel.rows,
-                kop_rij + 1,
+                data_start,
                 vaste_breedtes_dxa,
             )
 
-        self._pas_report_tabel_opmaak_toe(t, heeft_groepen)
+        self._pas_report_tabel_opmaak_toe(t, heeft_groepen, heeft_unit_groepen)
         links_uitlijnen = self._grondsoorten_v2_laagkolommen(tabel.id)
         if links_uitlijnen:
             self._lijn_report_datarij_kolommen_links(
                 t,
-                kop_rij + 1,
+                data_start,
                 links_uitlijnen,
             )
 
@@ -1251,7 +1273,7 @@ class WordHoofdstukExporter:
     def _grondsoorten_v2_laagkolommen(self, tabel_id: str) -> list[int]:
         """Geef links uit te lijnen laagnaamkolommen voor grondsoortentabellen."""
         if str(tabel_id).startswith('soil_table_') and str(tabel_id).endswith('_tabel'):
-            return [2]
+            return [0]
         if tabel_id == 'grondsoorten_v2_overzicht_tabel':
             return [0]
         if tabel_id.startswith('grondsoorten_v2_fase_'):
@@ -1270,7 +1292,12 @@ class WordHoofdstukExporter:
                 if col < len(row.cells):
                     row.cells[col].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
 
-    def _pas_report_tabel_opmaak_toe(self, tbl: Table, heeft_groepen: bool = False) -> None:
+    def _pas_report_tabel_opmaak_toe(
+        self,
+        tbl: Table,
+        heeft_groepen: bool = False,
+        heeft_unit_groepen: bool = False,
+    ) -> None:
         """Pas themakleuren toe op een generieke rapport-tabel."""
         from ui import table_styles
 
@@ -1301,7 +1328,19 @@ class WordHoofdstukExporter:
             for p in cell.paragraphs:
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        for row_i, row in enumerate(tbl.rows[kop_rij + 1:]):
+        if heeft_unit_groepen:
+            unit_rij_idx = kop_rij + 1
+            for cell in tbl.rows[unit_rij_idx].cells:
+                self._stel_cel_vulling(cell, subhdr_bg)
+                self._pas_cel_font_toe(
+                    cell, font, subhdr_fg, bold=True,
+                    size_pt=table_styles.WORD_TABLE_HEADER_SIZE,
+                )
+                for p in cell.paragraphs:
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        data_start = kop_rij + 1 + (1 if heeft_unit_groepen else 0)
+        for row_i, row in enumerate(tbl.rows[data_start:]):
             fill = row_odd_bg if row_i % 2 == 0 else row_even_bg
             for cell in row.cells:
                 self._stel_cel_vulling(cell, fill)
