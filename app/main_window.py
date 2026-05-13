@@ -604,15 +604,19 @@ class MainWindow(QMainWindow):
         subtitle = ' - '.join(x for x in (fase, stap) if x) or None
 
         if idx == -1:
-            fig = self._tab_result_view.results_fig
-            suptitle_obj = (fig.suptitle(subtitle, fontsize=8, color='#888888',
-                                         ha='left', x=0.01, y=1.0)
-                            if subtitle else None)
+            if not project:
+                return
+            active_step = self._tab_result_view.current_result_step_key()
+            fig_export = Figure(figsize=(14, 6), dpi=150)
+            FigureCanvasAgg(fig_export)
+            err = self._controller.render_results(fig_export)
+            if err:
+                return
+            if subtitle:
+                fig_export.suptitle(subtitle, fontsize=8, color='#888888',
+                                    ha='left', x=0.01, y=1.0)
             buf = io.BytesIO()
-            fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-            if suptitle_obj:
-                suptitle_obj.remove()
-                self._tab_result_view.results_canvas.draw()
+            fig_export.savefig(buf, format='png', dpi=150, bbox_inches='tight')
             buf.seek(0)
             img = QImage.fromData(buf.read())
             QApplication.clipboard().setPixmap(QPixmap.fromImage(img))
