@@ -235,11 +235,15 @@ class TabReportContext(QWidget):
 
     def set_metadata(self, md: ReportMetadata) -> None:
         """Vul formuliervelden in vanuit een ReportMetadata object."""
-        for attr, edit in self._fields.items():
-            edit.blockSignals(True)
-            edit.setText(getattr(md, attr, '') or '')
-            edit.blockSignals(False)
-        self._set_logo(md.logo_path or '')
+        self.blockSignals(True)
+        try:
+            for attr, edit in self._fields.items():
+                edit.blockSignals(True)
+                edit.setText(getattr(md, attr, '') or '')
+                edit.blockSignals(False)
+            self._set_logo(md.logo_path or '')
+        finally:
+            self.blockSignals(False)
 
     # ------------------------------------------------------------------
     # Publieke interface — projectenlijst

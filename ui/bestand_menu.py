@@ -29,6 +29,8 @@ class BestandMenuButton(QToolButton):
     opslaan_gevraagd = pyqtSignal()
     opslaan_als_gevraagd = pyqtSignal()
     info_gevraagd = pyqtSignal()
+    herstart_gevraagd = pyqtSignal()
+    instellingen_gevraagd = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -69,5 +71,15 @@ class BestandMenuButton(QToolButton):
         act_info = QAction('Informatie / Help', self)
         act_info.triggered.connect(self.info_gevraagd)
         menu.addAction(act_info)
+
+        menu.addSeparator()
+
+        act_herstart = QAction('Applicatie herstarten', self)
+        act_herstart.triggered.connect(self.herstart_gevraagd)
+        menu.addAction(act_herstart)
+
+        act_instellingen = QAction('Instellingen', self)
+        act_instellingen.triggered.connect(self.instellingen_gevraagd)
+        menu.addAction(act_instellingen)
 
         self.setMenu(menu)

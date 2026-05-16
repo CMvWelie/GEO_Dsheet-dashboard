@@ -34,9 +34,6 @@ class TabInstellingen(QWidget):
     theme_delete_requested = pyqtSignal(str)
     """Afgegeven zodra de gebruiker een custom template wil verwijderen."""
 
-    restart_requested = pyqtSignal()
-    """Afgegeven zodra de gebruiker op 'Applicatie herstarten' klikt."""
-
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._huidig_thema_naam: str = ''
@@ -101,30 +98,8 @@ class TabInstellingen(QWidget):
         imp_vl.addWidget(imp_hint)
         layout.addWidget(imp_box)
 
-        # ── Groep: Applicatie ─────────────────────────────────────────
-        layout.addWidget(self._build_applicatie_group())
-
         layout.addStretch()
         return widget
-
-    def _build_applicatie_group(self) -> QGroupBox:
-        """Bouw de Applicatie-groep met de Herstart-knop."""
-        box = QGroupBox('Applicatie')
-        vl = QVBoxLayout(box)
-        vl.setSpacing(6)
-
-        rij = QHBoxLayout()
-        self._restart_btn = QPushButton('Applicatie herstarten')
-        self._restart_btn.setObjectName('btnNormal')
-        self._restart_btn.clicked.connect(self._on_restart)
-        rij.addWidget(self._restart_btn)
-        rij.addStretch()
-        vl.addLayout(rij)
-
-        hint = QLabel('Sluit het venster en start de applicatie opnieuw op.')
-        hint.setObjectName('hintLabel')
-        vl.addWidget(hint)
-        return box
 
     def _build_template_group(self) -> QGroupBox:
         """Bouw de Template-groep (UI-thema-keuze).
@@ -236,18 +211,6 @@ class TabInstellingen(QWidget):
     # ------------------------------------------------------------------
     # Privé handlers
     # ------------------------------------------------------------------
-
-    def _on_restart(self) -> None:
-        """Vraag bevestiging en geef herstart-verzoek door aan het hoofdvenster."""
-        antwoord = QMessageBox.question(
-            self,
-            'Applicatie herstarten',
-            'De applicatie wordt afgesloten en opnieuw opgestart. Doorgaan?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
-        )
-        if antwoord == QMessageBox.StandardButton.Yes:
-            self.restart_requested.emit()
 
     def _on_bladeren_importmap(self) -> None:
         map_pad = QFileDialog.getExistingDirectory(

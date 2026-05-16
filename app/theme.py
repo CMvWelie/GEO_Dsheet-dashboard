@@ -374,6 +374,27 @@ QTabBar {{
     border-bottom: 1px solid {c.border};
 }}
 
+#bestandMenuBtn {{
+    background: {c.background};
+    color: {c.text};
+    padding: 5px 14px;
+    border: 1px solid {c.border};
+    border-bottom: 1px solid {c.border};
+    border-top-left-radius: {g.radius}px;
+    border-top-right-radius: {g.radius}px;
+    margin-right: 2px;
+    font-size: {t.size_app_text}pt;
+}}
+
+#bestandMenuBtn:hover {{
+    background: {c.surface};
+}}
+
+#bestandMenuBtn::menu-indicator {{
+    image: none;
+    width: 0;
+}}
+
 QTabBar::tab {{
     background: {c.background};
     color: {c.text};

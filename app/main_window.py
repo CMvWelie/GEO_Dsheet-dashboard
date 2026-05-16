@@ -173,9 +173,24 @@ class MainWindow(QMainWindow):
 
         Parameters
         ----------
-        paths: Lijst van .shd-bestandspaden.
+        paths:
+            Lijst van bestandspaden; .dsd-bestanden worden als sessie geladen,
+            .shd-bestanden worden geïngesteerd.
         """
-        self._ingest_paths(paths)
+        dsd = [p for p in paths if Path(p).suffix.lower() == '.dsd']
+        shd = [p for p in paths if Path(p).suffix.lower() != '.dsd']
+        if dsd:
+            pad = Path(dsd[0])
+            data, fout = self._sessie_manager.laden(pad)
+            if fout:
+                QMessageBox.warning(self, 'Fout bij openen', fout)
+            else:
+                self._sessie_toepassen(data)
+                self._sessie_pad = pad
+                self._sessie_gewijzigd = False
+                self._update_venstertitel()
+        if shd:
+            self._ingest_paths(shd)
 
     # ------------------------------------------------------------------
     # Drag-and-drop op het hoofdvenster
@@ -315,9 +330,6 @@ class MainWindow(QMainWindow):
         self._project_combo = QComboBox()
         self._project_combo.setMinimumWidth(160)
         layout.addWidget(self._project_combo)
-        self._btn_instellingen = QPushButton('Instellingen')
-        self._btn_instellingen.setObjectName('btnNormal')
-        layout.addWidget(self._btn_instellingen)
         return corner
 
     # ------------------------------------------------------------------
@@ -331,7 +343,7 @@ class MainWindow(QMainWindow):
         self._tab_input_view.export_png_requested.connect(self._on_export_png)
         self._tab_input_view.copy_clipboard_requested.connect(self._on_copy_clipboard)
         self._tab_result_view.copy_subplot_requested.connect(self._on_copy_clipboard_uitvoer)
-        self._btn_instellingen.clicked.connect(self._on_settings_requested)
+        self._bestand_menu_btn.instellingen_gevraagd.connect(self._on_settings_requested)
 
         self._project_combo.currentIndexChanged.connect(self._on_project_changed)
         self._tab_input_view.stage_tabs.currentChanged.connect(self._on_stage_changed)
@@ -385,7 +397,7 @@ class MainWindow(QMainWindow):
         self._tab_instellingen.theme_created.connect(self._on_theme_created)
         self._tab_instellingen.theme_updated.connect(self._on_theme_updated)
         self._tab_instellingen.theme_delete_requested.connect(self._on_theme_delete_requested)
-        self._tab_instellingen.restart_requested.connect(self._on_restart_app)
+        self._bestand_menu_btn.herstart_gevraagd.connect(self._on_restart_app)
         self._tab_report_select.word_pdf_preview_open_requested.connect(
             self._on_word_pdf_preview_open
         )
@@ -957,7 +969,18 @@ class MainWindow(QMainWindow):
         self._main_tabs.setCurrentWidget(self._tab_instellingen)
 
     def _on_restart_app(self) -> None:
-        """Start de applicatie opnieuw op en bewaar de huidige bestandsselectie."""
+        """Vraag bevestiging en start de applicatie opnieuw op."""
+        if not self._bevestig_weggooien_wijzigingen():
+            return
+        antwoord = QMessageBox.question(
+            self,
+            'Applicatie herstarten',
+            'De applicatie wordt afgesloten en opnieuw opgestart. Doorgaan?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if antwoord != QMessageBox.StandardButton.Yes:
+            return
         restart_session.save(self._state.source_paths)
         QProcess.startDetached(sys.executable, sys.argv)
         app = QApplication.instance()
@@ -1048,15 +1071,9 @@ class MainWindow(QMainWindow):
         self._update_all()
 
     def _refresh_branding_corner(self) -> None:
-        """Ververs het logo-corner-widget na een themawissel.
-
-        Plaatst het branding-logo als het thema er een heeft,
-        anders keert de BestandMenuButton terug.
-        """
-        branding = self._build_branding_corner()
-        widget = branding if branding is not None else self._bestand_menu_btn
-        self._main_tabs.setCornerWidget(widget, Qt.Corner.TopLeftCorner)
-        widget.show()
+        """Ververs het corner-widget na een themawissel (altijd BestandMenuButton)."""
+        self._main_tabs.setCornerWidget(self._bestand_menu_btn, Qt.Corner.TopLeftCorner)
+        self._bestand_menu_btn.show()
 
     def _active_theme_name(self) -> str:
         return self._theme.name if self._theme is not None else BASIC_THEME_NAME
