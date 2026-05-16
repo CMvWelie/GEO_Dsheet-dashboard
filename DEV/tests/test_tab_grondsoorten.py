@@ -217,3 +217,31 @@ def test_is_enkelvoudig_fasen_wisselen_profiel() -> None:
         ],
     )
     assert _is_enkelvoudig(project) is False
+
+
+def test_volledig_pad_toont_grondsoortenoverzicht_en_fases(qapp) -> None:
+    """Project met L≠R → volledige v2-weergave."""
+    tab = TabGrondsoorten()
+    project = _maak_project_met_stages(
+        'Links', 'Rechts',
+        [Stage(name='Fase 1', left_profile='Links', right_profile='Rechts')],
+    )
+
+    tab.populate(project)
+
+    teksten = [label.text() for label in tab.findChildren(QLabel)]
+    assert 'Grondsoorten' in teksten
+    assert 'Grondlaagopbouw fases' in teksten
+    assert 'Grondlagen linkerzijde' in teksten
+
+
+def test_enkelvoudig_pad_actief_bij_gelijke_zijden(qapp) -> None:
+    """Project zonder stages → enkelvoudig pad → profielkop aanwezig."""
+    tab = TabGrondsoorten()
+    project = _maak_project([_maak_profiel('EénProfiel')])
+
+    tab.populate(project)
+
+    teksten = [label.text() for label in tab.findChildren(QLabel)]
+    assert '1* — EénProfiel' in teksten
+    assert 'Grondsoorten' not in teksten

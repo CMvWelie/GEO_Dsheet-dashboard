@@ -138,7 +138,7 @@ class TabGrondsoorten(QWidget):
     # ------------------------------------------------------------------
 
     def populate(self, project: Project | None) -> None:
-        """Render alle grondsoortentabellen onder elkaar.
+        """Render grondsoortentabel op basis van projectconfiguratie.
 
         Parameters
         ----------
@@ -148,7 +148,18 @@ class TabGrondsoorten(QWidget):
         self._project = project
         self._clear_content()
 
-        if not project or not project.profiles:
+        if not project:
+            self._render_leeg()
+            return
+
+        if _is_enkelvoudig(project):
+            self._render_enkelvoudig(project)
+        else:
+            self._render_volledig(project)
+
+    def _render_enkelvoudig(self, project: Project) -> None:
+        """Toon profieltabellen met grondparameters (enkelvoudig pad)."""
+        if not project.profiles:
             self._render_leeg()
             return
 
@@ -167,6 +178,53 @@ class TabGrondsoorten(QWidget):
             if nummer == 1:
                 referentie_titel = profiel_titel
                 referentie_rijen = self._maak_rij_waarden(profiel, soil_map)
+
+    def _render_volledig(self, project: Project) -> None:
+        """Toon grondsoortenoverzicht en per-fase grondlaagentabellen (volledig pad)."""
+        if not project.soils:
+            self._render_leeg()
+            return
+
+        self._voeg_sectie_kop_toe('Grondsoorten')
+        self._content_layout.insertWidget(
+            self._content_layout.count() - 1,
+            self._maak_grondsoorten_tabel(project),
+        )
+
+        prof_map = {pr.name: pr for pr in project.profiles}
+        groepen: list[dict] = []
+        for fase in project.stages:
+            sleutel_l = tuple(_laag_sleutels(prof_map.get(fase.left_profile)))
+            sleutel_r = tuple(_laag_sleutels(prof_map.get(fase.right_profile)))
+            sleutel = (sleutel_l, sleutel_r)
+            if groepen and groepen[-1]['sleutel'] == sleutel:
+                groepen[-1]['namen'].append(fase.name)
+            else:
+                groepen.append({
+                    'sleutel': sleutel,
+                    'sleutel_l': sleutel_l,
+                    'sleutel_r': sleutel_r,
+                    'namen': [fase.name],
+                    'fase_ref': fase,
+                })
+
+        vorige_l: tuple = ()
+        vorige_r: tuple = ()
+        for index, groep in enumerate(groepen):
+            namen = groep['namen']
+            if index == 0:
+                self._voeg_sectie_kop_toe('Grondlaagopbouw fases')
+            else:
+                self._voeg_witregel_toe()
+            self._voeg_fase_intro_toe(namen, witregel_na=bool(index))
+            links_ongewijzigd = bool(vorige_l) and groep['sleutel_l'] == vorige_l
+            rechts_ongewijzigd = bool(vorige_r) and groep['sleutel_r'] == vorige_r
+            widget: QWidget = self._maak_fase_tabel(
+                groep['fase_ref'], project, links_ongewijzigd, rechts_ongewijzigd
+            )
+            self._content_layout.insertWidget(self._content_layout.count() - 1, widget)
+            vorige_l = groep['sleutel_l']
+            vorige_r = groep['sleutel_r']
 
     def _render_leeg(self) -> None:
         """Toon een lege-state bericht wanneer er geen profieldata is."""
