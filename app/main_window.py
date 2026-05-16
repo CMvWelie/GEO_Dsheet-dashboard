@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QFileDialog, QMessageBox, QSizePolicy, QFrame, QAbstractItemView, QTabWidget,
     QTableWidget, QApplication,
 )
-from PyQt6.QtCore import Qt, QThread, QProcess, QTimer
+from PyQt6.QtCore import Qt, QThread, QProcess
 from PyQt6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QImage, QPixmap
 
 import matplotlib
@@ -56,7 +56,6 @@ from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.word_pdf_preview_window import WordPdfPreviewWindow
 from app.docx_to_pdf_converter import DocxToPdfConverter
 from app.word_preview_worker import WordPreviewWorker
-from app import restart_session
 from app.theme import BASIC_THEME_NAME, Theme, discover_themes
 from app.theme_apply import THEMES_DIR, bootstrap_theme
 from app.session_manager import SessionManager
@@ -153,20 +152,6 @@ class MainWindow(QMainWindow):
             self._state.render_settings, self._state.viewport_settings
         )
         self._update_all()
-
-        # Herstel paden van een eventuele vorige herstart-actie. Uitgesteld zodat
-        # het venster eerst getoond wordt voordat de import start.
-        QTimer.singleShot(0, self._herstel_herstart_sessie)
-
-    def _herstel_herstart_sessie(self) -> None:
-        """Herlaad bestanden uit een sessiebestand dat bij restart is geschreven."""
-        paden = restart_session.pop()
-        if not paden:
-            return
-        bestaand = [p for p in paden if Path(p).exists()]
-        if not bestaand:
-            return
-        self._ingest_paths(bestaand)
 
     def open_cli_bestanden(self, paths: list[str]) -> None:
         """Laad bestanden die via de commandoregel zijn meegegeven.
@@ -981,8 +966,11 @@ class MainWindow(QMainWindow):
         )
         if antwoord != QMessageBox.StandardButton.Yes:
             return
-        restart_session.save(self._state.source_paths)
-        QProcess.startDetached(sys.executable, sys.argv)
+        self._sessie_gewijzigd = False
+        args = [sys.argv[0]]
+        if self._sessie_pad is not None:
+            args.append(str(self._sessie_pad))
+        QProcess.startDetached(sys.executable, args)
         app = QApplication.instance()
         if app is not None:
             app.quit()
@@ -1278,6 +1266,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'Fout bij opslaan', fout)
             return False
         self._sessie_gewijzigd = False
+        self._update_venstertitel()
         return True
 
     def _sessie_toepassen(self, data: SessionData) -> None:
