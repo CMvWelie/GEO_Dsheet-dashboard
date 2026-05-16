@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from parsers.models import Project, SoilProfile
+from parsers.models import Project, SoilProfile, Stage
 from ui.table_styles import (
     TABLE_BORDER, TABLE_FONT, TABLE_HEADER_BG, TABLE_HEADER_FG,
     TABLE_HEADER_SUB_BG, TABLE_HEADER_SUB_FG, TABLE_LABEL_COLOR,
@@ -26,6 +26,42 @@ _ROW_EVN_BG = TABLE_ROW_EVEN_BG
 _LABEL_CLR  = TABLE_LABEL_COLOR
 _VALUE_CLR  = TABLE_VALUE_COLOR
 _FONT       = TABLE_FONT
+
+def _laag_sleutels(profiel: SoilProfile | None) -> list[tuple]:
+    """Vergelijkbare sleutel per laag: (level, material)."""
+    if not profiel:
+        return []
+    return [(l.level, l.material) for l in profiel.layers]
+
+
+def _find_profiel(profielen: list[SoilProfile], naam: str) -> SoilProfile | None:
+    return next((p for p in (profielen or []) if p.name == naam), None)
+
+
+def _fase_intro(namen: list[str]) -> tuple[str, list[str]]:
+    """Bouw de introtekst en eventuele faselijst voor een grondlaagopbouw."""
+    if len(namen) == 1:
+        return f'In de fase "{namen[0]}" wordt het volgende profiel gehanteerd:', []
+    return 'Het volgende profiel wordt gehanteerd in de volgende fases:', namen
+
+
+def _is_enkelvoudig(project: Project) -> bool:
+    """True als alle fases dezelfde L=R profielopbouw hebben."""
+    if not project.stages:
+        return True
+    prof_map = {p.name: p for p in project.profiles}
+    referentie: tuple | None = None
+    for fase in project.stages:
+        sl = tuple(_laag_sleutels(prof_map.get(fase.left_profile)))
+        sr = tuple(_laag_sleutels(prof_map.get(fase.right_profile)))
+        if sl != sr:
+            return False
+        if referentie is None:
+            referentie = sl
+        elif sl != referentie:
+            return False
+    return True
+
 
 _COL_STRETCH: list[int] = [37, 15, 15, 15, 14, 14, 14, 13, 13, 13]
 
