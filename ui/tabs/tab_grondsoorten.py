@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QScrollArea, QFrame, QGridLayout, QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame, QGridLayout, QSizePolicy,
 )
 from PyQt6.QtCore import Qt
 
@@ -13,6 +13,7 @@ from ui.table_styles import (
     TABLE_ROW_EVEN_BG, TABLE_ROW_ODD_BG, TABLE_ROW_SEP, TABLE_VALUE_COLOR,
 )
 from utils.formatting import fmt_number
+import ui.table_styles as _ts
 
 # ── Kleurconstanten (zelfde palet als tab_input_desc) ───────────────────────
 _HDR_BG     = TABLE_HEADER_BG
@@ -27,11 +28,11 @@ _LABEL_CLR  = TABLE_LABEL_COLOR
 _VALUE_CLR  = TABLE_VALUE_COLOR
 _FONT       = TABLE_FONT
 
-def _laag_sleutels(profiel: SoilProfile | None) -> list[tuple]:
+def _laag_sleutels(profiel: SoilProfile | None) -> list[tuple[float, str]]:
     """Vergelijkbare sleutel per laag: (level, material)."""
     if not profiel:
         return []
-    return [(l.level, l.material) for l in profiel.layers]
+    return [(laag.level, laag.material) for laag in profiel.layers]
 
 
 def _find_profiel(profielen: list[SoilProfile], naam: str) -> SoilProfile | None:
@@ -85,6 +86,23 @@ _EENHEDEN_RIJ: list[tuple[str, int]] = [
     ('[kN/m²]', 1),       # c'kar
     ('[°]', 2),           # φ'kar + δ
     ('[kN/m³]', 3),       # kh1 + kh2 + kh3
+]
+
+_FASE_COL_STRETCH = [4, 2, 2, 4, 2, 2]
+_FASE_COL_STRETCH_ENKEL = [4, 2, 2]
+
+_SOIL_COL_STRETCH = [8, 3, 3, 3, 3, 3, 3, 3, 3]
+
+_SOIL_KOLOMMEN: list[str] = [
+    'Laag',
+    'γd\n[kN/m³]',
+    'γn\n[kN/m³]',
+    "c'kar\n[kN/m²]",
+    "φ'kar\n[°]",
+    'δ\n[°]',
+    'kh1',
+    'kh2',
+    'kh3',
 ]
 
 
@@ -394,3 +412,357 @@ class TabGrondsoorten(QWidget):
         )
         layout.addWidget(lbl)
         return rij
+
+    # ------------------------------------------------------------------
+    # Volledig pad — grondsoortenoverzicht (deel 1)
+    # ------------------------------------------------------------------
+
+    def _gebruikte_grondnamen(self, project: Project) -> set[str]:
+        namen: set[str] = set()
+        for profiel in project.profiles:
+            for laag in profiel.layers:
+                namen.add(laag.material)
+        return namen
+
+    def _maak_grondsoorten_tabel(self, project: Project) -> QWidget:
+        gebruikte = self._gebruikte_grondnamen(project)
+        soils = [s for s in project.soils if s.name in gebruikte]
+
+        frame = QFrame()
+        frame.setStyleSheet(
+            f'QFrame {{ background: white; border: 1px solid {_ts.TABLE_BORDER}; }}'
+        )
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._maak_grondsoorten_header())
+
+        for i, soil in enumerate(soils):
+            bg = _ts.TABLE_ROW_ODD_BG if i % 2 == 0 else _ts.TABLE_ROW_EVEN_BG
+            is_last = i == len(soils) - 1
+            kh1 = str(int(soil.kh1)) if soil.kh1 else '-'
+            kh2 = str(int(soil.kh2)) if soil.kh2 else '-'
+            kh3 = str(int(soil.kh3)) if soil.kh3 else '-'
+            waarden = [
+                soil.name,
+                fmt_number(soil.gamma_dry),
+                fmt_number(soil.gamma_wet),
+                fmt_number(soil.cohesion),
+                fmt_number(soil.phi),
+                fmt_number(soil.delta),
+                kh1, kh2, kh3,
+            ]
+            layout.addWidget(self._maak_grondsoorten_rij(waarden, bg, is_last))
+
+        return frame
+
+    def _maak_grondsoorten_header(self) -> QWidget:
+        hdr = QWidget()
+        hdr.setStyleSheet(f'background: {_ts.TABLE_HEADER_SUB_BG};')
+        grid = QGridLayout(hdr)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+
+        n = len(_SOIL_KOLOMMEN)
+        for col, tekst in enumerate(_SOIL_KOLOMMEN):
+            lbl = QLabel(tekst)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft
+                if col == 0
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};'
+                if col < n - 1 else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
+                f'color: {_ts.TABLE_HEADER_SUB_FG}; background: {_ts.TABLE_HEADER_SUB_BG}; '
+                f'padding: 5px 8px; {border_r}'
+            )
+            grid.addWidget(lbl, 0, col)
+            grid.setColumnStretch(col, _SOIL_COL_STRETCH[col])
+
+        return hdr
+
+    def _maak_grondsoorten_rij(self, waarden: list[str], bg: str, is_last: bool) -> QWidget:
+        rij = QWidget()
+        grid = QGridLayout(rij)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+        border_b = '' if is_last else f'border-bottom: 1px solid {_ts.TABLE_ROW_SEP};'
+
+        for col, waarde in enumerate(waarden):
+            lbl = QLabel(waarde)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft if col == 0
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_ROW_SEP};'
+                if col < len(waarden) - 1 else ''
+            )
+            kleur = _ts.TABLE_LABEL_COLOR if col == 0 else _ts.TABLE_VALUE_COLOR
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 12px; color: {kleur}; '
+                f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
+            )
+            grid.addWidget(lbl, 0, col)
+            if col < len(_SOIL_COL_STRETCH):
+                grid.setColumnStretch(col, _SOIL_COL_STRETCH[col])
+
+        return rij
+
+    # ------------------------------------------------------------------
+    # Volledig pad — faselagen-tabellen (deel 2)
+    # ------------------------------------------------------------------
+
+    def _voeg_sectie_kop_toe(self, naam: str) -> None:
+        lbl = QLabel(naam)
+        lbl.setStyleSheet(
+            f'font-family: {_FONT}; font-size: 13px; font-weight: 600; '
+            f'color: {_LABEL_CLR}; background: transparent; '
+            f'padding: 16px 4px 6px 4px;'
+        )
+        self._content_layout.insertWidget(self._content_layout.count() - 1, lbl)
+
+    def _voeg_witregel_toe(self) -> None:
+        spacer = QWidget()
+        spacer.setFixedHeight(8)
+        self._content_layout.insertWidget(self._content_layout.count() - 1, spacer)
+
+    def _voeg_fase_intro_toe(
+        self,
+        namen: list[str],
+        *,
+        witregel_na: bool = False,
+    ) -> None:
+        intro, bullets = _fase_intro(namen)
+
+        lbl = QLabel(intro)
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(
+            f'font-family: {_FONT}; font-size: 12px; '
+            f'color: {_VALUE_CLR}; background: transparent; '
+            f'padding: 0 4px 4px 4px;'
+        )
+        self._content_layout.insertWidget(self._content_layout.count() - 1, lbl)
+
+        for fase_naam in bullets:
+            bullet = QLabel(f'- {fase_naam}')
+            bullet.setWordWrap(True)
+            bullet.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 12px; '
+                f'color: {_VALUE_CLR}; background: transparent; '
+                f'padding: 0 4px 2px 20px;'
+            )
+            self._content_layout.insertWidget(
+                self._content_layout.count() - 1,
+                bullet,
+            )
+        if bullets or witregel_na:
+            self._voeg_witregel_toe()
+
+    def _laag_rijen(self, profiel: SoilProfile | None) -> list[list[str]]:
+        if not profiel:
+            return []
+        n = len(profiel.layers)
+        rijen = []
+        for i, laag in enumerate(profiel.layers):
+            bk = fmt_number(laag.level, 2)
+            ok = fmt_number(profiel.layers[i + 1].level, 2) if i + 1 < n else 'Max'
+            rijen.append([laag.material, bk, ok])
+        return rijen
+
+    def _maak_fase_tabel(
+        self,
+        fase: Stage,
+        project: Project,
+        links_ongewijzigd: bool = False,
+        rechts_ongewijzigd: bool = False,
+    ) -> QWidget:
+        links_profiel = _find_profiel(project.profiles, fase.left_profile)
+        rechts_profiel = _find_profiel(project.profiles, fase.right_profile)
+        links_rijen = self._laag_rijen(links_profiel)
+        rechts_rijen = self._laag_rijen(rechts_profiel)
+        zijden_gelijk = bool(links_rijen) and links_rijen == rechts_rijen
+        geheel_ongewijzigd = links_ongewijzigd and rechts_ongewijzigd
+
+        if zijden_gelijk:
+            n_data = max(len(links_rijen), 1)
+        elif links_ongewijzigd:
+            n_data = max(len(rechts_rijen), 1)
+        elif rechts_ongewijzigd:
+            n_data = max(len(links_rijen), 1)
+        else:
+            n_data = max(len(links_rijen), len(rechts_rijen), 1)
+
+        frame = QFrame()
+        frame.setStyleSheet(
+            f'QFrame {{ background: white; border: 1px solid {_ts.TABLE_BORDER}; }}'
+        )
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        grid = QGridLayout(frame)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+        col_stretch = _FASE_COL_STRETCH_ENKEL if zijden_gelijk else _FASE_COL_STRETCH
+        for col, stretch in enumerate(col_stretch):
+            grid.setColumnStretch(col, stretch)
+
+        if zijden_gelijk:
+            self._voeg_fase_tabel_header_toe(grid, [(0, 'Grondlagen')], 3)
+            self._voeg_fase_tabel_subkoppen_toe(grid, ['Laag', 'b.k. laag', 'o.k. laag'])
+            self._vul_helft(
+                grid, 2, n_data, links_rijen, geheel_ongewijzigd, col_offset=0, links=False,
+            )
+            return self._verpak_halve_breedte(frame)
+
+        for col_start, tekst in [
+            (0, 'Grondlagen linkerzijde'),
+            (3, 'Grondlagen rechterzijde'),
+        ]:
+            lbl = QLabel(tekst)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};' if col_start == 0 else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 700; '
+                f'color: {_ts.TABLE_HEADER_FG}; background: {_ts.TABLE_HEADER_BG}; '
+                f'padding: 5px 8px; border-bottom: 1px solid {_ts.TABLE_BORDER}; {border_r}'
+            )
+            grid.addWidget(lbl, 0, col_start, 1, 3)
+
+        subkoppen = ['Laag', 'b.k. laag', 'o.k. laag', 'Laag', 'b.k. laag', 'o.k. laag']
+        for col, tekst in enumerate(subkoppen):
+            lbl = QLabel(tekst)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft
+                if col in (0, 3)
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};' if col < 5 else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
+                f'color: {_ts.TABLE_HEADER_SUB_FG}; background: {_ts.TABLE_HEADER_SUB_BG}; '
+                f'padding: 5px 8px; {border_r}'
+            )
+            grid.addWidget(lbl, 1, col)
+
+        self._vul_helft(grid, 2, n_data, links_rijen, links_ongewijzigd, col_offset=0, links=True)
+        self._vul_helft(grid, 2, n_data, rechts_rijen, rechts_ongewijzigd, col_offset=3, links=False)
+
+        return frame
+
+    def _verpak_halve_breedte(self, tabel: QWidget) -> QWidget:
+        wrapper = QWidget()
+        layout = QHBoxLayout(wrapper)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(tabel, stretch=1)
+        layout.addStretch(1)
+        return wrapper
+
+    def _voeg_fase_tabel_header_toe(
+        self,
+        grid: QGridLayout,
+        groepen: list[tuple[int, str]],
+        totaal_kolommen: int,
+    ) -> None:
+        for col_start, tekst in groepen:
+            lbl = QLabel(tekst)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};'
+                if col_start + 3 < totaal_kolommen else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 700; '
+                f'color: {_ts.TABLE_HEADER_FG}; background: {_ts.TABLE_HEADER_BG}; '
+                f'padding: 5px 8px; border-bottom: 1px solid {_ts.TABLE_BORDER}; {border_r}'
+            )
+            grid.addWidget(lbl, 0, col_start, 1, 3)
+
+    def _voeg_fase_tabel_subkoppen_toe(
+        self,
+        grid: QGridLayout,
+        subkoppen: list[str],
+    ) -> None:
+        laatste_kolom = len(subkoppen) - 1
+        for col, tekst in enumerate(subkoppen):
+            lbl = QLabel(tekst)
+            uitlijning = (
+                Qt.AlignmentFlag.AlignLeft
+                if col in (0, 3)
+                else Qt.AlignmentFlag.AlignCenter
+            )
+            lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};'
+                if col < laatste_kolom else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
+                f'color: {_ts.TABLE_HEADER_SUB_FG}; background: {_ts.TABLE_HEADER_SUB_BG}; '
+                f'padding: 5px 8px; {border_r}'
+            )
+            grid.addWidget(lbl, 1, col)
+
+    def _vul_helft(
+        self,
+        grid: QGridLayout,
+        data_start: int,
+        n_data: int,
+        rijen: list[list[str]],
+        ongewijzigd: bool,
+        col_offset: int,
+        links: bool,
+    ) -> None:
+        scheiding_r = (
+            f'border-right: 1px solid {_ts.TABLE_BORDER};' if links else ''
+        )
+
+        if ongewijzigd:
+            lbl = QLabel('Grondopbouw ongewijzigd t.o.v. vorige fase')
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 11px; font-style: italic; '
+                f'color: {_LABEL_CLR}; background: {_ROW_EVN_BG}; '
+                f'padding: 6px 8px; {scheiding_r}'
+            )
+            grid.addWidget(lbl, data_start, col_offset, n_data, 3)
+            return
+
+        for i in range(n_data):
+            bg = _ROW_ODD_BG if i % 2 == 0 else _ROW_EVN_BG
+            border_b = (
+                '' if i == n_data - 1
+                else f'border-bottom: 1px solid {_ROW_SEP};'
+            )
+            rij = rijen[i] if i < len(rijen) else ['', '', '']
+            for j, waarde in enumerate(rij):
+                col = col_offset + j
+                lbl = QLabel(waarde)
+                is_naam = j == 0
+                uitlijning = Qt.AlignmentFlag.AlignLeft if is_naam else Qt.AlignmentFlag.AlignCenter
+                lbl.setAlignment(uitlijning | Qt.AlignmentFlag.AlignVCenter)
+                if links and j == 2:
+                    border_r = scheiding_r
+                elif j < 2:
+                    border_r = f'border-right: 1px solid {_ROW_SEP};'
+                else:
+                    border_r = ''
+                kleur = _LABEL_CLR if is_naam else _VALUE_CLR
+                lbl.setStyleSheet(
+                    f'font-family: {_FONT}; font-size: 12px; color: {kleur}; '
+                    f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
+                )
+                grid.addWidget(lbl, data_start + i, col)
