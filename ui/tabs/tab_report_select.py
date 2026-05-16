@@ -17,6 +17,8 @@ class TabReportSelect(QWidget):
     selection_changed = pyqtSignal()
     word_pdf_preview_open_requested = pyqtSignal()
     """Afgegeven als de gebruiker op 'Word preview (WYSIWYG)' klikt."""
+    word_preview_win32_open_requested = pyqtSignal()
+    """Afgegeven als de gebruiker op 'Word preview (Word-vensters behouden)' klikt."""
     export_word_requested = pyqtSignal(str)
     template_path_changed = pyqtSignal(str)
 
@@ -98,11 +100,20 @@ class TabReportSelect(QWidget):
         self._word_preview_btn.clicked.connect(
             self.word_pdf_preview_open_requested
         )
+        self._word_preview_win32_btn = QPushButton('📄 Word preview (Word open)')
+        self._word_preview_win32_btn.setObjectName('btnNormal')
+        self._word_preview_win32_btn.setToolTip(
+            'Zelfde preview, maar sluit geen open Word-vensters'
+        )
+        self._word_preview_win32_btn.clicked.connect(
+            self.word_preview_win32_open_requested
+        )
         wysiwyg_hint = QLabel(
             'Genereert het echte .docx en toont als PDF — exact zoals in Word'
         )
         wysiwyg_hint.setObjectName('hintLabel')
         wysiwyg_rij.addWidget(self._word_preview_btn)
+        wysiwyg_rij.addWidget(self._word_preview_win32_btn)
         wysiwyg_rij.addWidget(wysiwyg_hint)
         wysiwyg_rij.addStretch()
         root.addLayout(wysiwyg_rij)
@@ -141,6 +152,18 @@ class TabReportSelect(QWidget):
         """
         self._word_preview_btn.setEnabled(beschikbaar)
         self._word_preview_btn.setToolTip(tooltip)
+
+    def set_word_preview_win32_enabled(self, beschikbaar: bool) -> None:
+        """Schakel de win32-preview-knop in/uit op basis van win32com-beschikbaarheid.
+
+        Parameters
+        ----------
+        beschikbaar:
+            True als pywin32 beschikbaar is.
+        """
+        self._word_preview_win32_btn.setEnabled(beschikbaar)
+        if not beschikbaar:
+            self._word_preview_win32_btn.setToolTip('pywin32 niet beschikbaar')
 
     def _refresh(self) -> None:
         self._list.blockSignals(True)

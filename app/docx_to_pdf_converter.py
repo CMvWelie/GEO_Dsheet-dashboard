@@ -97,6 +97,59 @@ class DocxToPdfConverter:
                 laatste_fout = f'{engine}: {exc}'
         return laatste_fout or 'Conversie mislukt zonder details'
 
+    def has_win32(self) -> bool:
+        """Geef True als pywin32 beschikbaar is (Word COM via win32com)."""
+        try:
+            import win32com.client  # noqa: F401
+            import pythoncom  # noqa: F401
+            return True
+        except Exception:
+            return False
+
+    def convert_via_win32(self, docx_path: str, pdf_path: str) -> str | None:
+        """Converteer .docx naar .pdf via win32com zonder Word te sluiten.
+
+        Parameters
+        ----------
+        docx_path:
+            Pad naar het bron-.docx-bestand.
+        pdf_path:
+            Pad waar het PDF-bestand wordt opgeslagen.
+
+        Returns
+        -------
+        str | None
+            None bij succes, foutmelding bij een fout.
+        """
+        if not Path(docx_path).exists():
+            return f'Bron-bestand bestaat niet: {docx_path}'
+        try:
+            import pythoncom
+            import win32com.client
+            pythoncom.CoInitialize()
+            try:
+                # GetActiveObject hergebruikt bestaande Word-instantie zonder
+                # Visible aan te raken; Dispatch maakt een nieuwe hidden instantie.
+                word_was_running = True
+                try:
+                    word = win32com.client.GetActiveObject('Word.Application')
+                except Exception:
+                    word = win32com.client.Dispatch('Word.Application')
+                    word.Visible = False
+                    word_was_running = False
+                doc = word.Documents.Open(str(Path(docx_path).resolve()))
+                doc.SaveAs(str(Path(pdf_path).resolve()), FileFormat=17)
+                doc.Close(SaveChanges=False)
+                if not word_was_running:
+                    word.Quit()
+            finally:
+                pythoncom.CoUninitialize()
+        except Exception as exc:
+            return f'win32com: {exc}'
+        if not Path(pdf_path).exists():
+            return 'win32com: PDF niet aangemaakt'
+        return None
+
     def _convert_docx2pdf(self, docx_path: str, pdf_path: str) -> None:
         """Converteer via docx2pdf (Word COM op Windows).
 

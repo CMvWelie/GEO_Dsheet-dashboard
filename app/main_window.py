@@ -126,6 +126,9 @@ class MainWindow(QMainWindow):
                 'Geen Word/LibreOffice gevonden — installeer Microsoft Word '
                 'of LibreOffice om deze preview te gebruiken.'
             )
+        self._tab_report_select.set_word_preview_win32_enabled(
+            self._docx_to_pdf.has_win32()
+        )
 
         self._connect_signals()
         self._tab_report_select.set_template_path(
@@ -385,6 +388,9 @@ class MainWindow(QMainWindow):
         self._tab_instellingen.restart_requested.connect(self._on_restart_app)
         self._tab_report_select.word_pdf_preview_open_requested.connect(
             self._on_word_pdf_preview_open
+        )
+        self._tab_report_select.word_preview_win32_open_requested.connect(
+            self._on_word_preview_win32_open
         )
         self._tab_report_select.selection_changed.connect(
             self._update_word_pdf_preview
@@ -1074,21 +1080,33 @@ class MainWindow(QMainWindow):
         """Open het Word-WYSIWYG preview-venster en start een conversie."""
         self._word_pdf_preview_window.show()
         self._word_pdf_preview_window.raise_()
-        self._start_word_pdf_conversie()
+        self._start_word_pdf_conversie(via_win32=False)
+
+    def _on_word_preview_win32_open(self) -> None:
+        """Open preview via win32com — sluit geen open Word-vensters."""
+        self._word_pdf_preview_window.show()
+        self._word_pdf_preview_window.raise_()
+        self._start_word_pdf_conversie(via_win32=True)
 
     def _update_word_pdf_preview(self) -> None:
         """Herrender de Word-WYSIWYG preview als het venster zichtbaar is."""
         if not self._word_pdf_preview_window.isVisible():
             return
-        self._start_word_pdf_conversie()
+        self._start_word_pdf_conversie(via_win32=False)
 
-    def _start_word_pdf_conversie(self) -> None:
+    def _start_word_pdf_conversie(self, via_win32: bool = False) -> None:
         """Start een nieuwe export+conversie op een aparte thread.
 
         Een lopende conversie wordt niet onderbroken; de gebruiker moet
         wachten tot die klaar is voordat een nieuwe start.
         """
-        if not self._docx_to_pdf.is_available():
+        if via_win32:
+            if not self._docx_to_pdf.has_win32():
+                self._word_pdf_preview_window.set_status(
+                    'pywin32 niet beschikbaar', ok=False
+                )
+                return
+        elif not self._docx_to_pdf.is_available():
             self._word_pdf_preview_window.set_status(
                 'Geen conversie-engine beschikbaar', ok=False
             )
@@ -1100,7 +1118,9 @@ class MainWindow(QMainWindow):
         self._word_pdf_preview_window.set_busy(True)
 
         thread = QThread(self)
-        worker = WordPreviewWorker(self._report_controller, self._docx_to_pdf)
+        worker = WordPreviewWorker(
+            self._report_controller, self._docx_to_pdf, via_win32=via_win32
+        )
         worker.moveToThread(thread)
 
         thread.started.connect(worker.run)
@@ -1142,6 +1162,7 @@ class MainWindow(QMainWindow):
             if antwoord != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
+        self._word_pdf_preview_window.close()
         self._state.app_settings.window_geometry = (
             self.saveGeometry().toBase64().data().decode('ascii')
         )

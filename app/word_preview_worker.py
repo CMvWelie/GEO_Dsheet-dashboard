@@ -27,10 +27,12 @@ class WordPreviewWorker(QObject):
     def __init__(self,
                  controller: ReportController,
                  converter: DocxToPdfConverter,
+                 via_win32: bool = False,
                  parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._controller = controller
         self._converter = converter
+        self._via_win32 = via_win32
 
     @pyqtSlot()
     def run(self) -> None:
@@ -47,7 +49,10 @@ class WordPreviewWorker(QObject):
             self.failed.emit('Word-export gaf geen bestand')
             return
 
-        conv_fout = self._converter.convert(docx_path, pdf_path)
+        if self._via_win32:
+            conv_fout = self._converter.convert_via_win32(docx_path, pdf_path)
+        else:
+            conv_fout = self._converter.convert(docx_path, pdf_path)
         if conv_fout is not None:
             self.failed.emit(f'PDF-conversie mislukte: {conv_fout}')
             return
