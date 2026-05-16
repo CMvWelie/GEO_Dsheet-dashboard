@@ -1157,14 +1157,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         """Vraag bevestiging bij sluiten met onopgeslagen wijzigingen."""
         if self._sessie_gewijzigd:
-            antwoord = QMessageBox.question(
-                self,
-                'Onopgeslagen wijzigingen',
-                'Er zijn onopgeslagen wijzigingen. Wil je de app sluiten zonder op te slaan?',
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if antwoord != QMessageBox.StandardButton.Yes:
+            if not self._bevestig_weggooien_wijzigingen():
                 event.ignore()
                 return
         self._word_pdf_preview_window.close()
@@ -1302,6 +1295,30 @@ class MainWindow(QMainWindow):
         else:
             self._update_all()
 
+    def _opslaan_voor_actie(self) -> bool:
+        """Sla op naar huidig pad, of vraag pad als onbekend.
+
+        Returns
+        -------
+        bool
+            ``True`` als opslaan gelukt is, ``False`` als gebruiker annuleert of opslaan mislukt.
+        """
+        if self._sessie_pad is not None:
+            return self._sessie_opslaan_naar(self._sessie_pad)
+        pad_str, _ = QFileDialog.getSaveFileName(
+            self, 'Sessie opslaan als', '', 'D-Sheet Dashboard (*.dsd);;Alle bestanden (*)'
+        )
+        if not pad_str:
+            return False
+        pad = Path(pad_str)
+        if pad.suffix.lower() != '.dsd':
+            pad = pad.with_suffix('.dsd')
+        if self._sessie_opslaan_naar(pad):
+            self._sessie_pad = pad
+            self._update_venstertitel()
+            return True
+        return False
+
     def _bevestig_weggooien_wijzigingen(self) -> bool:
         """Vraag bevestiging als er onopgeslagen wijzigingen zijn.
 
@@ -1312,14 +1329,20 @@ class MainWindow(QMainWindow):
         """
         if not self._sessie_gewijzigd:
             return True
-        antwoord = QMessageBox.question(
-            self,
-            'Onopgeslagen wijzigingen',
-            'Er zijn onopgeslagen wijzigingen. Wil je doorgaan zonder op te slaan?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return antwoord == QMessageBox.StandardButton.Yes
+        box = QMessageBox(self)
+        box.setWindowTitle('Onopgeslagen wijzigingen')
+        box.setText('Er zijn onopgeslagen wijzigingen.')
+        opslaan_btn  = box.addButton('Opslaan',      QMessageBox.ButtonRole.AcceptRole)
+        negeer_btn   = box.addButton('Niet opslaan', QMessageBox.ButtonRole.DestructiveRole)
+        _annuleer    = box.addButton('Annuleren',    QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(opslaan_btn)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is opslaan_btn:
+            return self._opslaan_voor_actie()
+        if clicked is negeer_btn:
+            return True
+        return False  # annuleren
 
     def _update_venstertitel(self) -> None:
         """Pas de venstertitel aan met het sessiepad en dirty-markering."""
