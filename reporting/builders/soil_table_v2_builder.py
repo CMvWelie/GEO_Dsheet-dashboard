@@ -19,6 +19,15 @@ _GRONDSOORT_KOLOMMEN: list[str] = [
     'kh3',
 ]
 
+_METHODE_LABELS: dict[int, str] = {
+    1: 'Ka / K0 / Kp',
+    2: 'c, \u03c6, \u03b4 (Culmann)',
+}
+_METHODE_KOLOMMEN: list[str] = ['Fase', 'Methode links', 'Methode rechts']
+
+_KKK_KOLOMMEN: list[str] = ['Grondsoort', 'Ka', 'K0', 'Kp']
+_KKK_EENHEDEN: list[tuple[str, int]] = [('', 1), ('[-]', 3)]
+
 _FASE_KOLOMMEN: list[str] = [
     'Laag',
     'b.k. laag',
@@ -167,19 +176,72 @@ class SoilTableV2Builder:
 
         return [grondsoorten_sec] + self._bouw_fase_secties(project)
 
+    def _alle_methodes_cphi(self, project: Project) -> bool:
+        """Geef True als alle fases uitsluitend methode 2 (c,φ,δ) gebruiken."""
+        return bool(project.stages) and all(
+            fase.method_left == 2 and fase.method_right == 2
+            for fase in project.stages
+        )
+
     def _bouw_grondsoorten_sectie(self, project: Project) -> ReportSection:
         """Bouw het unieke grondsoortenoverzicht."""
         sec = ReportSection(
             id='grondsoorten_v2_overzicht',
             title='Grondsoortentabel v2 - Grondsoorten',
         )
+        if project.stages:
+            sec.tables.append(self._bouw_berekeningsmethode_tabel(project))
+        if not self._alle_methodes_cphi(project):
+            sec.tables.append(self._bouw_kkk_tabel(project))
         sec.tables.append(ReportTable(
             id='grondsoorten_v2_overzicht_tabel',
-            title='',
+            title='Grondsoorten',
             columns=_GRONDSOORT_KOLOMMEN,
             rows=self._grondsoorten_rijen(project),
         ))
         return sec
+
+    def _bouw_berekeningsmethode_tabel(self, project: Project) -> ReportTable:
+        """Bouw de berekeningsmethode-tabel per fase."""
+        rijen = [
+            [
+                fase.name,
+                _METHODE_LABELS.get(fase.method_left, str(fase.method_left)),
+                _METHODE_LABELS.get(fase.method_right, str(fase.method_right)),
+            ]
+            for fase in project.stages
+        ]
+        return ReportTable(
+            id='grondsoorten_v2_berekeningsmethode_tabel',
+            title='Berekeningsmethode',
+            columns=_METHODE_KOLOMMEN,
+            rows=rijen,
+        )
+
+    def _bouw_kkk_tabel(self, project: Project) -> ReportTable:
+        """Bouw de Ka/K0/Kp-tabel voor alle gebruikte grondsoorten."""
+        gebruikte = {
+            laag.material
+            for profiel in project.profiles
+            for laag in profiel.layers
+        }
+        soils = [s for s in project.soils if s.name in gebruikte]
+        rijen = [
+            [
+                soil.name,
+                fmt_number(soil.ka, 2),
+                fmt_number(soil.kn, 2),
+                fmt_number(soil.kp, 2),
+            ]
+            for soil in soils
+        ]
+        return ReportTable(
+            id='grondsoorten_v2_kkk_tabel',
+            title='Gronddrukcoëfficiënten',
+            columns=_KKK_KOLOMMEN,
+            rows=rijen,
+            unit_groups=_KKK_EENHEDEN,
+        )
 
     def _grondsoorten_rijen(self, project: Project) -> list[list[str]]:
         """Geef tabelrijen voor alle gebruikte grondsoorten."""

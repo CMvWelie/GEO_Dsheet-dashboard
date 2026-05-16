@@ -212,15 +212,23 @@ def test_v2_bouwt_fasegroep_met_links_rechts_kolomgroepen() -> None:
 def test_v2_bouwt_enkele_grondlagenkolom_bij_gelijke_zijden() -> None:
     from parsers.models import Stage
 
-    links = _maak_profiel('Links', [_laag(1, 0.0, 'Zand')])
-    rechts = _maak_profiel('Rechts', [_laag(1, 0.0, 'Zand')])
+    # Twee profielen met elk één laag maar verschillende grondsoort,
+    # zodat er twee groepen ontstaan en de fase-secties worden aangemaakt.
+    links1 = _maak_profiel('Links1', [_laag(1, 0.0, 'Zand')])
+    rechts1 = _maak_profiel('Rechts1', [_laag(1, 0.0, 'Zand')])
+    links2 = _maak_profiel('Links2', [_laag(1, 0.0, 'Klei')])
+    rechts2 = _maak_profiel('Rechts2', [_laag(1, 0.0, 'Klei')])
     project = _maak_project(
-        profielen=[links, rechts],
-        soils=[_soil('Zand')],
+        profielen=[links1, rechts1, links2, rechts2],
+        soils=[_soil('Zand'), _soil('Klei')],
     )
-    project.stages = [Stage(name='Fase 1', left_profile='Links', right_profile='Rechts')]
+    project.stages = [
+        Stage(name='Fase 1', left_profile='Links1', right_profile='Rechts1'),
+        Stage(name='Fase 2', left_profile='Links2', right_profile='Rechts2'),
+    ]
 
     secties = SoilTableV2Builder().build(project)
+    # secties[0] = grondsoorten_v2_overzicht; secties[1] = eerste fase-sectie
     fase_tabel = secties[1].tables[0]
 
     assert fase_tabel.columns == ['Laag', 'b.k. laag', 'o.k. laag']
@@ -302,6 +310,62 @@ def test_v2_alleen_eerste_grondlaagopbouwgroep_heeft_titel() -> None:
     assert secties[2].text_blocks[0].effective_text == (
         'In de fase "Fase 2" wordt het volgende profiel gehanteerd:'
     )
+
+
+def test_v2_geen_kkk_tabel_als_alle_methodes_cphi() -> None:
+    from parsers.models import Stage
+
+    profiel = _maak_profiel('Links', [_laag(1, 0.0, 'Zand')])
+    project = _maak_project(
+        profielen=[profiel],
+        soils=[_soil('Zand')],
+    )
+    project.stages = [
+        Stage(name='Fase 1', left_profile='Links', method_left=2, method_right=2),
+        Stage(name='Fase 2', left_profile='Links', method_left=2, method_right=2),
+    ]
+
+    secties = SoilTableV2Builder().build(project)
+    tabel_ids = [t.id for t in secties[0].tables]
+
+    assert 'grondsoorten_v2_kkk_tabel' not in tabel_ids
+
+
+def test_v2_kkk_tabel_aanwezig_bij_gemengde_methodes() -> None:
+    from parsers.models import Stage
+
+    profiel = _maak_profiel('Links', [_laag(1, 0.0, 'Zand')])
+    project = _maak_project(
+        profielen=[profiel],
+        soils=[_soil('Zand')],
+    )
+    project.stages = [
+        Stage(name='Fase 1', left_profile='Links', method_left=1, method_right=2),
+        Stage(name='Fase 2', left_profile='Links', method_left=2, method_right=2),
+    ]
+
+    secties = SoilTableV2Builder().build(project)
+    tabel_ids = [t.id for t in secties[0].tables]
+
+    assert 'grondsoorten_v2_kkk_tabel' in tabel_ids
+
+
+def test_v2_kkk_tabel_aanwezig_bij_alle_methode_1() -> None:
+    from parsers.models import Stage
+
+    profiel = _maak_profiel('Links', [_laag(1, 0.0, 'Zand')])
+    project = _maak_project(
+        profielen=[profiel],
+        soils=[_soil('Zand')],
+    )
+    project.stages = [
+        Stage(name='Fase 1', left_profile='Links', method_left=1, method_right=1),
+    ]
+
+    secties = SoilTableV2Builder().build(project)
+    tabel_ids = [t.id for t in secties[0].tables]
+
+    assert 'grondsoorten_v2_kkk_tabel' in tabel_ids
 
 
 def test_report_table_heeft_unit_groups_veld() -> None:

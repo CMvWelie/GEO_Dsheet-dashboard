@@ -43,6 +43,7 @@ class Soil:
     kh1: float = 0.0            # SoilCurKo1 [kN/m³]
     kh2: float = 0.0            # SoilCurKo2 [kN/m³]
     kh3: float = 0.0            # SoilCurKo3 [kN/m³]
+    lambda_type: int = 1        # SoilLambdaType: 1=secant/auto, 0=tangent/handmatig
 
 
 @dataclass
@@ -175,6 +176,8 @@ class SurchargeLoad:
 class Stage:
     name: str
     method_line: str = ""
+    method_left: int = 1   # 1=Ka/K0/Kp, 2=c,φ,δ (Culmann)
+    method_right: int = 1  # 1=Ka/K0/Kp, 2=c,φ,δ (Culmann)
     left_surface: str = ""
     right_surface: str = ""
     left_water: str = ""

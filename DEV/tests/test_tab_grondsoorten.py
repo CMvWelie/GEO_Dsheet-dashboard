@@ -64,14 +64,17 @@ def test_populate_toont_alle_profielen_onder_elkaar(qapp) -> None:
     tab.populate(project)
 
     widgets = _content_widgets(tab)
-    assert len(widgets) == 5
-    assert isinstance(widgets[0], QLabel)
-    assert isinstance(widgets[1], QLabel)
-    assert widgets[1].text() == '1* — Links'
-    assert isinstance(widgets[2], QFrame)
-    assert isinstance(widgets[3], QLabel)
-    assert widgets[3].text() == '2* — Rechts'
-    assert isinstance(widgets[4], QFrame)
+    # intro + sectiekop Ka/K0/Kp + Ka-tabel + 2× (profielkop + profieltabel) = 7
+    assert len(widgets) == 7
+    assert isinstance(widgets[0], QLabel)   # intro
+    assert isinstance(widgets[1], QLabel)   # sectiekop 'Gronddrukcoëfficiënten'
+    assert isinstance(widgets[2], QWidget)   # Ka/K0/Kp-tabel (in breedtewrapper)
+    assert isinstance(widgets[3], QLabel)   # kop '1* — Links'
+    assert widgets[3].text() == '1* — Links'
+    assert isinstance(widgets[4], QFrame)   # profieltabel Links
+    assert isinstance(widgets[5], QLabel)   # kop '2* — Rechts'
+    assert widgets[5].text() == '2* — Rechts'
+    assert isinstance(widgets[6], QFrame)   # profieltabel Rechts
 
 
 def test_profiel_dropdown_is_verwijderd(qapp) -> None:
@@ -100,7 +103,7 @@ def test_gelijke_rij_in_tweede_tabel_wordt_samengevoegd(qapp) -> None:
 
     tab.populate(project)
 
-    tweede_tabel = _content_widgets(tab)[4]
+    tweede_tabel = _content_widgets(tab)[6]
     teksten = [label.text() for label in tweede_tabel.findChildren(QLabel)]
     assert 'gelijk aan 1* \u2014 Links' in teksten
 
@@ -114,7 +117,7 @@ def test_gewijzigde_rij_in_tweede_tabel_blijft_uitgeschreven(qapp) -> None:
 
     tab.populate(project)
 
-    tweede_tabel = _content_widgets(tab)[4]
+    tweede_tabel = _content_widgets(tab)[6]
     teksten = [label.text() for label in tweede_tabel.findChildren(QLabel)]
     assert 'gelijk aan 1* \u2014 Links' not in teksten
     assert 'Klei' in teksten

@@ -41,6 +41,8 @@ _GRONDSOORTEN_V1_KOLOM_BREEDTES_CM = [3.7, 1.5, 1.5, 1.5, 1.35, 1.35, 1.35, 1.25
 _GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM = [4.0, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]
 _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0, 4.0, 2.0, 2.0]
 _GRONDSOORTEN_V2_FASE_ENKEL_KOLOM_BREEDTES_CM = [4.0, 2.0, 2.0]
+_BEREKENINGSMETHODE_KOLOM_BREEDTES_CM = [4.0, 2.4, 2.4]
+_KKK_KOLOM_BREEDTES_CM = [4.0, 1.6, 1.6, 1.6]
 _DAMWAND_RIJHOOGTE_TWIPS = round(_FASE_RIJHOOGTE_CM * 567)
 _DAMWAND_SCHEIDING_TWIPS = 40
 _RESULTAAT_SECTIE_IDS = {
@@ -1139,6 +1141,12 @@ class WordHoofdstukExporter:
         elif tabel.id == 'grondsoorten_v2_overzicht_tabel':
             if n_cols == len(_GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM):
                 vaste_breedtes_cm = _GRONDSOORTEN_V2_OVERZICHT_KOLOM_BREEDTES_CM
+        elif tabel.id == 'grondsoorten_v2_berekeningsmethode_tabel':
+            if n_cols == len(_BEREKENINGSMETHODE_KOLOM_BREEDTES_CM):
+                vaste_breedtes_cm = _BEREKENINGSMETHODE_KOLOM_BREEDTES_CM
+        elif tabel.id == 'grondsoorten_v2_kkk_tabel':
+            if n_cols == len(_KKK_KOLOM_BREEDTES_CM):
+                vaste_breedtes_cm = _KKK_KOLOM_BREEDTES_CM
         elif str(tabel.id).startswith('grondsoorten_v2_fase_'):
             if n_cols == len(_GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM):
                 vaste_breedtes_cm = _GRONDSOORTEN_V2_FASE_KOLOM_BREEDTES_CM

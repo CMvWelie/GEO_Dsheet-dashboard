@@ -92,6 +92,7 @@ def parse_soils(text: str) -> list[Soil]:
             kh1=float(find_line_value(block, r'^SoilCurKo1\s*=\s*(.+)$') or 0),
             kh2=float(find_line_value(block, r'^SoilCurKo2\s*=\s*(.+)$') or 0),
             kh3=float(find_line_value(block, r'^SoilCurKo3\s*=\s*(.+)$') or 0),
+            lambda_type=int(find_line_value(block, r'^SoilLambdaType\s*=\s*(.+)$') or 1),
         ))
     return out
 
@@ -675,6 +676,10 @@ def parse_stages(text: str) -> list[Stage]:
 
         stage = Stage(name=name)
         stage.method_line = lines[i + 1].strip() if i + 1 < len(lines) else ''
+        _mm = re.match(r'^\s*(\d+)\s+(\d+)\s+Method Left:', stage.method_line, re.IGNORECASE)
+        if _mm:
+            stage.method_left = int(_mm.group(1))
+            stage.method_right = int(_mm.group(2))
         stage.left_surface = lines[i + 2].strip() if i + 2 < len(lines) else ''
         stage.right_surface = lines[i + 3].strip() if i + 3 < len(lines) else ''
         stage.left_water = lines[i + 4].strip() if i + 4 < len(lines) else ''
@@ -952,8 +957,106 @@ def parse_result_steps_from_shd(text: str) -> dict[str, ResultStep]:
     return {k: v for k, v in result.items() if v.stages}
 
 
+_STEP_KEY_TO_VTYPE: dict[str, int] = {
+    '6.1': 4, '6.2': 5, '6.3': 0, '6.4': 1, '6.5': 3, '6.5 x factor': 14,
+}
+
+
+def _parse_anchor_data_from_verify_steps(shd_text: str) -> list[AnchorStrutResumeItem]:
+    """Parseer ankerkrachten uit [ANCHOR DATA] blokken binnen [VERIFY STEP] secties.
+
+    Fallback voor .shd bestanden zonder [ANCHORS AND STRUTS RESUME] sectie,
+    waarbij ankerkrachten per constructiefase en verificatiestap zijn opgeslagen.
+
+    Parameters
+    ----------
+    shd_text: Volledige inhoud van het .shd bestand.
+
+    Returns
+    -------
+    list[AnchorStrutResumeItem]
+    """
+    out: list[AnchorStrutResumeItem] = []
+    lines = shd_text.split('\n')
+    i = 0
+    current_vtype: int | None = None
+    current_stage: int | None = None
+
+    while i < len(lines):
+        s = lines[i].strip()
+
+        vm = re.match(r'^\[VERIFY STEP (.+)\]$', s)
+        if vm:
+            step_key = _normalize_verify_step_key(vm.group(1).strip())
+            current_vtype = _STEP_KEY_TO_VTYPE.get(step_key)
+            current_stage = None
+            i += 1
+            continue
+
+        if s.startswith('[END OF VERIFY STEP'):
+            current_vtype = None
+            current_stage = None
+            i += 1
+            continue
+
+        if s == '[CONSTRUCTION STAGE]' and current_vtype is not None:
+            j = i + 1
+            while j < len(lines):
+                sn_m = re.match(r'^StageNumber=(\d+)$', lines[j].strip())
+                if sn_m:
+                    current_stage = int(sn_m.group(1))
+                    break
+                if lines[j].strip() in ('[ANCHOR DATA]', '[END OF CONSTRUCTION STAGE]'):
+                    break
+                j += 1
+            i += 1
+            continue
+
+        if s == '[ANCHOR DATA]' and current_vtype is not None and current_stage is not None:
+            j = i + 1
+            while j < len(lines) and lines[j].strip() != '[DATA]':
+                j += 1
+            j += 1
+            while j < len(lines) and lines[j].strip() != '[END OF DATA]':
+                line = lines[j].strip()
+                if line:
+                    qm = re.match(r"^(.*?)'([^']+)'$", line)
+                    if qm:
+                        nums_str = qm.group(1).strip().split()
+                        try:
+                            nums = [float(x) for x in nums_str]
+                        except ValueError:
+                            j += 1
+                            continue
+                        # kolommen: Position(0) Force(1) ElasticityModulus(2) Status(3) Side(4) Type(5)
+                        if len(nums) >= 6 and all(math.isfinite(n) for n in nums):
+                            out.append(AnchorStrutResumeItem(
+                                stage_number=current_stage,
+                                verification_type=current_vtype,
+                                basis_cur_step=0,
+                                partial_factor_set=0,
+                                representative_factor=1.0,
+                                force=nums[1],
+                                anchor_type=int(nums[5]),
+                                anchor_state=int(nums[3]),
+                                changed_to_yielding=0,
+                                calculation_status=0,
+                                name=qm.group(2),
+                            ))
+                j += 1
+            i = j + 1
+            continue
+
+        i += 1
+
+    return out
+
+
 def parse_anchors_and_struts_resume(shd_text: str) -> list[AnchorStrutResumeItem]:
-    """Parseer de ANCHORS AND STRUTS RESUME tabel uit het .shd bestand.
+    """Parseer ankerkrachten uit het .shd bestand.
+
+    Probeert eerst de geconsolideerde [ANCHORS AND STRUTS RESUME] sectie.
+    Als die ontbreekt, valt terug op [ANCHOR DATA] blokken per [VERIFY STEP].
 
     Parameters
     ----------
@@ -968,36 +1071,37 @@ def parse_anchors_and_struts_resume(shd_text: str) -> list[AnchorStrutResumeItem
         r'\[ANCHORS AND STRUTS RESUME\][\s\S]*?\[DATA\]([\s\S]*?)\[END OF DATA\]',
         shd_text
     )
-    if not m:
+    if m:
+        for raw_line in m.group(1).split('\n'):
+            line = raw_line.strip()
+            if not line:
+                continue
+            qm = re.match(r"^(.*?)'([^']+)'$", line)
+            if not qm:
+                continue
+            nums_str = qm.group(1).strip().split()
+            try:
+                nums = [float(x) for x in nums_str]
+            except ValueError:
+                continue
+            if len(nums) < 10 or not all(math.isfinite(n) for n in nums):
+                continue
+            out.append(AnchorStrutResumeItem(
+                stage_number=int(nums[0]),
+                verification_type=int(nums[1]),
+                basis_cur_step=int(nums[2]),
+                partial_factor_set=int(nums[3]),
+                representative_factor=nums[4],
+                force=nums[5],
+                anchor_type=int(nums[6]),
+                anchor_state=int(nums[7]),
+                changed_to_yielding=int(nums[8]),
+                calculation_status=int(nums[9]),
+                name=qm.group(2)
+            ))
         return out
-    for raw_line in m.group(1).split('\n'):
-        line = raw_line.strip()
-        if not line:
-            continue
-        qm = re.match(r"^(.*?)'([^']+)'$", line)
-        if not qm:
-            continue
-        nums_str = qm.group(1).strip().split()
-        try:
-            nums = [float(x) for x in nums_str]
-        except ValueError:
-            continue
-        if len(nums) < 10 or not all(math.isfinite(n) for n in nums):
-            continue
-        out.append(AnchorStrutResumeItem(
-            stage_number=int(nums[0]),
-            verification_type=int(nums[1]),
-            basis_cur_step=int(nums[2]),
-            partial_factor_set=int(nums[3]),
-            representative_factor=nums[4],
-            force=nums[5],
-            anchor_type=int(nums[6]),
-            anchor_state=int(nums[7]),
-            changed_to_yielding=int(nums[8]),
-            calculation_status=int(nums[9]),
-            name=qm.group(2)
-        ))
-    return out
+
+    return _parse_anchor_data_from_verify_steps(shd_text)
 
 
 def parse_supports_resume(shd_text: str) -> list[SupportResumeItem]:

@@ -136,6 +136,20 @@ _SOIL_EENHEDEN_RIJ_MET_NIVEAU: list[tuple[str, int]] = [
     ('[kN/m³]', 3),   # kh1 + kh2 + kh3
 ]
 
+_METHODE_LABELS: dict[int, str] = {
+    1: 'Ka / K0 / Kp',
+    2: 'c, φ, δ (Culmann)',
+}
+_METHODE_KOLOMMEN: list[str] = ['Fase', 'Methode links', 'Methode rechts']
+_METHODE_EENHEDEN: list[tuple[str, int]] = []
+_METHODE_STRETCH: list[int] = [30, 35, 35]
+_CPHI_BG = '#e8f5e9'   # lichtgroen voor c,φ,δ fases
+
+_KKK_KOLOMMEN: list[str] = ['Grondsoort', 'Ka', 'K0', 'Kp']
+_KKK_EENHEDEN: list[tuple[str, int]] = [('', 1), ('[-]', 3)]
+_KKK_STRETCH: list[int] = [50, 16, 17, 17]
+_KKK_HANDMATIG_BG = '#fff8e1'   # lichtgeel voor handmatig ingevoerde waarden
+
 
 class TabGrondsoorten(QWidget):
     """Toont grondparameters per profiel onder elkaar."""
@@ -188,6 +202,18 @@ class TabGrondsoorten(QWidget):
         else:
             self._render_volledig(project)
 
+    def _maak_breedte_wrapper(
+        self, widget: QWidget, stretch_w: int, stretch_rest: int
+    ) -> QWidget:
+        """Wikkel een widget in een horizontale container met vaste breedteverhouding."""
+        container = QWidget()
+        hlayout = QHBoxLayout(container)
+        hlayout.setContentsMargins(0, 0, 0, 0)
+        hlayout.setSpacing(0)
+        hlayout.addWidget(widget, stretch_w)
+        hlayout.addStretch(stretch_rest)
+        return container
+
     def _render_enkelvoudig(self, project: Project) -> None:
         """Toon profieltabellen met grondparameters (enkelvoudig pad)."""
         if not project.profiles:
@@ -196,6 +222,13 @@ class TabGrondsoorten(QWidget):
 
         intro = self._maak_intro_tekst()
         self._content_layout.insertWidget(self._content_layout.count() - 1, intro)
+
+        if project.soils:
+            self._voeg_sectie_kop_toe('Gronddrukcoëfficiënten')
+            self._content_layout.insertWidget(
+                self._content_layout.count() - 1,
+                self._maak_breedte_wrapper(self._maak_ka_k0_kp_tabel(project), 11, 9),
+            )
 
         soil_map = {s.name: s for s in project.soils}
         referentie_titel = ''
@@ -210,11 +243,24 @@ class TabGrondsoorten(QWidget):
                 referentie_titel = profiel_titel
                 referentie_rijen = self._maak_rij_waarden(profiel, soil_map)
 
+    def _alle_methodes_cphi(self, project: Project) -> bool:
+        """True als alle fases uitsluitend methode 2 (c,φ,δ) gebruiken."""
+        return bool(project.stages) and all(
+            fase.method_left == 2 and fase.method_right == 2
+            for fase in project.stages
+        )
+
     def _render_volledig(self, project: Project) -> None:
         """Toon grondsoortenoverzicht en per-fase grondlaagentabellen (volledig pad)."""
         if not project.soils:
             self._render_leeg()
             return
+
+        self._voeg_sectie_kop_toe('Berekeningsmethode per fase')
+        self._content_layout.insertWidget(
+            self._content_layout.count() - 1,
+            self._maak_breedte_wrapper(self._maak_berekeningsmethode_tabel(project), 11, 9),
+        )
 
         prof_map = {pr.name: pr for pr in project.profiles}
         groepen: list[dict] = []
@@ -232,6 +278,13 @@ class TabGrondsoorten(QWidget):
                     'namen': [fase.name],
                     'fase_ref': fase,
                 })
+
+        if not self._alle_methodes_cphi(project):
+            self._voeg_sectie_kop_toe('Gronddrukcoëfficiënten')
+            self._content_layout.insertWidget(
+                self._content_layout.count() - 1,
+                self._maak_breedte_wrapper(self._maak_ka_k0_kp_tabel(project), 11, 9),
+            )
 
         if len(groepen) == 1:
             groep = groepen[0]
@@ -526,6 +579,97 @@ class TabGrondsoorten(QWidget):
             for laag in profiel.layers:
                 namen.add(laag.material)
         return namen
+
+    def _maak_berekeningsmethode_tabel(self, project: Project) -> QWidget:
+        """Tabel met berekeningsmethode per fase (links / rechts).
+
+        Parameters
+        ----------
+        project : Project
+            Het actieve project.
+
+        Returns
+        -------
+        QWidget
+            Frame met één rij per fase; c,φ,δ-fases krijgen groene achtergrond.
+        """
+        frame = QFrame()
+        frame.setStyleSheet(
+            f'QFrame {{ background: white; border: 1px solid {_ts.TABLE_BORDER}; }}'
+        )
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._maak_grondsoorten_header(
+            _METHODE_KOLOMMEN, _METHODE_EENHEDEN, _METHODE_STRETCH
+        ))
+
+        fases = project.stages or []
+        for i, fase in enumerate(fases):
+            ml = _METHODE_LABELS.get(fase.method_left, str(fase.method_left))
+            mr = _METHODE_LABELS.get(fase.method_right, str(fase.method_right))
+            cphi = fase.method_left == 2 or fase.method_right == 2
+            bg = _CPHI_BG if cphi else (
+                _ts.TABLE_ROW_ODD_BG if i % 2 == 0 else _ts.TABLE_ROW_EVEN_BG
+            )
+            is_last = i == len(fases) - 1
+            layout.addWidget(
+                self._maak_grondsoorten_rij(
+                    [fase.name, ml, mr], bg, is_last, _METHODE_STRETCH
+                )
+            )
+
+        return frame
+
+    def _maak_ka_k0_kp_tabel(self, project: Project) -> QWidget:
+        """Losse tabel met Ka, K0, Kp per gebruikte grondsoort.
+
+        Parameters
+        ----------
+        project : Project
+            Het actieve project.
+
+        Returns
+        -------
+        QWidget
+            Frame met header en datarijen; handmatig ingevoerde waarden
+            (lambda_type == 0) krijgen een lichtgele achtergrond.
+        """
+        gebruikte = self._gebruikte_grondnamen(project)
+        soils = [s for s in project.soils if s.name in gebruikte]
+
+        frame = QFrame()
+        frame.setStyleSheet(
+            f'QFrame {{ background: white; border: 1px solid {_ts.TABLE_BORDER}; }}'
+        )
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._maak_grondsoorten_header(
+            _KKK_KOLOMMEN, _KKK_EENHEDEN, _KKK_STRETCH
+        ))
+
+        for i, soil in enumerate(soils):
+            handmatig = soil.lambda_type == 0
+            bg = _KKK_HANDMATIG_BG if handmatig else (
+                _ts.TABLE_ROW_ODD_BG if i % 2 == 0 else _ts.TABLE_ROW_EVEN_BG
+            )
+            is_last = i == len(soils) - 1
+            waarden = [
+                soil.name,
+                fmt_number(soil.ka, 2),
+                fmt_number(soil.kn, 2),
+                fmt_number(soil.kp, 2),
+            ]
+            layout.addWidget(
+                self._maak_grondsoorten_rij(waarden, bg, is_last, _KKK_STRETCH)
+            )
+
+        return frame
 
     def _maak_grondsoorten_tabel(
         self, project: Project, profiel: SoilProfile | None = None
