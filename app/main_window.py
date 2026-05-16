@@ -52,7 +52,6 @@ from ui.tabs.tab_result_desc import TabResultDesc
 from ui.tabs.tab_report_select import TabReportSelect
 from ui.tabs.tab_instellingen import TabInstellingen
 from ui.tabs.tab_grondsoorten import TabGrondsoorten
-from ui.tabs.tab_grondsoorten_v2 import TabGrondsoortenv2
 from ui.tabs.tab_aanvullende_berekeningen import TabAanvullendeBerekeningen
 from ui.word_pdf_preview_window import WordPdfPreviewWindow
 from app.docx_to_pdf_converter import DocxToPdfConverter
@@ -215,10 +214,6 @@ class MainWindow(QMainWindow):
         # Tab 1: Grondsoortentabel
         self._tab_grondsoorten = TabGrondsoorten()
         self._main_tabs.addTab(self._tab_grondsoorten, 'Grondsoortentabel')
-
-        # Tab 1B: Grondsoortentabel v2
-        self._tab_grondsoorten_v2 = TabGrondsoortenv2()
-        self._main_tabs.addTab(self._tab_grondsoorten_v2, 'Grondsoortentabel v2')
 
         # Tab 2: Invoer
         self._tab_input_view = TabInputView()
@@ -844,8 +839,6 @@ class MainWindow(QMainWindow):
             self._refresh_uitvoer_tabellen()
         elif active_tab is self._tab_grondsoorten:
             self._refresh_grondsoorten()
-        elif active_tab is self._tab_grondsoorten_v2:
-            self._refresh_grondsoorten_v2()
 
     def _render_section(self) -> None:
         ax = self._tab_input_view.section_ax
@@ -903,8 +896,6 @@ class MainWindow(QMainWindow):
             self._refresh_uitvoer_tabellen()
         elif tab is self._tab_grondsoorten:
             self._refresh_grondsoorten()
-        elif tab is self._tab_grondsoorten_v2:
-            self._refresh_grondsoorten_v2()
 
     def _refresh_input_desc(self) -> None:
         cards = self._report_controller.build_all_fase_cards()
@@ -937,11 +928,6 @@ class MainWindow(QMainWindow):
         """Ververs de grondsoortentabel met het actieve project."""
         project = self._state.get_active_project()
         self._tab_grondsoorten.populate(project)
-
-    def _refresh_grondsoorten_v2(self) -> None:
-        """Ververs de grondsoortentabel v2 met het actieve project."""
-        project = self._state.get_active_project()
-        self._tab_grondsoorten_v2.populate(project)
 
     def _on_metadata_changed(self) -> None:
         md = self._tab_report_context.get_metadata()
