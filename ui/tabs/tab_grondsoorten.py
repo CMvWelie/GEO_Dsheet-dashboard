@@ -183,7 +183,7 @@ class TabGrondsoorten(QWidget):
             self._render_leeg()
             return
 
-        if _is_enkelvoudig(project) and not project.stages:
+        if not project.stages:
             self._render_enkelvoudig(project)
         else:
             self._render_volledig(project)
