@@ -149,9 +149,23 @@ class SoilTableV2Builder:
         if not project.soils:
             return []
 
-        secties = [self._bouw_grondsoorten_sectie(project)]
-        secties.extend(self._bouw_fase_secties(project))
-        return secties
+        grondsoorten_sec = self._bouw_grondsoorten_sectie(project)
+        groepen = self._fase_groepen(project)
+
+        if (
+            len(groepen) == 1
+            and self._fase_zijden_gelijk(groepen[0]['fase_ref'], project)
+        ):
+            namen = groepen[0]['namen']
+            grondsoorten_sec.text_blocks.append(TextBlock(
+                id='grondsoorten_v2_fase_intro',
+                section=grondsoorten_sec.id,
+                generated_text=_fase_intro(namen),
+                source=_fase_titel(namen),
+            ))
+            return [grondsoorten_sec]
+
+        return [grondsoorten_sec] + self._bouw_fase_secties(project)
 
     def _bouw_grondsoorten_sectie(self, project: Project) -> ReportSection:
         """Bouw het unieke grondsoortenoverzicht."""

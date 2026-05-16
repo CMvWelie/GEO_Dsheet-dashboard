@@ -91,18 +91,49 @@ _EENHEDEN_RIJ: list[tuple[str, int]] = [
 _FASE_COL_STRETCH = [4, 2, 2, 4, 2, 2]
 _FASE_COL_STRETCH_ENKEL = [4, 2, 2]
 
-_SOIL_COL_STRETCH = [8, 3, 3, 3, 3, 3, 3, 3, 3]
+_SOIL_COL_STRETCH = [30, 12, 10, 10, 10, 10, 9, 9]
 
 _SOIL_KOLOMMEN: list[str] = [
     'Laag',
-    'γd\n[kN/m³]',
-    'γn\n[kN/m³]',
-    "c'kar\n[kN/m²]",
-    "φ'kar\n[°]",
-    'δ\n[°]',
+    'Γd / yn',
+    "c'kar",
+    "φ'kar",
+    'δ',
     'kh1',
     'kh2',
     'kh3',
+]
+
+_SOIL_EENHEDEN_RIJ: list[tuple[str, int]] = [
+    ('', 1),          # Laag
+    ('[kN/m³]', 1),   # Γd / yn
+    ('[kN/m²]', 1),   # c'kar
+    ('[°]', 2),       # φ'kar + δ
+    ('[kN/m³]', 3),   # kh1 + kh2 + kh3
+]
+
+_SOIL_COL_STRETCH_MET_NIVEAU = [22, 8, 8, 10, 10, 8, 8, 8, 7, 7]
+
+_SOIL_KOLOMMEN_MET_NIVEAU: list[str] = [
+    'Laag',
+    'BK laag',
+    'OK laag',
+    'Γd / yn',
+    "c'kar",
+    "φ'kar",
+    'δ',
+    'kh1',
+    'kh2',
+    'kh3',
+]
+
+_SOIL_EENHEDEN_RIJ_MET_NIVEAU: list[tuple[str, int]] = [
+    ('', 1),          # Laag
+    ('[m NAP]', 2),   # BK laag + OK laag
+    ('[kN/m³]', 1),   # Γd / yn
+    ('[kN/m²]', 1),   # c'kar
+    ('[°]', 2),       # φ'kar + δ
+    ('[kN/m³]', 3),   # kh1 + kh2 + kh3
 ]
 
 
@@ -152,7 +183,7 @@ class TabGrondsoorten(QWidget):
             self._render_leeg()
             return
 
-        if _is_enkelvoudig(project):
+        if _is_enkelvoudig(project) and not project.stages:
             self._render_enkelvoudig(project)
         else:
             self._render_volledig(project)
@@ -185,12 +216,6 @@ class TabGrondsoorten(QWidget):
             self._render_leeg()
             return
 
-        self._voeg_sectie_kop_toe('Grondsoorten')
-        self._content_layout.insertWidget(
-            self._content_layout.count() - 1,
-            self._maak_grondsoorten_tabel(project),
-        )
-
         prof_map = {pr.name: pr for pr in project.profiles}
         groepen: list[dict] = []
         for fase in project.stages:
@@ -207,6 +232,26 @@ class TabGrondsoorten(QWidget):
                     'namen': [fase.name],
                     'fase_ref': fase,
                 })
+
+        if len(groepen) == 1:
+            groep = groepen[0]
+            links_rijen = self._laag_rijen(prof_map.get(groep['fase_ref'].left_profile))
+            rechts_rijen = self._laag_rijen(prof_map.get(groep['fase_ref'].right_profile))
+            if bool(links_rijen) and links_rijen == rechts_rijen:
+                profiel = prof_map.get(groep['fase_ref'].left_profile)
+                self._voeg_sectie_kop_toe('Grondsoorten')
+                self._voeg_fase_intro_toe(groep['namen'], witregel_na=True)
+                self._content_layout.insertWidget(
+                    self._content_layout.count() - 1,
+                    self._maak_grondsoorten_tabel(project, profiel=profiel),
+                )
+                return
+
+        self._voeg_sectie_kop_toe('Grondsoorten')
+        self._content_layout.insertWidget(
+            self._content_layout.count() - 1,
+            self._maak_grondsoorten_tabel(project),
+        )
 
         vorige_l: tuple = ()
         vorige_r: tuple = ()
@@ -482,9 +527,13 @@ class TabGrondsoorten(QWidget):
                 namen.add(laag.material)
         return namen
 
-    def _maak_grondsoorten_tabel(self, project: Project) -> QWidget:
-        gebruikte = self._gebruikte_grondnamen(project)
-        soils = [s for s in project.soils if s.name in gebruikte]
+    def _maak_grondsoorten_tabel(
+        self, project: Project, profiel: SoilProfile | None = None
+    ) -> QWidget:
+        met_niveau = profiel is not None
+        kolommen = _SOIL_KOLOMMEN_MET_NIVEAU if met_niveau else _SOIL_KOLOMMEN
+        eenheden = _SOIL_EENHEDEN_RIJ_MET_NIVEAU if met_niveau else _SOIL_EENHEDEN_RIJ
+        stretch = _SOIL_COL_STRETCH_MET_NIVEAU if met_niveau else _SOIL_COL_STRETCH
 
         frame = QFrame()
         frame.setStyleSheet(
@@ -495,36 +544,78 @@ class TabGrondsoorten(QWidget):
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._maak_grondsoorten_header())
+        layout.addWidget(self._maak_grondsoorten_header(kolommen, eenheden, stretch))
 
-        for i, soil in enumerate(soils):
+        if met_niveau:
+            rijen = self._grondsoorten_rijen_met_niveau(project, profiel)
+        else:
+            gebruikte = self._gebruikte_grondnamen(project)
+            soils = [s for s in project.soils if s.name in gebruikte]
+            rijen = self._grondsoorten_rijen(soils)
+
+        for i, waarden in enumerate(rijen):
             bg = _ts.TABLE_ROW_ODD_BG if i % 2 == 0 else _ts.TABLE_ROW_EVEN_BG
-            is_last = i == len(soils) - 1
+            is_last = i == len(rijen) - 1
+            layout.addWidget(self._maak_grondsoorten_rij(waarden, bg, is_last, stretch))
+
+        return frame
+
+    def _grondsoorten_rijen(self, soils: list) -> list[list[str]]:
+        rijen = []
+        for soil in soils:
             kh1 = str(int(soil.kh1)) if soil.kh1 else '-'
             kh2 = str(int(soil.kh2)) if soil.kh2 else '-'
             kh3 = str(int(soil.kh3)) if soil.kh3 else '-'
-            waarden = [
+            rijen.append([
                 soil.name,
-                fmt_number(soil.gamma_dry),
-                fmt_number(soil.gamma_wet),
+                f'{fmt_number(soil.gamma_dry)} / {fmt_number(soil.gamma_wet)}',
                 fmt_number(soil.cohesion),
                 fmt_number(soil.phi),
                 fmt_number(soil.delta),
                 kh1, kh2, kh3,
-            ]
-            layout.addWidget(self._maak_grondsoorten_rij(waarden, bg, is_last))
+            ])
+        return rijen
 
-        return frame
+    def _grondsoorten_rijen_met_niveau(
+        self, project: Project, profiel: SoilProfile
+    ) -> list[list[str]]:
+        soil_map = {s.name: s for s in project.soils}
+        n = len(profiel.layers)
+        rijen = []
+        for i, laag in enumerate(profiel.layers):
+            bk = fmt_number(laag.level, 2)
+            ok = fmt_number(profiel.layers[i + 1].level, 2) if i + 1 < n else '-'
+            soil = soil_map.get(laag.material)
+            if soil:
+                kh1 = str(int(soil.kh1)) if soil.kh1 else '-'
+                kh2 = str(int(soil.kh2)) if soil.kh2 else '-'
+                kh3 = str(int(soil.kh3)) if soil.kh3 else '-'
+                rijen.append([
+                    laag.material, bk, ok,
+                    f'{fmt_number(soil.gamma_dry)} / {fmt_number(soil.gamma_wet)}',
+                    fmt_number(soil.cohesion),
+                    fmt_number(soil.phi),
+                    fmt_number(soil.delta),
+                    kh1, kh2, kh3,
+                ])
+            else:
+                rijen.append([laag.material, bk, ok] + ['-'] * 7)
+        return rijen
 
-    def _maak_grondsoorten_header(self) -> QWidget:
+    def _maak_grondsoorten_header(
+        self,
+        kolommen: list[str],
+        eenheden_rij: list[tuple[str, int]],
+        stretch: list[int],
+    ) -> QWidget:
         hdr = QWidget()
         hdr.setStyleSheet(f'background: {_ts.TABLE_HEADER_SUB_BG};')
         grid = QGridLayout(hdr)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
 
-        n = len(_SOIL_KOLOMMEN)
-        for col, tekst in enumerate(_SOIL_KOLOMMEN):
+        n = len(kolommen)
+        for col, tekst in enumerate(kolommen):
             lbl = QLabel(tekst)
             uitlijning = (
                 Qt.AlignmentFlag.AlignLeft
@@ -539,14 +630,34 @@ class TabGrondsoorten(QWidget):
             lbl.setStyleSheet(
                 f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
                 f'color: {_ts.TABLE_HEADER_SUB_FG}; background: {_ts.TABLE_HEADER_SUB_BG}; '
-                f'padding: 5px 8px; {border_r}'
+                f'padding: 5px 8px; border-bottom: 1px solid {_ts.TABLE_BORDER}; {border_r}'
             )
             grid.addWidget(lbl, 0, col)
-            grid.setColumnStretch(col, _SOIL_COL_STRETCH[col])
+            grid.setColumnStretch(col, stretch[col])
+
+        col_offset = 0
+        n_groepen = len(eenheden_rij)
+        for groep_idx, (tekst, colspan) in enumerate(eenheden_rij):
+            lbl = QLabel(tekst)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            is_laatste = groep_idx == n_groepen - 1
+            border_r = (
+                f'border-right: 1px solid {_ts.TABLE_BORDER};'
+                if not is_laatste else ''
+            )
+            lbl.setStyleSheet(
+                f'font-family: {_FONT}; font-size: 10px; font-weight: 600; '
+                f'color: {_ts.TABLE_HEADER_SUB_FG}; background: {_ts.TABLE_HEADER_SUB_BG}; '
+                f'padding: 3px 8px; {border_r}'
+            )
+            grid.addWidget(lbl, 1, col_offset, 1, colspan)
+            col_offset += colspan
 
         return hdr
 
-    def _maak_grondsoorten_rij(self, waarden: list[str], bg: str, is_last: bool) -> QWidget:
+    def _maak_grondsoorten_rij(
+        self, waarden: list[str], bg: str, is_last: bool, stretch: list[int]
+    ) -> QWidget:
         rij = QWidget()
         grid = QGridLayout(rij)
         grid.setContentsMargins(0, 0, 0, 0)
@@ -570,8 +681,8 @@ class TabGrondsoorten(QWidget):
                 f'background: {bg}; padding: 6px 8px; {border_r} {border_b}'
             )
             grid.addWidget(lbl, 0, col)
-            if col < len(_SOIL_COL_STRETCH):
-                grid.setColumnStretch(col, _SOIL_COL_STRETCH[col])
+            if col < len(stretch):
+                grid.setColumnStretch(col, stretch[col])
 
         return rij
 
