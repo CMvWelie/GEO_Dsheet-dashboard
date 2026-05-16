@@ -372,8 +372,8 @@ def test_fase_invoer_secties_krijgen_gezamenlijke_fasering_intro() -> None:
 
     assert 'Fasering' in teksten
     assert 'De onderstaande fasering is als volgt toegepast.' in teksten
-    assert '- Fase 1: Initieel' in teksten
-    assert '- Fase 2: Maatgevende fase' in teksten
+    assert 'Fase 1: Initieel' in teksten
+    assert 'Fase 2: Maatgevende fase' in teksten
     assert 'Voor de grafisch weergegeven bouwfasering(en) zie de onderstaande tabel.' in teksten
     assert 'Fase 1' not in teksten
     assert len(doc.tables) == 2
@@ -430,11 +430,11 @@ def test_fasering_intro_noemt_alle_projectfases_ook_bij_deelselectie() -> None:
     os.unlink(pad)
     teksten = [p.text for p in doc.paragraphs if p.text.strip()]
 
-    assert '- Fase 1: Initieel' in teksten
-    assert '- Fase 2: Ontgraven' in teksten
-    assert '- Fase 3: Stempel plaatsen' in teksten
-    assert '- Fase 4: Eindsituatie' in teksten
-    assert '- Fase 5: Fase 5' in teksten
+    assert 'Fase 1: Initieel' in teksten
+    assert 'Fase 2: Ontgraven' in teksten
+    assert 'Fase 3: Stempel plaatsen' in teksten
+    assert 'Fase 4: Eindsituatie' in teksten
+    assert 'Fase 5: Fase 5' in teksten
     assert len(doc.tables) == 2
 
 
@@ -591,8 +591,7 @@ def test_fase_sectie_tabel_gebruikt_voorbeeld_breedtes_en_headerkleur() -> None:
         if tbl.rows[i]._tr.trPr is not None
         and tbl.rows[i]._tr.trPr.trHeight is not None
     ]
-    assert '54' in heights
-    assert '52' in heights
+    assert all(h == '255' for h in heights)
 
 
 def test_fase_sectie_gebruikt_theme_fontgroottes(monkeypatch) -> None:
@@ -691,23 +690,24 @@ def test_resultaatbeschrijving_specificaties_tabel_in_word() -> None:
 
     tbl = doc.tables[0]
     assert [col.get(qn('w:w')) for col in tbl._tbl.tblGrid.gridCol_lst] == [
-        '2835', '1701', '1134', '1701',
+        '2835', '1418', '1984', '1134',
     ]
     assert tbl.rows[0].cells[0].text == 'Grondkering'
-    assert tbl.rows[0].cells[0]._tc.tcPr.tcW.w == 5670
+    assert tbl.rows[0].cells[0]._tc.tcPr.tcW.w == 7371   # merged over alle 4 kolommen
     assert tbl.rows[0].cells[0]._tc.tcPr.find(qn('w:shd')).get(qn('w:fill')) == '147ACF'
-    assert [cell.text for cell in tbl.rows[1].cells] == ['Profiel', 'AZ 18', '[-]', '']
+    # kolom 0+1 samengevoegd → python-docx herhaalt tekst bij beide indices
+    assert [cell.text for cell in tbl.rows[1].cells] == ['Profiel', 'Profiel', 'AZ 18', '[-]']
     assert tbl.rows[7].cells[0].text == 'Resultaten'
     assert tbl.rows[7].cells[0]._tc.tcPr.find(qn('w:shd')).get(qn('w:fill')) == '147ACF'
-    assert tbl.rows[7].cells[3].text == 'Verificatiestap'
+    assert tbl.rows[7].cells[1].text == 'Verificatiestap'  # stap-header in kolom 1
     assert [cell.text for cell in tbl.rows[8].cells] == [
-        'Moment Msd UGT', '123,0', '[kNm/m]', 'stap 6.4',
+        'Moment Msd UGT', 'stap 6.4', '123,0', '[kNm/m]',
     ]
     assert [cell.text for cell in tbl.rows[10].cells] == [
-        'Verplaatsing urep BGT', '9,0', '[mm]', 'stap 6.5',
+        'Verplaatsing urep BGT', 'stap 6.5', '9,0', '[mm]',
     ]
     assert [cell.text for cell in tbl.rows[11].cells] == [
-        'Gemobiliseerd Moment', '60,0', '[%]', '',
+        'Gemobiliseerd Moment', 'Gemobiliseerd Moment', '60,0', '[%]',
     ]
 
 

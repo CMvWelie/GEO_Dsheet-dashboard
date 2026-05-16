@@ -221,7 +221,7 @@ def test_build_geeft_vijf_sectiegroepenblokken() -> None:
         project, governing_step_key='ULS', disp_step_key='6.5'
     )
     ids = [s.id for s in secties]
-    # Minstens: grondlagen (0+), damwand, fase_1_invoer, conclusietabel, grafieken
+    # Minstens: damwand, fase_invoer, resultaatsecties
     assert 'damwand_gegevens' in ids
     assert 'fase_1_invoer' in ids
-    assert 'conclusietabel' in ids
+    assert 'extremen_overzicht' in ids

@@ -20,6 +20,6 @@ def test_fasering_intro_gebruikt_projectbrede_fasenamen(qapp) -> None:
     )
 
     labels = [label.text() for label in tab.findChildren(QLabel)]
-    assert 'Fase 1:\tInitieel' in labels
-    assert 'Fase 2:\tOntgraven' in labels
-    assert 'Fase 3:\tEindsituatie' in labels
+    assert '-  Fase 1: Initieel' in labels
+    assert '-  Fase 2: Ontgraven' in labels
+    assert '-  Fase 3: Eindsituatie' in labels

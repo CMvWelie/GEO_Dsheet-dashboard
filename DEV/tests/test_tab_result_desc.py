@@ -137,14 +137,14 @@ def test_datarijen_zichtbaar_in_widget(qapp) -> None:
 
 
 def test_specificatietabel_koprijen_spannen_volledige_breedte(qapp) -> None:
-    """Koprijen in de specificatietabel vullen alle drie de tabelkolommen."""
+    """Koprijen in de specificatietabel vullen alle vier de tabelkolommen."""
     tab = TabResultDesc()
     tab.populate_resultaat_tabel(_project_met_resultaten())
 
-    assert _gridpositie_voor_label(tab, 'Grondkering') == (0, 0, 1, 3)
-    assert _gridpositie_voor_label(tab, 'Resultaten') == (7, 0, 1, 3)
-    assert _gridpositie_voor_label(tab, 'Verificatiestap') == (7, 3, 1, 1)
-    assert _gridpositie_voor_label(tab, 'stap 6.4') == (8, 3, 1, 1)
+    assert _gridpositie_voor_label(tab, 'Grondkering') == (0, 0, 1, 4)
+    assert _gridpositie_voor_label(tab, 'Resultaten damwand') == (7, 0, 1, 1)
+    assert _gridpositie_voor_label(tab, 'Verificatiestap') == (7, 1, 1, 1)
+    assert _gridpositie_voor_label(tab, 'stap 6.4') == (8, 1, 1, 1)
 
 
 def test_resultaattab_toont_moederbestand_resultaten_intro(qapp) -> None:

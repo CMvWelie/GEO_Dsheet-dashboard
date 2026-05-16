@@ -104,6 +104,15 @@ def test_load_explicit_typography_sizes(tmp_path: Path) -> None:
 def test_tabelstijlen_scheiden_app_en_word_fontgroottes(tmp_path: Path) -> None:
     from ui import table_styles
 
+    # Sla alle module-globals op zodat de test geen staat achterlaat
+    _orig = {k: getattr(table_styles, k) for k in (
+        'TABLE_HEADER_BG', 'TABLE_HEADER_FG', 'TABLE_HEADER_SUB_BG', 'TABLE_HEADER_SUB_FG',
+        'TABLE_BORDER', 'TABLE_ROW_SEP', 'TABLE_ROW_ODD_BG', 'TABLE_ROW_EVEN_BG',
+        'TABLE_LABEL_COLOR', 'TABLE_VALUE_COLOR', 'TABLE_EXTRA_COLOR', 'TABLE_FONT',
+        'TABLE_TEXT_SIZE', 'TABLE_HEADER_SIZE', 'BODY_TEXT_SIZE',
+        'WORD_TABLE_TEXT_SIZE', 'WORD_TABLE_HEADER_SIZE', 'WORD_BODY_TEXT_SIZE',
+    )}
+
     data = _voorbeeld_thema_dict()
     data["typography"].update(
         {
@@ -118,15 +127,18 @@ def test_tabelstijlen_scheiden_app_en_word_fontgroottes(tmp_path: Path) -> None:
     pad = tmp_path / "test.json"
     pad.write_text(json.dumps(data), encoding="utf-8")
 
-    table_styles.configure_from_theme(Theme.load(pad))
+    try:
+        table_styles.configure_from_theme(Theme.load(pad))
 
-    assert table_styles.BODY_TEXT_SIZE == 14
-    assert table_styles.TABLE_TEXT_SIZE == 10
-    assert table_styles.TABLE_HEADER_SIZE == 11
-    assert table_styles.WORD_BODY_TEXT_SIZE == 12
-    assert table_styles.WORD_TABLE_TEXT_SIZE == 6
-    assert table_styles.WORD_TABLE_HEADER_SIZE == 9
-    table_styles.configure_from_theme(theme_module.create_basic_theme())
+        assert table_styles.BODY_TEXT_SIZE == 14
+        assert table_styles.TABLE_TEXT_SIZE == 10
+        assert table_styles.TABLE_HEADER_SIZE == 11
+        assert table_styles.WORD_BODY_TEXT_SIZE == 12
+        assert table_styles.WORD_TABLE_TEXT_SIZE == 6
+        assert table_styles.WORD_TABLE_HEADER_SIZE == 9
+    finally:
+        for k, v in _orig.items():
+            setattr(table_styles, k, v)
 
 
 def test_load_missing_required_field_raises(tmp_path: Path) -> None:
